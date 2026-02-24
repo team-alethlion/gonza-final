@@ -632,3 +632,29 @@ export async function updateStockHistoryDatesAction(entryIds: string[], newDate:
         return { success: false, error: error.message };
     }
 }
+
+// --- RECEIPT NUMBER GENERATION ---
+
+export async function getNextReceiptNumberAction(branchId: string) {
+    try {
+        const lastSale = await db.sale.findFirst({
+            where: { branchId },
+            orderBy: { createdAt: 'desc' },
+            select: { saleNumber: true }
+        });
+
+        let nextNum = 1;
+        if (lastSale?.saleNumber) {
+            // saleNumber format is "SAL-YYYY-NNNNNN" or plain digits
+            const parts = lastSale.saleNumber.split('-');
+            const lastDigits = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastDigits)) nextNum = lastDigits + 1;
+        }
+
+        const formatted = String(nextNum).padStart(6, '0');
+        return { success: true, data: formatted };
+    } catch (error: any) {
+        console.error('Error getting next receipt number:', error);
+        return { success: false, error: error.message };
+    }
+}
