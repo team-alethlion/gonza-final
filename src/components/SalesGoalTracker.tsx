@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -5,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
@@ -13,6 +14,11 @@ import { toast } from "sonner";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 import BusinessGoalsTip from "@/components/BusinessGoalsTip";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
+import {
+  getSalesGoalAction,
+  upsertSalesGoalAction,
+  getPeriodSalesAction,
+} from "@/app/actions/sales";
 
 type GoalType = 'daily' | 'weekly' | 'monthly';
 
@@ -88,63 +94,41 @@ const GoalContent = React.memo<GoalContentProps>(({
 GoalContent.displayName = 'GoalContent';
 
 const SalesGoalTracker = () => {
-  const {
-    user
-  } = useAuth();
-  const {
-    currentBusiness
-  } = useBusiness();
-  const {
-    settings
-  } = useBusinessSettings();
+  const { user } = useAuth();
+  const { currentBusiness } = useBusiness();
+  const { settings } = useBusinessSettings();
   const { canViewTotalSales } = useFinancialVisibility();
   const queryClient = useQueryClient();
 
-  // Make date values reactive instead of static
   const [currentDate] = useState(() => new Date());
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
   const [goalInput, setGoalInput] = useState("");
   const [selectedGoalType, setSelectedGoalType] = useState<GoalType>('monthly');
 
-  // Clear goal input when business changes
   useEffect(() => {
     setGoalInput("");
   }, [currentBusiness?.id]);
 
-  // Fetch current sales goal with proper dependency array
-  const {
-    data: salesGoal,
-    isLoading: goalLoading
-  } = useQuery({
+  // Fetch current sales goal
+  const { data: salesGoal, isLoading: goalLoading } = useQuery({
     queryKey: ["sales-goal", user?.id, currentBusiness?.id, currentMonth, currentYear],
     queryFn: async () => {
       if (!user?.id || !currentBusiness?.id) return null;
-
-      const {
-        data,
-        error
-      } = await supabase.from("sales_goals").select("*").eq("user_id", user.id).eq("location_id", currentBusiness.id).eq("month", currentMonth).eq("year", currentYear).maybeSingle();
-      if (error) {
-        console.error("Error fetching sales goal:", error);
-        throw error;
-      }
-      return data;
+      const result = await getSalesGoalAction(user.id, currentBusiness.id, currentMonth, currentYear);
+      if (!result.success) throw new Error(result.error);
+      return result.data;
     },
     enabled: !!user?.id && !!currentBusiness?.id,
-    staleTime: 30000 // Cache for 30 seconds
+    staleTime: 30000,
   });
 
-  // Fetch current period sales based on selected goal type
-  const {
-    data: currentSales,
-    isLoading: salesLoading
-  } = useQuery({
-    queryKey: ["current-period-sales", user?.id, currentBusiness?.id, selectedGoalType, currentMonth, currentYear],
+  // Fetch current period sales
+  const { data: currentSales, isLoading: salesLoading } = useQuery({
+    queryKey: ["current-period-sales", currentBusiness?.id, selectedGoalType, currentMonth, currentYear],
     queryFn: async () => {
-      if (!user?.id || !currentBusiness?.id) return 0;
+      if (!currentBusiness?.id) return 0;
 
-      // Calculate date range based on selected goal type
       let startDate: Date, endDate: Date;
       switch (selectedGoalType) {
         case 'daily':
@@ -156,136 +140,49 @@ const SalesGoalTracker = () => {
           endDate = endOfWeek(currentDate, { weekStartsOn: 1 });
           break;
         case 'monthly':
+        default:
           startDate = startOfMonth(currentDate);
           endDate = endOfMonth(currentDate);
           break;
       }
 
-      // Load all sales with chunked pagination
-      let allSales: any[] = [];
-      let paginationStart = 0;
-      const chunkSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: chunk, error: chunkError } = await supabase
-          .from("sales")
-          .select("items")
-          .eq("user_id", user.id)
-          .eq("location_id", currentBusiness.id)
-          .gte("date", startDate.toISOString())
-          .lte("date", endDate.toISOString())
-          .neq("payment_status", "Quote")
-          .range(paginationStart, paginationStart + chunkSize - 1);
-
-        if (chunkError) {
-          console.error("Error fetching sales chunk:", chunkError);
-          throw chunkError;
-        }
-
-        if (chunk && chunk.length > 0) {
-          allSales.push(...chunk);
-          paginationStart += chunkSize;
-          hasMore = chunk.length === chunkSize;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      const total = allSales.reduce((sum, sale) => {
-        const items = Array.isArray(sale.items) ? sale.items : [];
-        const saleTotal = items.reduce((itemSum: number, item: any) => {
-          const price = typeof item.price === 'number' ? item.price : 0;
-          const quantity = typeof item.quantity === 'number' ? item.quantity : 0;
-          return itemSum + price * quantity;
-        }, 0);
-        const validSaleTotal = typeof saleTotal === 'number' ? saleTotal : 0;
-        return sum + validSaleTotal;
-      }, 0);
-      return total;
+      const result = await getPeriodSalesAction(currentBusiness.id, startDate, endDate);
+      if (!result.success) throw new Error(result.error);
+      return result.data ?? 0;
     },
-    enabled: !!user?.id && !!currentBusiness?.id,
-    staleTime: 30000 // Cache for 30 seconds
+    enabled: !!currentBusiness?.id,
+    staleTime: 30000,
   });
 
-  // Update sales goal mutation with the correct constraint name
+  // Update sales goal mutation
   const updateGoalMutation = useMutation({
-    mutationFn: async ({
-      goalType,
-      amount
-    }: {
-      goalType: GoalType;
-      amount: number;
-    }) => {
-      if (!user?.id || !currentBusiness?.id) {
-        throw new Error("User or location not available");
-      }
-
-      // Prepare the goal data - preserve existing values when updating
-      const baseData = {
-        user_id: user.id,
-        location_id: currentBusiness.id,
-        month: currentMonth,
-        year: currentYear,
-        updated_at: new Date().toISOString()
-      };
-
-      // Build the goal data with only the specific goal type being updated
-      const goalData = {
-        ...baseData,
-        daily_goal: goalType === 'daily' ? amount : salesGoal?.daily_goal || 0,
-        weekly_goal: goalType === 'weekly' ? amount : salesGoal?.weekly_goal || 0,
-        monthly_goal: goalType === 'monthly' ? amount : salesGoal?.monthly_goal || 0
-      };
-
-      // Use UPSERT with the correct constraint name that allows per-location goals
-      const {
-        data,
-        error
-      } = await supabase.from("sales_goals").upsert(goalData, {
-        onConflict: 'user_id,location_id,month,year',
-        ignoreDuplicates: false
-      }).select().single();
-      if (error) {
-        console.error("Error upserting sales goal:", error);
-        throw error;
-      }
-      return data;
+    mutationFn: async ({ amount }: { amount: number }) => {
+      if (!user?.id || !currentBusiness?.id) throw new Error("User or location not available");
+      const result = await upsertSalesGoalAction(
+        user.id,
+        currentBusiness.id,
+        currentMonth,
+        currentYear,
+        amount,
+        salesGoal?.id ?? null
+      );
+      if (!result.success) throw new Error(result.error);
+      return result.data;
     },
-    onSuccess: data => {
+    onSuccess: () => {
       toast.success(`${selectedGoalType.charAt(0).toUpperCase() + selectedGoalType.slice(1)} goal updated successfully!`);
-
-      // Invalidate and refetch queries
-      queryClient.invalidateQueries({
-        queryKey: ["sales-goal", user?.id, currentBusiness?.id, currentMonth, currentYear]
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["current-period-sales", user?.id, currentBusiness?.id, selectedGoalType, currentMonth, currentYear]
-      });
+      queryClient.invalidateQueries({ queryKey: ["sales-goal", user?.id, currentBusiness?.id, currentMonth, currentYear] });
+      queryClient.invalidateQueries({ queryKey: ["current-period-sales", currentBusiness?.id, selectedGoalType, currentMonth, currentYear] });
       setGoalInput("");
     },
     onError: (error: any) => {
       console.error("Failed to update sales goal:", error);
-
-      // Provide more specific error messages
-      let errorMessage = "Failed to update sales goal. Please try again.";
-      if (error.message?.includes("permission denied") || error.message?.includes("policy")) {
-        errorMessage = "Permission denied. Please ensure you have access to modify goals for this business.";
-      } else if (error.message?.includes("unique constraint") || error.code === "23505") {
-        errorMessage = "Failed to update goal. Please refresh the page and try again.";
-      } else if (error.message?.includes("location_id")) {
-        errorMessage = "Invalid business location. Please select a valid business.";
-      } else if (error.message?.includes("violates")) {
-        errorMessage = "Database constraint violation. Please contact support if this persists.";
-      }
-      toast.error(errorMessage);
+      toast.error(error.message || "Failed to update sales goal. Please try again.");
     }
   });
 
   const handleGoalInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-
-    // Allow empty string, numbers, and decimal points
     if (value === "" || /^\d*\.?\d*$/.test(value)) {
       setGoalInput(value);
     }
@@ -297,51 +194,26 @@ const SalesGoalTracker = () => {
       toast.error("Please enter a valid goal amount");
       return;
     }
-    updateGoalMutation.mutate({
-      goalType: selectedGoalType,
-      amount: goal
-    });
+    updateGoalMutation.mutate({ amount: goal });
   };
 
   const handleTabChange = (value: string) => {
     setSelectedGoalType(value as GoalType);
   };
 
-  // Get current goal based on selected type
-  const getCurrentGoal = () => {
-    if (!salesGoal) return 0;
-    switch (selectedGoalType) {
-      case 'daily':
-        return salesGoal.daily_goal || 0;
-      case 'weekly':
-        return salesGoal.weekly_goal || 0;
-      case 'monthly':
-        return salesGoal.monthly_goal || 0;
-      default:
-        return 0;
-    }
-  };
-
-  const currentGoal = getCurrentGoal();
-  const progress = useMemo(() =>
-    currentGoal > 0 ? Math.min((currentSales || 0) / currentGoal * 100, 100) : 0,
+  const currentGoal = Number(salesGoal?.target ?? 0);
+  const progress = useMemo(
+    () => currentGoal > 0 ? Math.min(((currentSales ?? 0) / currentGoal) * 100, 100) : 0,
     [currentGoal, currentSales]
   );
   const isLoading = goalLoading || salesLoading;
 
-  // Memoize period label
   const periodLabel = useMemo(() => {
     switch (selectedGoalType) {
-      case 'daily':
-        return format(currentDate, 'MMMM d, yyyy');
-      case 'weekly':
-        return `Week of ${format(startOfWeek(currentDate, {
-          weekStartsOn: 1
-        }), 'MMM d')}`;
-      case 'monthly':
-        return format(currentDate, 'MMMM yyyy');
-      default:
-        return '';
+      case 'daily': return format(currentDate, 'MMMM d, yyyy');
+      case 'weekly': return `Week of ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')}`;
+      case 'monthly': return format(currentDate, 'MMMM yyyy');
+      default: return '';
     }
   }, [selectedGoalType, currentDate]);
 
@@ -350,11 +222,10 @@ const SalesGoalTracker = () => {
       style: 'currency',
       currency: settings?.currency || 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(amount);
   }, [settings?.currency]);
 
-  // Early return after all hooks have been called
   if (!user || !currentBusiness) {
     return <Card>
       <CardHeader>
@@ -382,19 +253,18 @@ const SalesGoalTracker = () => {
         </TabsList>
 
         <TabsContent value="daily">
-          <GoalContent goalType="daily" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales || 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
+          <GoalContent goalType="daily" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales ?? 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
         </TabsContent>
 
         <TabsContent value="weekly">
-          <GoalContent goalType="weekly" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales || 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
+          <GoalContent goalType="weekly" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales ?? 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
         </TabsContent>
 
         <TabsContent value="monthly">
-          <GoalContent goalType="monthly" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales || 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
+          <GoalContent goalType="monthly" isLoading={isLoading} currentGoal={currentGoal} currentSales={currentSales ?? 0} progress={progress} periodLabel={periodLabel} formatCurrency={formatCurrency} goalInput={goalInput} onGoalInputChange={handleGoalInputChange} onUpdateGoal={handleUpdateGoal} isUpdating={updateGoalMutation.isPending} canViewTotalSales={canViewTotalSales} />
         </TabsContent>
       </Tabs>
 
-      {/* Add Business Goals Tip */}
       <BusinessGoalsTip />
     </CardContent>
   </Card>;

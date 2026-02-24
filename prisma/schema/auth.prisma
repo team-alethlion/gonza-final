@@ -111,6 +111,9 @@ model User {
   carriageInwards     CarriageInward[]
   deletionRequests    DeletionRequest[]
   systemNotifications SystemNotification[]
+
+  cashAccounts CashAccount[]
+  categories   Category[]
 }
 
 model DeletionRequest {

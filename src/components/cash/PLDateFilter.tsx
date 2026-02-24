@@ -50,7 +50,7 @@ const PLDateFilter: React.FC<PLDateFilterProps> = ({
           This Year
         </Button>
       </div>
-      
+
       <div className="flex gap-2 items-center">
         <Popover>
           <PopoverTrigger asChild>
@@ -76,7 +76,7 @@ const PLDateFilter: React.FC<PLDateFilterProps> = ({
             />
           </PopoverContent>
         </Popover>
-        
+
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -96,7 +96,7 @@ const PLDateFilter: React.FC<PLDateFilterProps> = ({
               mode="single"
               selected={dateRange.to}
               onSelect={(date) => onDateRangeChange({ ...dateRange, to: date })}
-              disabled={(date) => date > new Date() || (dateRange.from && date < dateRange.from)}
+              disabled={(date) => date > new Date() || !!(dateRange.from && date < dateRange.from)}
               initialFocus
             />
           </PopoverContent>

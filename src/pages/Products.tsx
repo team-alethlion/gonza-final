@@ -27,7 +27,7 @@ import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SortField } from '@/components/inventory/InventoryTable';
 import { Product } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { getProductStatsAction, getAllProductsAction } from '@/app/actions/products';
 import { exportBulkBarcodesToPDF } from '@/utils/exportBarcodeToPDF';
 import {
   DropdownMenu,
@@ -124,45 +124,17 @@ const Products = () => {
         }
       } catch { }
 
-      // Fetch minimal fields and compute locally; runs once and caches
-      const { data, error } = await supabase
-        .from('products' as any)
-        .select('cost_price, selling_price, quantity, minimum_stock')
-        .eq('location_id', currentBusiness.id);
+      const stats = await getProductStatsAction(currentBusiness.id);
 
-      if (!cancelled && !error && data) {
-        let costValue = 0;
-        let lowStock = 0;
-        let outOfStock = 0;
-        let stockValue = 0;
-
-        data.forEach((row: any) => {
-          const qty = Number(row.quantity) || 0;
-          const cost = Number(row.cost_price) || 0;
-          const selling = Number(row.selling_price) || 0;
-          const minStock = Number(row.minimum_stock) || 0;
-
-          costValue += cost * qty;
-          stockValue += selling * qty;
-
-          if (qty === 0) {
-            outOfStock++;
-          } else if (qty > 0 && qty <= minStock) {
-            lowStock++;
-          }
-        });
-
-        setTotalCostValueAll(costValue);
-        setLowStockAll(lowStock);
-        setOutOfStockAll(outOfStock);
-        setTotalStockValueAll(stockValue);
+      if (!cancelled) {
+        setTotalCostValueAll(stats.costValue);
+        setLowStockAll(stats.lowStock);
+        setOutOfStockAll(stats.outOfStock);
+        setTotalStockValueAll(stats.stockValue);
 
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
-            costValue,
-            lowStock,
-            outOfStock,
-            stockValue,
+            ...stats,
             ts: Date.now()
           }));
         } catch { }
@@ -217,70 +189,59 @@ const Products = () => {
     if (!user?.id || !currentBusiness?.id) return [];
 
     try {
-      let query = supabase
-        .from('products' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentBusiness.id);
+      let formattedProducts = await getAllProductsAction(user.id, currentBusiness.id);
 
       // Apply the same filters as the current view
       if (filters.search) {
-        const searchTerm = filters.search;
-        query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,supplier.ilike.%${searchTerm}%,item_number.ilike.%${searchTerm}%`);
+        const searchTerm = filters.search.toLowerCase();
+        formattedProducts = formattedProducts.filter(p =>
+          p.name.toLowerCase().includes(searchTerm) ||
+          p.description.toLowerCase().includes(searchTerm) ||
+          p.category.toLowerCase().includes(searchTerm) ||
+          (p.supplier && p.supplier.toLowerCase().includes(searchTerm)) ||
+          p.itemNumber.toLowerCase().includes(searchTerm)
+        );
       }
 
       if (filters.category) {
-        query = query.eq('category', filters.category);
+        formattedProducts = formattedProducts.filter(p => p.category === filters.category);
       }
 
       if (filters.stockStatus === 'outOfStock') {
-        query = query.eq('quantity', 0);
+        formattedProducts = formattedProducts.filter(p => p.quantity === 0);
       } else if (filters.stockStatus === 'inStock') {
-        query = query.gt('quantity', 0);
+        formattedProducts = formattedProducts.filter(p => p.quantity > 0);
+      } else if (filters.stockStatus === 'lowStock') {
+        formattedProducts = formattedProducts.filter(p => p.quantity > 0 && p.quantity <= p.minimumStock);
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Apply the same sorting as the UI
+      return formattedProducts.sort((a, b) => {
+        let comparison = 0;
 
-      if (error) throw error;
-
-      if (data) {
-        const { mapDbProductToProduct } = await import('@/types');
-        let formattedProducts = (data as any[]).map(mapDbProductToProduct);
-
-        // Apply low stock filter client-side
-        if (filters.stockStatus === 'lowStock') {
-          formattedProducts = formattedProducts.filter(p => p.quantity > 0 && p.quantity <= p.minimumStock);
+        switch (sortField) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'category':
+            comparison = a.category.localeCompare(b.category);
+            break;
+          case 'quantity':
+            comparison = a.quantity - b.quantity;
+            break;
+          case 'sellingPrice':
+            comparison = a.sellingPrice - b.sellingPrice;
+            break;
+          case 'costPrice':
+            comparison = a.costPrice - b.costPrice;
+            break;
+          case 'itemNumber':
+            comparison = a.itemNumber.localeCompare(b.itemNumber);
+            break;
         }
 
-        // Apply the same sorting as the UI
-        return formattedProducts.sort((a, b) => {
-          let comparison = 0;
-
-          switch (sortField) {
-            case 'name':
-              comparison = a.name.localeCompare(b.name);
-              break;
-            case 'category':
-              comparison = a.category.localeCompare(b.category);
-              break;
-            case 'quantity':
-              comparison = a.quantity - b.quantity;
-              break;
-            case 'sellingPrice':
-              comparison = a.sellingPrice - b.sellingPrice;
-              break;
-            case 'costPrice':
-              comparison = a.costPrice - b.costPrice;
-              break;
-            case 'itemNumber':
-              comparison = a.itemNumber.localeCompare(b.itemNumber);
-              break;
-          }
-
-          return sortOrder === 'asc' ? comparison : -comparison;
-        });
-      }
-      return [];
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
     } catch (error) {
       console.error('Error fetching all products for export:', error);
       toast({

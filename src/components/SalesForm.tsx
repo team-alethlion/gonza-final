@@ -1,12 +1,12 @@
 // SalesForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Sale, SaleFormData, SaleItem, mapSaleToDbSale, Customer, Product } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { calculateProfit } from '@/utils/calculateProfit';
 import { generateReceiptNumber } from '@/utils/generateReceiptNumber';
-import { supabase } from '@/integrations/supabase/client';
+import { lookupProductByBarcodeAction, getProductsForBarcodeScannerAction, updateSaleCashTransactionAction } from '@/app/actions/products';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProducts } from '@/hooks/useProducts';
 import { useSaleProductSelection } from '@/hooks/useSaleProductSelection';
@@ -19,6 +19,7 @@ import { useInstallmentPayments } from '@/hooks/useInstallmentPayments';
 import { useStockHistory } from '@/hooks/useStockHistory';
 import { useMessages } from '@/hooks/useMessages'; // This is the key fix!
 import { useQuery } from '@tanstack/react-query';
+import { upsertSaleAction } from '@/app/actions/sales';
 
 // Components
 import SaleFormHeader from '@/components/sales/SaleFormHeader';
@@ -47,11 +48,13 @@ const SalesForm: React.FC<SalesFormProps> = ({
   draftData,
   onClearDraft,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(initialData?.date || new Date());
-  const defaultPaymentStatus = location.state?.defaultPaymentStatus || initialData?.paymentStatus || 'Paid';
+
+  // Note: defaultPaymentStatus might need to come from props since we don't have location.state
+  const defaultPaymentStatus = initialData?.paymentStatus || 'Paid';
 
   const { settings } = useBusinessSettings();
   const { user } = useAuth();
@@ -297,31 +300,29 @@ const SalesForm: React.FC<SalesFormProps> = ({
         finalCashTransactionId
       );
 
-      const { data: saleResult, error } = initialData
-        ? await (supabase as any).from('sales').update({ ...saleDbData, updated_at: new Date().toISOString() }).eq('id', initialData.id).select().single()
-        : await (supabase as any).from('sales').insert(saleDbData).select().single();
+      const { success, data: saleResult, error } = await upsertSaleAction(saleDbData, !!initialData, initialData?.id);
 
-      if (error) throw error;
+      if (!success || !saleResult) throw new Error(error || 'Failed to save sale');
       const result = saleResult as any;
 
       const sale: Sale = {
         id: result.id,
-        receiptNumber: result.receipt_number,
-        customerName: result.customer_name,
-        customerAddress: result.customer_address || '',
-        customerContact: result.customer_contact || '',
-        customerId: result.customer_id || undefined, // Include customer_id
+        receiptNumber: result.receiptNumber,
+        customerName: result.customerName,
+        customerAddress: result.customerAddress || '',
+        customerContact: result.customerContact || '',
+        customerId: result.customerId || undefined,
         items: result.items,
-        paymentStatus: result.payment_status,
+        paymentStatus: result.paymentStatus,
         profit: result.profit,
         date: new Date(result.date),
-        taxRate: result.tax_rate,
-        cashTransactionId: result.cash_transaction_id || undefined,
-        amountPaid: result.amount_paid ? Number(result.amount_paid) : undefined,
-        amountDue: result.amount_due ? Number(result.amount_due) : undefined,
+        taxRate: result.taxRate ? Number(result.taxRate) : 0,
+        cashTransactionId: result.cashTransactionId || undefined,
+        amountPaid: result.amountPaid ? Number(result.amountPaid) : undefined,
+        amountDue: result.amountDue ? Number(result.amountDue) : undefined,
         notes: result.notes || '',
-        categoryId: result.category_id || undefined,
-        createdAt: new Date(result.created_at),
+        categoryId: result.categoryId || undefined,
+        createdAt: new Date(result.createdAt),
       };
 
       // Handle inventory, payments, etc.
@@ -342,7 +343,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       } else {
         const newCashId = await createCashTransactionForSale(sale, grandTotal, linkToCash, selectedCashAccountId, selectedDate, formData.paymentStatus);
         if (newCashId) {
-          await (supabase as any).from('sales').update({ cash_transaction_id: newCashId }).eq('id', sale.id);
+          await updateSaleCashTransactionAction(sale.id, newCashId);
           sale.cashTransactionId = newCashId;
         }
         if (formData.paymentStatus === 'Installment Sale' && formData.amountPaid) {
@@ -399,7 +400,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       setIsSubmitted(true);
 
       if (!onSaleComplete) {
-        navigate('/sales');
+        router.push('/sales');
       }
 
     } catch (error: any) {
@@ -432,13 +433,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
     queryKey: ['all-products-for-scanner', user?.id, currentBusiness?.id],
     queryFn: async () => {
       if (!user?.id || !currentBusiness?.id) return [];
-      const query: any = supabase.from('products');
-      const { data, error } = await query
-        .select('id, name, barcode, manufacturer_barcode, item_number, selling_price, cost_price, quantity')
-        .eq('user_id', user.id)
-        .eq('location_id', currentBusiness.id);
-      if (error) throw error;
-      return (data as any[]).map(mapDbProductToProduct) as Product[];
+      const data = await getProductsForBarcodeScannerAction(currentBusiness.id);
+      return (data || []).map(mapDbProductToProduct) as Product[];
     },
     enabled: !!user?.id && !!currentBusiness?.id,
     staleTime: 5 * 60_000,
@@ -481,35 +477,10 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
           console.log(`[Scanner] Processing: "${scannedBarcode}"`);
 
-          // Perform direct server-side lookup
-          const performServerLookup = async (code: string) => {
-            const lowerCode = code.toLowerCase();
-
-            let query = supabase
-              .from('products' as any)
-              .select('*')
-              .eq('user_id', user?.id)
-              .eq('location_id', currentBusiness?.id);
-
-            // Exact match or contains (for handling prefixes/suffixes)
-            query = query.or(`barcode.ilike.%${lowerCode}%,manufacturer_barcode.ilike.%${lowerCode}%,item_number.ilike.%${lowerCode}%`);
-
-            const { data, error } = await query.limit(5);
-
-            if (error) {
-              console.error('[Scanner] Server lookup error:', error);
-              return null;
-            }
-
-            if (!data || data.length === 0) return null;
-
-            // Mapping: If multiple matches, prioritize exact match, then manufacturer barcode
-            const mapped = (data as any[]).map(mapDbProductToProduct);
-            return mapped.find(p =>
-              p.barcode?.toLowerCase() === lowerCode ||
-              p.manufacturerBarcode?.toLowerCase() === lowerCode ||
-              p.itemNumber?.toLowerCase() === lowerCode
-            ) || mapped[0];
+          // Perform direct server-side lookup via Prisma action
+          const performServerLookup = async (code: string): Promise<Product | null> => {
+            const result = await lookupProductByBarcodeAction(code, currentBusiness?.id || '');
+            return result ? mapDbProductToProduct(result) : null;
           };
 
           const handleScan = async () => {
@@ -591,7 +562,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         totalAmount={totalAmount}
         taxAmount={taxAmount}
         grandTotal={grandTotal}
-        taxRate={formData.taxRate}
+        taxRate={formData.taxRate || 0}
         currency={settings.currency}
         saleDate={selectedDate.toISOString()}
       />
@@ -618,7 +589,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         onCashAccountChange={setSelectedCashAccountId}
         cashAccounts={cashAccounts}
         hasPaidWithHistory={formData.paymentStatus === 'Paid' && payments.length > 0}
-        onLinkPaymentToCash={linkPaymentToCashAccount}
+        onLinkPaymentToCash={(paymentId, accountId) => linkPaymentToCashAccount(paymentId, accountId, currentBusiness?.id || '')}
         onUpdatePayment={updatePayment}
         onPaymentStatusChangeFromInstallment={async (newStatus) => handleSelectChange(newStatus)}
         notes={formData.notes}
@@ -630,7 +601,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       <SaleFormActions
         loading={loading}
         isEditing={!!initialData}
-        onCancel={() => navigate('/sales')}
+        onCancel={() => router.push('/sales')}
         onClearForm={!initialData ? handleClearForm : undefined}
         printAfterSave={printAfterSave}
         onPrintAfterSaveChange={setPrintAfterSave}

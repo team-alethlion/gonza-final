@@ -1,8 +1,8 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 const NoBusinessState: React.FC = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   return (
     <div className="p-6 text-center">
@@ -10,8 +10,8 @@ const NoBusinessState: React.FC = () => {
         <p className="text-amber-800 mb-4">
           No business location found. Please create a business location to manage sales.
         </p>
-        <button 
-          onClick={() => navigate('/business-management')}
+        <button
+          onClick={() => router.push('/business-management')}
           className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700"
         >
           Manage Business Locations

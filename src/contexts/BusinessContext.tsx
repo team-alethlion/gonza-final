@@ -1,10 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessPassword } from '@/hooks/useBusinessPassword';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
+import { getBusinessLocationsAction, createBusinessAction, updateBusinessAction, deleteBusinessAction, resetBusinessAction } from '@/app/actions/business';
 
 
 export interface BusinessLocation {
@@ -48,20 +47,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
 
-  // Fetch location limit directly to avoid circular dependency with useOnboarding
-  const { data: globalStatus } = useQuery({
-    queryKey: ['globalAccountStatus', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await (supabase as any).rpc('get_my_account_status');
-      if (error) return { location_limit: 3 };
-      return (data as any)?.[0] || { location_limit: 3 };
-    },
-    enabled: !!user?.id,
-    staleTime: 5 * 60_000,
-  });
-
-  const locationLimit = globalStatus?.location_limit || 3;
+  // Static default – limit can be driven from Prisma user profile if needed.
+  const locationLimit = 3;
 
 
   const loadBusinessLocations = async () => {
@@ -77,17 +64,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('business_locations')
-        .select('id, name, user_id, is_default, created_at, updated_at, switch_password_hash')
-        .eq('user_id', user.id)
-        .order('is_default', { ascending: false })
-        .order('name');
+      const data = await getBusinessLocationsAction(user.id);
 
-      if (fetchError) {
-        console.error('Error loading business locations:', fetchError);
-        setError('Failed to load business locations');
-        throw fetchError;
+      if (!data) {
+        throw new Error('Failed to load locations');
       }
 
       setBusinessLocations((data as any) || []);
@@ -166,20 +146,14 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return null;
       }
 
-      const { data, error } = await supabase
-        .from('business_locations')
-        .insert({
-          user_id: user.id,
-          name: name.trim(),
-          is_default: businessLocations.length === 0 // Make first business default
-        })
-        .select()
-        .single();
+      const response = await createBusinessAction(user.id, name.trim());
 
-      if (error) {
-        console.error('Error creating business:', error);
-        throw error;
+      if (!response.success || !response.data) {
+        console.error('Error creating business:', response.error);
+        throw new Error(response.error || 'Unknown error');
       }
+
+      const data = response.data;
 
       if (data) {
         const newBusiness: BusinessLocation = {
@@ -213,15 +187,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) return false;
 
     try {
-      const { data, error } = await supabase
-        .from('business_locations')
-        .update({ name })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      const response = await updateBusinessAction(id, user.id, name);
 
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+
+      const data = response.data;
 
       if (data) {
         const updatedBusiness: BusinessLocation = {
@@ -253,13 +225,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('business_locations')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+      const response = await deleteBusinessAction(id, user.id);
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       setBusinessLocations(prev => prev.filter(b => b.id !== id));
 
@@ -291,15 +259,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     try {
-      const { data, error } = await (supabase as any).rpc('reset_business_location', {
-        location_uuid: id,
-        user_uuid: user.id
-      });
-
-      if (error) {
-        console.error('Error from reset function:', error);
-        throw error;
-      }
+      const response = await resetBusinessAction(id, user.id);
+      if (!response.success) throw new Error(response.error);
 
       // Reload business locations to refresh the data
       await loadBusinessLocations();

@@ -1,12 +1,11 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Product, DbProduct, mapDbProductToProduct } from '@/types';
+import { Product } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { getProductsAction } from '@/app/actions/products';
 
 /**
- * Base hook for fetching and storing products
+ * Base hook for fetching and storing products using Prisma
  */
 export const useProductsBase = (userId: string | undefined) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -17,24 +16,17 @@ export const useProductsBase = (userId: string | undefined) => {
   const loadProducts = async () => {
     try {
       if (!userId || !currentBusiness) return;
-      
+
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('location_id', currentBusiness.id)
-        .order('created_at', { ascending: false }); // Changed to show newest first
+      const result = await getProductsAction({
+        userId,
+        businessId: currentBusiness.id,
+        page: 1,
+        pageSize: 1000, // Fetch all for base hook
+      });
 
-      if (error) {
-        throw error;
-      }
-
-      // Convert from DB format to frontend format
-      const formattedProducts: Product[] = data ? 
-        data.map((item: any) => mapDbProductToProduct(item as DbProduct)) : [];
-      
-      setProducts(formattedProducts);
-      return formattedProducts;
+      setProducts(result.products as Product[]);
+      return result.products as Product[];
     } catch (error) {
       console.error('Error loading products:', error);
       toast({

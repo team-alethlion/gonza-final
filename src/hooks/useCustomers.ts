@@ -1,10 +1,10 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCustomersAction, createCustomerAction, updateCustomerAction, deleteCustomerAction } from '@/app/actions/customers';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export interface Customer {
   id: string;
@@ -34,6 +34,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
   const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
+  const { user } = useAuth();
   const { logActivity } = useActivityLogger();
   const queryClient = useQueryClient();
 
@@ -43,59 +44,29 @@ export const useCustomers = (initialPageSize: number = 50) => {
     }
 
     try {
-      // Get total count first
-      const { count: totalCountResult } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true })
-        .eq('location_id', currentBusiness.id);
+      const result = await getCustomersAction(currentBusiness.id);
 
-      // Load all customers with chunked pagination (no page limit)
-      let allCustomers: any[] = [];
-      let start = 0;
-      const chunkSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: chunk, error: chunkError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('location_id', currentBusiness.id)
-          .order('full_name')
-          .range(start, start + chunkSize - 1);
-
-        if (chunkError) throw chunkError;
-
-        if (chunk && chunk.length > 0) {
-          allCustomers.push(...chunk);
-          start += chunkSize;
-          hasMore = chunk.length === chunkSize;
-        } else {
-          hasMore = false;
-        }
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      const formattedCustomers: Customer[] = allCustomers.map(customer => ({
+      const formattedCustomers: Customer[] = (result.data?.customers || []).map((customer: any) => ({
         id: customer.id,
-        fullName: customer.full_name,
-        phoneNumber: customer.phone_number,
+        fullName: customer.fullName || customer.name,
+        phoneNumber: customer.phoneNumber || customer.phone,
         email: customer.email,
         birthday: customer.birthday ? new Date(customer.birthday) : null,
         gender: customer.gender,
-        location: customer.location,
-        categoryId: customer.category_id,
+        location: customer.location || customer.address,
+        categoryId: customer.categoryId,
         notes: customer.notes,
         tags: customer.tags,
-        socialMedia: customer.social_media as {
-          instagram?: string;
-          facebook?: string;
-          twitter?: string;
-          linkedin?: string;
-        } || null,
-        createdAt: new Date(customer.created_at),
-        updatedAt: new Date(customer.updated_at)
+        socialMedia: customer.socialMedia || null,
+        createdAt: new Date(customer.createdAt),
+        updatedAt: new Date(customer.updatedAt)
       }));
 
-      return { customers: formattedCustomers, count: totalCountResult || 0 };
+      return { customers: formattedCustomers, count: result.data?.count || 0 };
     } catch (error) {
       console.error('Error loading customers:', error);
       toast({
@@ -140,47 +111,44 @@ export const useCustomers = (initialPageSize: number = 50) => {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
+      if (!user) throw new Error('User not authenticated');
 
       const insertData = {
-        user_id: userData.user.id,
-        location_id: currentBusiness.id,
-        full_name: customerData.fullName,
-        phone_number: customerData.phoneNumber || null,
+        fullName: customerData.fullName,
+        phoneNumber: customerData.phoneNumber || null,
         email: customerData.email || null,
         birthday: customerData.birthday?.toISOString().split('T')[0] || null,
         gender: customerData.gender || null,
         location: customerData.location || null,
-        category_id: customerData.categoryId || null, // Added category field
+        categoryId: customerData.categoryId || null,
         notes: customerData.notes || null,
         tags: customerData.tags || null,
-        social_media: customerData.socialMedia || null
+        socialMedia: customerData.socialMedia || null
       };
 
-      const { data, error } = await supabase
-        .from('customers')
-        .insert(insertData)
-        .select()
-        .single();
+      const result = await createCustomerAction(currentBusiness.id, user.id, insertData);
 
-      if (error) throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to create customer');
+      }
+
+      const data = result.data;
 
       // Format the new customer and update cache immediately
       const newCustomer: Customer = {
         id: data.id,
-        fullName: data.full_name,
-        phoneNumber: data.phone_number,
+        fullName: data.name || data.fullName,
+        phoneNumber: data.phone || data.phoneNumber,
         email: data.email,
         birthday: data.birthday ? new Date(data.birthday) : null,
         gender: data.gender,
-        location: data.location,
-        categoryId: data.category_id,
+        location: data.address || data.location,
+        categoryId: data.categoryId,
         notes: data.notes,
         tags: data.tags,
-        socialMedia: data.social_media,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
+        socialMedia: data.socialMedia,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt)
       };
 
       // Update local state immediately
@@ -190,12 +158,12 @@ export const useCustomers = (initialPageSize: number = 50) => {
       // Update React Query cache immediately
       queryClient.setQueryData(queryKey, (oldData: any) => {
         if (!oldData) return { customers: [newCustomer], count: 1 };
-        return { 
-          customers: [newCustomer, ...oldData.customers], 
-          count: (oldData.count || 0) + 1 
+        return {
+          customers: [newCustomer, ...oldData.customers],
+          count: (oldData.count || 0) + 1
         };
       });
-      
+
       // Log activity
       await logActivity({
         activityType: 'CREATE',
@@ -210,7 +178,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
           location: customerData.location
         }
       });
-      
+
       toast({
         title: "Success",
         description: "Customer created successfully"
@@ -233,24 +201,21 @@ export const useCustomers = (initialPageSize: number = 50) => {
   const updateCustomer = async (id: string, updates: Partial<Customer>) => {
     try {
       const updateData: any = {};
-      
-      if (updates.fullName !== undefined) updateData.full_name = updates.fullName;
-      if (updates.phoneNumber !== undefined) updateData.phone_number = updates.phoneNumber;
+
+      if (updates.fullName !== undefined) updateData.fullName = updates.fullName;
+      if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
       if (updates.email !== undefined) updateData.email = updates.email;
-      if (updates.birthday !== undefined) updateData.birthday = updates.birthday?.toISOString().split('T')[0];
+      if (updates.birthday !== undefined) updateData.birthday = updates.birthday?.toISOString();
       if (updates.gender !== undefined) updateData.gender = updates.gender;
       if (updates.location !== undefined) updateData.location = updates.location;
-      if (updates.categoryId !== undefined) updateData.category_id = updates.categoryId; // Added category update
+      if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
       if (updates.notes !== undefined) updateData.notes = updates.notes;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
-      if (updates.socialMedia !== undefined) updateData.social_media = updates.socialMedia;
+      if (updates.socialMedia !== undefined) updateData.socialMedia = updates.socialMedia;
 
-      const { error } = await supabase
-        .from('customers')
-        .update(updateData)
-        .eq('id', id);
+      const result = await updateCustomerAction(id, updateData);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || 'Failed to update customer');
 
       // Update local state immediately
       setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
@@ -260,12 +225,12 @@ export const useCustomers = (initialPageSize: number = 50) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          customers: oldData.customers.map((c: Customer) => 
+          customers: oldData.customers.map((c: Customer) =>
             c.id === id ? { ...c, ...updates } : c
           )
         };
       });
-      
+
       // Log activity
       const customer = customers.find(c => c.id === id);
       if (customer) {
@@ -279,7 +244,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
           metadata: { updates }
         });
       }
-      
+
       toast({
         title: "Success",
         description: "Customer updated successfully"
@@ -301,13 +266,10 @@ export const useCustomers = (initialPageSize: number = 50) => {
     try {
       // Get customer details before deletion
       const customer = customers.find(c => c.id === id);
-      
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', id);
 
-      if (error) throw error;
+      const result = await deleteCustomerAction(id);
+
+      if (!result.success) throw new Error(result.error || 'Failed to delete customer');
       // Optimistic update: remove locally
       setCustomers(prev => prev.filter(c => c.id !== id));
       setTotalCount(c => Math.max(0, c - 1));
@@ -319,7 +281,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
         return { customers: newCustomers, count: Math.max(0, (count || 0) - 1) };
       });
       queryClient.invalidateQueries({ queryKey });
-      
+
       // Log activity
       if (customer) {
         await logActivity({
@@ -335,12 +297,12 @@ export const useCustomers = (initialPageSize: number = 50) => {
           }
         });
       }
-      
+
       toast({
         title: "Success",
         description: "Customer deleted successfully"
       });
-      
+
       return true;
     } catch (error) {
       console.error('Error deleting customer:', error);
@@ -356,25 +318,26 @@ export const useCustomers = (initialPageSize: number = 50) => {
   // Initial load handled by React Query; no manual trigger needed
 
   // Realtime: invalidate customer list when changes occur for this location
-  useEffect(() => {
-    if (!currentBusiness?.id) return;
+  // Commented out since we are moving away from Supabase client realtime subscriptions
+  // useEffect(() => {
+  //   if (!currentBusiness?.id) return;
 
-    const channel = supabase
-      .channel('customers_changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'customers',
-        filter: `location_id=eq.${currentBusiness.id}`
-      }, () => {
-        queryClient.invalidateQueries({ queryKey });
-      })
-      .subscribe();
+  //   const channel = supabase
+  //     .channel('customers_changes')
+  //     .on('postgres_changes', {
+  //       event: '*',
+  //       schema: 'public',
+  //       table: 'customers',
+  //       filter: `location_id=eq.${currentBusiness.id}`
+  //     }, () => {
+  //       queryClient.invalidateQueries({ queryKey });
+  //     })
+  //     .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentBusiness?.id, page, pageSize]);
+  //   return () => {
+  //     supabase.removeChannel(channel);
+  //   };
+  // }, [currentBusiness?.id, page, pageSize]);
 
   return {
     customers,

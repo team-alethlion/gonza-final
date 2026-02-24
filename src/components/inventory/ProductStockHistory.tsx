@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
 import EditStockHistoryDialog from './EditStockHistoryDialog';
 import DeleteStockHistoryDialog from './DeleteStockHistoryDialog';
 

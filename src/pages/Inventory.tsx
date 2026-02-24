@@ -27,9 +27,8 @@ import InventorySearchBar from '@/components/inventory/InventorySearchBar';
 import TopSellingProductsCard from '@/components/inventory/TopSellingProductsCard';
 import StockLevelOverviewCard from '@/components/inventory/StockLevelOverviewCard';
 import { useInventoryData } from '@/hooks/useInventoryData';
-import { supabase } from '@/integrations/supabase/client';
-import { useGlobalInventoryStats } from '@/hooks/useGlobalInventoryStats';
 import { useQueryClient } from '@tanstack/react-query';
+
 
 
 
@@ -76,28 +75,8 @@ const Inventory = () => {
   }, [filters.search]);
 
 
-  // Real-time synchronization for global stats
-  React.useEffect(() => {
-    if (!user?.id || !currentBusiness?.id) return;
-
-    console.log('[Realtime] Subscribing to product changes for stats update');
-    const channel = supabase
-      .channel('inventory_stats_sync')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'products',
-        filter: `location_id=eq.${currentBusiness.id}`
-      }, () => {
-        console.log('[Realtime] Product change detected, refreshing stats...');
-        queryClient.invalidateQueries({ queryKey: ['inventory_global_stats', currentBusiness.id] });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, currentBusiness?.id]);
+  // Realtime product sync removed (Supabase-specific). Stats refresh handled by
+  // manual refetch on handleRefresh and React Query stale-time settings.
 
   // Use inventory data hook
   const { topSellingProducts } = useInventoryData(filteredProducts, sales, period);

@@ -1,0 +1,23 @@
+{
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [],
+  "pages": {
+    "/StockReconciliationPage": [
+      "static/chunks/fc9d78a32c140a97.js",
+      "static/chunks/160f83673b98d40e.js",
+      "static/chunks/167328af80058a04.js",
+      "static/chunks/f4fe19d968fba506.js",
+      "static/chunks/6a47b444e5796b55.js",
+      "static/chunks/6eaf0f61f8c940dc.js",
+      "static/chunks/203653d2c1616873.js",
+      "static/chunks/ef51d8e2ce9c9d94.js",
+      "static/chunks/f3c19e7ec015015e.js",
+      "static/chunks/1ba490cb7df6c97d.js",
+      "static/chunks/turbopack-d74717df3e605b6b.js"
+    ]
+  },
+  "ampFirstPages": []
+}

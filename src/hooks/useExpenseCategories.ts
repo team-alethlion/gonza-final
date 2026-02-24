@@ -1,8 +1,13 @@
-
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  getExpenseCategoriesAction,
+  createExpenseCategoryAction,
+  deleteExpenseCategoryAction,
+  createDefaultExpenseCategoriesAction
+} from '@/app/actions/finance';
 
 export interface ExpenseCategory {
   id: string;
@@ -34,9 +39,10 @@ export const useExpenseCategories = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
+  const { user } = useAuth();
 
-  const loadCategories = async () => {
-    if (!currentBusiness) {
+  const loadCategories = useCallback(async () => {
+    if (!currentBusiness?.id) {
       setCategories([]);
       setIsLoading(false);
       return;
@@ -44,165 +50,86 @@ export const useExpenseCategories = () => {
 
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('expense_categories')
-        .select('*')
-        .eq('location_id', currentBusiness.id)
-        .order('is_default', { ascending: false })
-        .order('name');
+      const result = await getExpenseCategoriesAction(currentBusiness.id);
 
-      if (error) throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch categories');
+      }
 
-      const formattedCategories: ExpenseCategory[] = data?.map(category => ({
-        id: category.id,
-        name: category.name,
-        isDefault: category.is_default,
-        createdAt: new Date(category.created_at)
-      })) || [];
+      const formattedCategories: ExpenseCategory[] = result.data.map((category: any) => ({
+        ...category,
+        createdAt: new Date(category.createdAt)
+      }));
 
-      // Remove duplicates based on name (case-insensitive)
-      const uniqueCategories = formattedCategories.filter((category, index, self) =>
-        index === self.findIndex(c => c.name.toLowerCase() === category.name.toLowerCase())
-      );
-
-      // If no categories exist, create default ones
-      if (uniqueCategories.length === 0) {
+      if (formattedCategories.length === 0) {
         await createDefaultCategories();
         return;
       }
 
-      setCategories(uniqueCategories);
+      setCategories(formattedCategories);
     } catch (error) {
       console.error('Error loading expense categories:', error);
       toast({
         title: "Error",
-        description: "Failed to load expense categories. Please try again.",
+        description: "Failed to load expense categories",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentBusiness?.id, toast]);
 
   const createDefaultCategories = async () => {
-    if (!currentBusiness) return;
+    if (!currentBusiness?.id || !user?.id) return;
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
-
-      // Check if any default categories already exist for this location
-      const { data: existingCategories } = await supabase
-        .from('expense_categories')
-        .select('id, name')
-        .eq('location_id', currentBusiness.id)
-        .eq('is_default', true);
-
-      const existingNames = new Set(existingCategories?.map(cat => cat.name.toLowerCase()) || []);
-
-      // Only create categories that don't already exist
-      const categoriesToCreate = DEFAULT_CATEGORIES.filter(
-        name => !existingNames.has(name.toLowerCase())
-      );
-
-      if (categoriesToCreate.length === 0) {
-        // If all default categories already exist, just reload
+      const result = await createDefaultExpenseCategoriesAction(user.id, currentBusiness.id, DEFAULT_CATEGORIES);
+      if (result.success) {
         await loadCategories();
-        return;
       }
-
-      const defaultCategoriesData = categoriesToCreate.map(name => ({
-        user_id: userData.user.id,
-        location_id: currentBusiness.id,
-        name,
-        is_default: true
-      }));
-
-      const { data, error } = await supabase
-        .from('expense_categories')
-        .insert(defaultCategoriesData)
-        .select();
-
-      if (error) throw error;
-
-      const newCategories: ExpenseCategory[] = data?.map(category => ({
-        id: category.id,
-        name: category.name,
-        isDefault: category.is_default,
-        createdAt: new Date(category.created_at)
-      })) || [];
-
-      // Combine with existing categories and remove duplicates
-      const allCategories = [...(existingCategories?.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        isDefault: true,
-        createdAt: new Date()
-      })) || []), ...newCategories];
-
-      const uniqueCategories = allCategories.filter((category, index, self) =>
-        index === self.findIndex(c => c.name.toLowerCase() === category.name.toLowerCase())
-      );
-
-      setCategories(uniqueCategories);
     } catch (error) {
       console.error('Error creating default categories:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create default categories. Please try again.",
-        variant: "destructive"
-      });
     }
   };
 
   const createCategory = async (name: string) => {
-    if (!currentBusiness) return null;
+    if (!currentBusiness?.id || !user?.id) return null;
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
-
       // Check if category already exists (case-insensitive)
       const existingCategory = categories.find(
         cat => cat.name.toLowerCase() === name.toLowerCase()
       );
-      
+
       if (existingCategory) {
         toast({
           title: "Category exists",
           description: "This category already exists.",
-          variant: "default"
         });
         return existingCategory;
       }
 
-      const { data, error } = await supabase
-        .from('expense_categories')
-        .insert({
-          user_id: userData.user.id,
-          location_id: currentBusiness.id,
-          name,
-          is_default: false
-        })
-        .select()
-        .single();
+      const result = await createExpenseCategoryAction({
+        userId: user.id,
+        locationId: currentBusiness.id,
+        name,
+        isDefault: false
+      });
 
-      if (error) throw error;
+      if (!result.success || !result.data) throw new Error(result.error);
 
       const newCategory: ExpenseCategory = {
-        id: data.id,
-        name: data.name,
-        isDefault: data.is_default,
-        createdAt: new Date(data.created_at)
+        ...result.data,
+        createdAt: new Date(result.data.createdAt)
       };
 
-      setCategories([...categories, newCategory]);
+      setCategories(prev => [...prev, newCategory]);
       return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
       toast({
         title: "Error",
-        description: "Failed to create category. Please try again.",
+        description: "Failed to create category",
         variant: "destructive"
       });
       return null;
@@ -211,20 +138,20 @@ export const useExpenseCategories = () => {
 
   const deleteCategory = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('expense_categories')
-        .delete()
-        .eq('id', id);
+      const result = await deleteExpenseCategoryAction(id);
+      if (!result.success) throw new Error(result.error);
 
-      if (error) throw error;
-
-      setCategories(categories.filter(c => c.id !== id));
+      setCategories(prev => prev.filter(c => c.id !== id));
+      toast({
+        title: "Success",
+        description: "Category deleted successfully"
+      });
       return true;
     } catch (error) {
       console.error('Error deleting category:', error);
       toast({
         title: "Error",
-        description: "Failed to delete category. Please try again.",
+        description: "Failed to delete category",
         variant: "destructive"
       });
       return false;
@@ -233,7 +160,7 @@ export const useExpenseCategories = () => {
 
   useEffect(() => {
     loadCategories();
-  }, [currentBusiness?.id]);
+  }, [loadCategories]);
 
   return {
     categories,

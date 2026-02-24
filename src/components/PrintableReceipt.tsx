@@ -464,8 +464,8 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
                   console.warn('isIOS (Direct Check):', isIOSActual);
 
                   const platformParam = isAndroidActual ? 'platform=android' : (isIOSActual ? 'platform=ios' : 'default');
-                  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-                  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-receipt?id=${sale.id}&${platformParam}&apikey=${anonKey}`;
+                  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+                  const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/print-receipt?id=${sale.id}&${platformParam}&apikey=${anonKey}`;
 
                   setIsPrinting(true);
                   try {

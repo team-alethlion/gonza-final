@@ -1,5 +1,4 @@
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook for handling product image uploads with enhanced compression
@@ -15,7 +14,7 @@ export const useProductImage = (userId: string | undefined) => {
   const compressImage = async (file: File): Promise<File> => {
     const MAX_SIZE_KB = 10;
     const MAX_SIZE_BYTES = MAX_SIZE_KB * 1024;
-    
+
     return new Promise((resolve, reject) => {
       try {
         const reader = new FileReader();
@@ -23,7 +22,7 @@ export const useProductImage = (userId: string | undefined) => {
           console.error('FileReader error');
           reject(new Error('Failed to read file'));
         };
-        
+
         reader.onload = (event) => {
           try {
             const img = new Image();
@@ -31,7 +30,7 @@ export const useProductImage = (userId: string | undefined) => {
               console.error('Image load error');
               reject(new Error('Failed to load image'));
             };
-            
+
             img.onload = () => {
               try {
                 // Progressive compression function
@@ -40,17 +39,17 @@ export const useProductImage = (userId: string | undefined) => {
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
-                    
+
                     const ctx = canvas.getContext('2d');
                     if (!ctx) {
                       reject(new Error('Could not get canvas context'));
                       return;
                     }
-                    
+
                     // Clear canvas and draw image
                     ctx.clearRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
-                    
+
                     // Convert to JPEG with specified quality
                     canvas.toBlob(
                       (blob) => {
@@ -58,12 +57,12 @@ export const useProductImage = (userId: string | undefined) => {
                           reject(new Error('Could not compress image'));
                           return;
                         }
-                        
+
                         const compressedFile = new File([blob], `${file.name.replace(/\.[^/.]+$/, '')}-optimized.jpg`, {
                           type: 'image/jpeg',
                           lastModified: Date.now(),
                         });
-                        
+
                         resolveCompress(compressedFile);
                       },
                       'image/jpeg',
@@ -71,11 +70,11 @@ export const useProductImage = (userId: string | undefined) => {
                     );
                   });
                 };
-                
+
                 // Progressive compression algorithm
                 const progressiveCompress = async () => {
                   let { width, height } = img;
-                  
+
                   // Start with reasonable dimensions and quality
                   const maxDimension = 400;
                   if (width > maxDimension || height > maxDimension) {
@@ -88,17 +87,17 @@ export const useProductImage = (userId: string | undefined) => {
                       width = height * aspectRatio;
                     }
                   }
-                  
+
                   // Ensure dimensions are valid
                   width = Math.max(50, Math.floor(width));
                   height = Math.max(50, Math.floor(height));
-                  
+
                   // Try different quality levels
                   const qualityLevels = [0.8, 0.6, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02, 0.01];
-                  
+
                   for (const quality of qualityLevels) {
                     const compressedFile = await compressWithQuality(width, height, quality);
-                    
+
                     if (compressedFile.size <= MAX_SIZE_BYTES) {
                       console.log(`Image compression successful:`);
                       console.log(`  Original: ${(file.size / 1024).toFixed(1)}KB`);
@@ -106,21 +105,21 @@ export const useProductImage = (userId: string | undefined) => {
                       console.log(`  Reduction: ${((file.size - compressedFile.size) / file.size * 100).toFixed(1)}%`);
                       console.log(`  Dimensions: ${width}x${height}px`);
                       console.log(`  Quality: ${(quality * 100).toFixed(0)}%`);
-                      
+
                       return compressedFile;
                     }
                   }
-                  
+
                   // If still too large, reduce dimensions further
                   const dimensionReductions = [0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2];
-                  
+
                   for (const reduction of dimensionReductions) {
                     const newWidth = Math.max(50, Math.floor(width * reduction));
                     const newHeight = Math.max(50, Math.floor(height * reduction));
-                    
+
                     for (const quality of [0.1, 0.05, 0.02, 0.01]) {
                       const compressedFile = await compressWithQuality(newWidth, newHeight, quality);
-                      
+
                       if (compressedFile.size <= MAX_SIZE_BYTES) {
                         console.log(`Image compression successful with dimension reduction:`);
                         console.log(`  Original: ${(file.size / 1024).toFixed(1)}KB`);
@@ -128,37 +127,37 @@ export const useProductImage = (userId: string | undefined) => {
                         console.log(`  Reduction: ${((file.size - compressedFile.size) / file.size * 100).toFixed(1)}%`);
                         console.log(`  Dimensions: ${newWidth}x${newHeight}px`);
                         console.log(`  Quality: ${(quality * 100).toFixed(0)}%`);
-                        
+
                         return compressedFile;
                       }
                     }
                   }
-                  
+
                   // Final fallback - create a very small image
                   const finalFile = await compressWithQuality(50, 50, 0.01);
                   console.log(`Image compression fallback:`);
                   console.log(`  Original: ${(file.size / 1024).toFixed(1)}KB`);
                   console.log(`  Compressed: ${(finalFile.size / 1024).toFixed(1)}KB`);
                   console.log(`  Dimensions: 50x50px`);
-                  
+
                   return finalFile;
                 };
-                
+
                 progressiveCompress().then(resolve).catch(reject);
-                
+
               } catch (error) {
                 console.error('Canvas processing error:', error);
                 reject(new Error('Failed to process image on canvas'));
               }
             };
-            
+
             img.src = event.target?.result as string;
           } catch (error) {
             console.error('Image creation error:', error);
             reject(new Error('Failed to create image'));
           }
         };
-        
+
         reader.readAsDataURL(file);
       } catch (error) {
         console.error('File reading setup error:', error);
@@ -177,38 +176,38 @@ export const useProductImage = (userId: string | undefined) => {
       try {
         const reader = new FileReader();
         reader.onerror = () => reject(new Error('Failed to read file'));
-        
+
         reader.onload = (event) => {
           try {
             const img = new Image();
             img.onerror = () => reject(new Error('Failed to load image'));
-            
+
             img.onload = () => {
               try {
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width;
                 canvas.height = img.height;
-                
+
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
                   reject(new Error('Could not get canvas context'));
                   return;
                 }
-                
+
                 ctx.drawImage(img, 0, 0);
-                
+
                 canvas.toBlob(
                   (blob) => {
                     if (!blob) {
                       reject(new Error('Could not process image'));
                       return;
                     }
-                    
+
                     const cleanFile = new File([blob], file.name, {
                       type: file.type,
                       lastModified: Date.now(),
                     });
-                    
+
                     resolve(cleanFile);
                   },
                   file.type,
@@ -219,14 +218,14 @@ export const useProductImage = (userId: string | undefined) => {
                 reject(new Error('Failed to process image'));
               }
             };
-            
+
             img.src = event.target?.result as string;
           } catch (error) {
             console.error('Metadata removal image error:', error);
             reject(new Error('Failed to load image'));
           }
         };
-        
+
         reader.readAsDataURL(file);
       } catch (error) {
         console.error('Metadata removal setup error:', error);
@@ -239,14 +238,9 @@ export const useProductImage = (userId: string | undefined) => {
     try {
       if (!userId || !file) {
         console.error('Missing userId or file for image upload');
-        toast({
-          title: "Error",
-          description: "Missing user ID or file for image upload.",
-          variant: "destructive"
-        });
         return null;
       }
-      
+
       // Check if the file is an image
       if (!file.type.startsWith('image/')) {
         toast({
@@ -266,100 +260,43 @@ export const useProductImage = (userId: string | undefined) => {
         });
         return null;
       }
-      
+
       console.log('Starting image processing...');
-      
+
       // Show compression progress
       toast({
         title: "Processing Image",
         description: "Optimizing image to under 10KB...",
       });
-      
+
       // Remove metadata first, then compress
-      console.log('Removing metadata...');
       const cleanFile = await removeMetadata(file);
-      
-      console.log('Compressing image...');
       const compressedFile = await compressImage(cleanFile);
-      
+
       // Verify final size
       const finalSizeKB = compressedFile.size / 1024;
       console.log(`Final compressed size: ${finalSizeKB.toFixed(1)}KB`);
-      
-      // Show compression results to user
-      const compressionRatio = ((file.size - compressedFile.size) / file.size * 100);
+
+      // Mock upload for now - in a real app this would call a server action
+      console.warn('Image upload placeholder – integration with Prisma server action/storage required');
+
       toast({
-        title: "Image Optimized",
-        description: `File compressed to ${finalSizeKB.toFixed(1)}KB (${compressionRatio.toFixed(1)}% reduction)`,
+        title: "Image Processed",
+        description: `Image optimized to ${finalSizeKB.toFixed(1)}KB. Backend upload is pending migration.`,
       });
-      
-      // Create a unique filename using timestamp and random string
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 10);
-      const fileName = `${userId}/${timestamp}-${randomString}.jpg`;
-      
-      console.log('Uploading to Supabase storage...');
-      
-      // Upload with timeout and retry logic
-      const uploadWithTimeout = async (attempt = 1): Promise<any> => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
-        try {
-          const { data, error } = await supabase.storage
-            .from('product-images')
-            .upload(fileName, compressedFile, {
-              cacheControl: '3600',
-              upsert: true,
-            });
-          
-          clearTimeout(timeoutId);
-          
-          if (error) {
-            console.error('Supabase upload error:', error);
-            throw error;
-          }
-          return data;
-        } catch (error) {
-          clearTimeout(timeoutId);
-          
-          if (attempt < 3 && (error.name === 'AbortError' || error.message?.includes('timeout'))) {
-            console.log(`Upload attempt ${attempt} failed, retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Progressive delay
-            return uploadWithTimeout(attempt + 1);
-          }
-          throw error;
-        }
-      };
 
-      const data = await uploadWithTimeout();
+      // Returning a data URL as a temporary "upload result" so it can be previewed
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(compressedFile);
+      });
 
-      // Get public URL
-      const { data: urlData } = supabase
-        .storage
-        .from('product-images')
-        .getPublicUrl(data.path);
-
-      console.log('Upload successful, public URL:', urlData.publicUrl);
-      return urlData.publicUrl;
     } catch (error) {
       console.error('Error uploading product image:', error);
-      
-      let errorMessage = "Failed to process image. Please try again.";
-      
-      if (error.name === 'AbortError' || error.message?.includes('timeout')) {
-        errorMessage = "Upload timed out. Please check your connection and try again.";
-      } else if (error.message?.includes('storage')) {
-        errorMessage = "Storage service error. Please try again later.";
-      } else if (error.message?.includes('network')) {
-        errorMessage = "Network error. Please check your connection.";
-      } else if (error.message?.includes('canvas') || error.message?.includes('compress')) {
-        errorMessage = "Failed to process image. Please try a different image or smaller file size.";
-      }
-      
       toast({
         title: "Upload Error",
-        description: errorMessage,
+        description: "Failed to process image.",
         variant: "destructive"
       });
       return null;
@@ -368,7 +305,7 @@ export const useProductImage = (userId: string | undefined) => {
 
   return {
     uploadProductImage,
-    compressImage, // Export for testing or direct usage if needed
-    removeMetadata // Export metadata removal function
+    compressImage,
+    removeMetadata
   };
 };

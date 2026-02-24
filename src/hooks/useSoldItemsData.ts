@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useSalesData } from '@/hooks/useSalesData';
@@ -6,8 +6,8 @@ import { useProducts } from '@/hooks/useProducts';
 import { getDateRangeFromFilter } from '@/utils/dateFilters';
 import { isSameDay } from 'date-fns';
 import { calculateItemActualAmount, calculateItemActualPrice } from '@/utils/discountCalculations';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { getProductsAction } from '@/app/actions/products';
 
 interface SoldItem {
   description: string;
@@ -35,22 +35,25 @@ export const useSoldItemsData = (
   const { data: dbInventoryMap, isLoading: inventoryLoading } = useQuery({
     queryKey: ['inventory_check_map', currentBusiness?.id],
     queryFn: async () => {
-      if (!currentBusiness?.id) return new Map<string, boolean>();
+      if (!currentBusiness?.id || !user?.id) return new Map<string, boolean>();
 
-      const { data: dbProducts } = await supabase
-        .from('products' as any)
-        .select('id, name')
-        .eq('location_id', currentBusiness.id)
-        .limit(10000);
+      // Use the Prisma-backed server action instead of Supabase
+      const result = await getProductsAction({
+        userId: user.id,
+        businessId: currentBusiness.id,
+        pageSize: 1000, // Load enough to populate the map
+      });
 
       const invMap = new Map<string, boolean>();
-      (dbProducts || []).forEach((p: any) => {
-        if (p.id) invMap.set(p.id, true);
-        if (p.name) invMap.set(p.name.trim().toLowerCase(), true);
-      });
+      if (result && (result as any).products) {
+        ((result as any).products).forEach((p: any) => {
+          if (p.id) invMap.set(p.id, true);
+          if (p.name) invMap.set(p.name.trim().toLowerCase(), true);
+        });
+      }
       return invMap;
     },
-    enabled: !!currentBusiness?.id,
+    enabled: !!currentBusiness?.id && !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000 // 30 minutes
   });

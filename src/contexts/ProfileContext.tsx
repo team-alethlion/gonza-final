@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getProfilesAction, createProfileAction, updateProfileAction, deleteProfileAction } from '@/app/actions/profiles';
 import { useBusiness } from './BusinessContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -81,18 +81,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('business_profiles')
-        .select(`
-          *,
-          business_role:business_roles(*)
-        `)
-        .eq('business_location_id', currentBusiness.id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      setProfiles((data || []) as unknown as BusinessProfile[]);
+      const data = await getProfilesAction(currentBusiness.id);
+      setProfiles(data as unknown as BusinessProfile[]);
     } catch (error) {
       console.error('Error loading profiles:', error);
       toast.error('Failed to load profiles');
@@ -105,23 +95,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!userId || !currentBusiness?.id) return null;
 
     try {
-      const { data: newProfile, error } = await supabase
-        .from('business_profiles')
-        .insert({
-          ...data,
-          business_location_id: currentBusiness.id,
-          created_by: userId
-        })
-        .select()
-        .single();
+      const result = await createProfileAction(currentBusiness.id, data);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Re-fetch profiles to get the full joined data (especially business_role)
       await loadProfiles();
 
       toast.success(`Profile "${data.profile_name}" created successfully`);
-      return newProfile;
+      return result.data as unknown as BusinessProfile;
     } catch (error) {
       console.error('Error creating profile:', error);
       toast.error('Failed to create profile');
@@ -131,12 +115,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateProfile = async (id: string, data: Partial<BusinessProfile>): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('business_profiles')
-        .update(data)
-        .eq('id', id);
+      const result = await updateProfileAction(id, data);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       // Re-fetch profiles to get the updated joined data
       await loadProfiles();
@@ -152,12 +133,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteProfile = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('business_profiles')
-        .delete()
-        .eq('id', id);
+      const result = await deleteProfileAction(id);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setProfiles(prev => prev.filter(profile => profile.id !== id));
 

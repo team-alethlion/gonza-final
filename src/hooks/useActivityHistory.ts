@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUser } from './useCurrentUser';
-import { ActivityFilters } from '@/pages/History';
+import { ActivityFilters as FilterTypes } from '@/pages/History';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getActivityHistoryAction, ActivityFilters } from '@/app/actions/activity';
 
 export interface ActivityHistoryItem {
   id: string;
@@ -22,7 +22,7 @@ export interface ActivityHistoryItem {
 
 const ITEMS_PER_PAGE = 20;
 
-export const useActivityHistory = (locationId?: string, filters?: ActivityFilters) => {
+export const useActivityHistory = (locationId?: string, filters?: FilterTypes) => {
   const { userId } = useCurrentUser();
   const [activities, setActivities] = useState<ActivityHistoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -36,43 +36,30 @@ export const useActivityHistory = (locationId?: string, filters?: ActivityFilter
     }
 
     try {
-      let query = supabase
-        .from('activity_history')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('location_id', locationId)
-        .order('created_at', { ascending: false })
-        .range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
+      const actionFilters: ActivityFilters = filters ? {
+        activityType: filters.activityType,
+        module: filters.module,
+        search: filters.search,
+        dateFrom: filters.dateRange.from?.toISOString(),
+        dateTo: filters.dateRange.to?.toISOString()
+      } : {};
 
-      // Apply filters
-      if (filters) {
-        if (filters.activityType !== 'ALL') {
-          query = query.eq('activity_type', filters.activityType);
-        }
-        if (filters.module !== 'ALL') {
-          query = query.eq('module', filters.module);
-        }
-        if (filters.search) {
-          query = query.or(`entity_name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
-        }
-        if (filters.dateRange.from) {
-          query = query.gte('created_at', filters.dateRange.from.toISOString());
-        }
-        if (filters.dateRange.to) {
-          const toDate = new Date(filters.dateRange.to);
-          toDate.setHours(23, 59, 59, 999);
-          query = query.lte('created_at', toDate.toISOString());
-        }
+      const result = await getActivityHistoryAction(
+        locationId,
+        userId,
+        currentPage,
+        ITEMS_PER_PAGE,
+        actionFilters
+      );
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch activities');
       }
 
-      const { data, error, count } = await query;
-
-      if (error) {
-        console.error('Error fetching activity history:', error);
-        return { activities: [], count: 0 };
-      }
-
-      return { activities: (data || []) as ActivityHistoryItem[], count: count || 0 };
+      return {
+        activities: result.data.activities as ActivityHistoryItem[],
+        count: result.data.count
+      };
     } catch (error) {
       console.error('Error fetching activity history:', error);
       return { activities: [], count: 0 };
@@ -81,7 +68,7 @@ export const useActivityHistory = (locationId?: string, filters?: ActivityFilter
 
   // React Query caching
   const queryKey = ['activity_history', userId, locationId, currentPage, filters];
-  const { data: queriedData, isLoading: isQueryLoading, isFetching } = useQuery({
+  const { data: queriedData, isLoading: isQueryLoading } = useQuery({
     queryKey,
     queryFn: fetchActivities,
     enabled: !!userId && !!locationId,
@@ -110,25 +97,13 @@ export const useActivityHistory = (locationId?: string, filters?: ActivityFilter
     queryClient.invalidateQueries({ queryKey });
   };
 
-  // Realtime: invalidate activity history cache on changes for current location
+  // Realtime: In the Next.js/Prisma model, we typically rely on manual invalidation 
+  // or polling. Supabase realtime is removed here to align with the Prisma migration.
   useEffect(() => {
     if (!userId || !locationId) return;
 
-    const channel = supabase
-      .channel('activity_history_changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'activity_history',
-        filter: `location_id=eq.${locationId}`
-      }, () => {
-        queryClient.invalidateQueries({ queryKey });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Realtime invalidation would now happen via Server Actions or a dedicated WS server.
+    // For now, we rely on manual refresh or cache invalidation from mutations.
   }, [userId, locationId, currentPage, filters]);
 
   return {

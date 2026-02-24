@@ -7,7 +7,8 @@ import { Trash2, Eye, EyeOff, Eraser } from 'lucide-react';
 import { SaleItem } from '@/types';
 import { formatNumber, formatNumberInput, parseNumberInput } from '@/lib/utils';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { Product, mapDbProductToProduct } from '@/types';
+import { Product } from '@/types';
+import { getAllProductsAction } from '@/app/actions/products';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
@@ -18,7 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+// Removed direct Supabase import
 
 import { matchProductSearch } from '@/utils/searchUtils';
 import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
@@ -74,38 +75,7 @@ const ProductSaleItemInput: React.FC<ProductSaleItemInputProps> = ({
     queryKey: ['all-products', user?.id, currentBusiness?.id],
     queryFn: async () => {
       if (!user?.id || !currentBusiness?.id) return [];
-
-      // Load all products with chunked pagination
-      let allProductsData: any[] = [];
-      let start = 0;
-      const chunkSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: chunk, error: chunkError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('location_id', currentBusiness.id)
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
-          .range(start, start + chunkSize - 1);
-
-        if (chunkError) {
-          console.error('Error loading products chunk:', chunkError);
-          break;
-        }
-
-        if (chunk && chunk.length > 0) {
-          allProductsData.push(...chunk);
-          start += chunkSize;
-          hasMore = chunk.length === chunkSize;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      return allProductsData.map(mapDbProductToProduct);
+      return await getAllProductsAction(user.id, currentBusiness.id);
     },
     enabled: !!user?.id && !!currentBusiness?.id,
     staleTime: 5 * 60_000, // Cache for 5 minutes

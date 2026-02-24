@@ -1,9 +1,13 @@
-
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { ProductCategory, DbProductCategory, mapDbProductCategoryToProductCategory } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
+import { ProductCategory } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/BusinessContext';
+import {
+  getProductCategoriesAction,
+  createProductCategoryAction,
+  updateProductCategoryAction,
+  deleteProductCategoryAction
+} from '@/app/actions/products';
 
 export const useCategories = (userId: string | undefined) => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -11,83 +15,82 @@ export const useCategories = (userId: string | undefined) => {
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
-      if (!userId || !currentBusiness) return;
-      
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('product_categories')
-        .select('*')
-        .eq('location_id', currentBusiness.id)
-        .order('name');
-
-      if (error) {
-        throw error;
+      if (!currentBusiness?.id) {
+        setCategories([]);
+        setIsLoading(false);
+        return;
       }
 
-      const formattedCategories: ProductCategory[] = data ? 
-        data.map((item: DbProductCategory) => mapDbProductCategoryToProductCategory(item)) : [];
-      
+      setIsLoading(true);
+      const result = await getProductCategoriesAction(currentBusiness.id);
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch categories');
+      }
+
+      const formattedCategories: ProductCategory[] = result.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        createdAt: item.createdAt ? new Date(item.createdAt) : (item.created_at ? new Date(item.created_at) : undefined)
+      }));
+
       setCategories(formattedCategories);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast({
         title: "Error",
-        description: "Failed to load product categories. Please try again.",
+        description: "Failed to load product categories.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentBusiness?.id, toast]);
 
   useEffect(() => {
     loadCategories();
-  }, [userId, currentBusiness?.id]);
+  }, [loadCategories]);
 
   const createCategory = async (name: string) => {
     try {
-      if (!userId || !currentBusiness) return null;
+      if (!userId || !currentBusiness?.id) return null;
 
       // Check if category already exists
       const existingCategory = categories.find(
         cat => cat.name.toLowerCase() === name.toLowerCase()
       );
-      
+
       if (existingCategory) {
         toast({
           title: "Category exists",
           description: "This category already exists.",
-          variant: "default"
         });
         return existingCategory;
       }
 
-      const { data, error } = await supabase
-        .from('product_categories')
-        .insert({
-          user_id: userId,
-          location_id: currentBusiness.id,
-          name
-        })
-        .select()
-        .single();
+      const result = await createProductCategoryAction(currentBusiness.id, userId, name);
 
-      if (error) throw error;
+      if (!result.success || !result.data) throw new Error(result.error);
 
-      if (data) {
-        const newCategory = mapDbProductCategoryToProductCategory(data as DbProductCategory);
-        setCategories([...categories, newCategory]);
-        return newCategory;
-      }
-      
-      return null;
+      const newCategory: ProductCategory = {
+        id: result.data.id,
+        name: result.data.name,
+        createdAt: new Date(result.data.createdAt)
+      };
+
+      setCategories(prev => [...prev, newCategory]);
+      toast({
+        title: "Success",
+        description: "Category created successfully"
+      });
+      return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
       toast({
         title: "Error",
-        description: "Failed to create category. Please try again.",
+        description: "Failed to create category.",
         variant: "destructive"
       });
       return null;
@@ -96,43 +99,34 @@ export const useCategories = (userId: string | undefined) => {
 
   const updateCategory = async (id: string, name: string) => {
     try {
-      if (!userId) return false;
-
-      // Check if category already exists
+      // Check if another category with this name exists
       const existingCategory = categories.find(
         cat => cat.name.toLowerCase() === name.toLowerCase() && cat.id !== id
       );
-      
+
       if (existingCategory) {
         toast({
           title: "Category exists",
           description: "Another category with this name already exists.",
-          variant: "default"
         });
         return false;
       }
 
-      const { data, error } = await supabase
-        .from('product_categories')
-        .update({ name })
-        .eq('id', id)
-        .select()
-        .single();
+      const result = await updateProductCategoryAction(id, name);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
-      if (data) {
-        const updatedCategory = mapDbProductCategoryToProductCategory(data as DbProductCategory);
-        setCategories(categories.map(c => c.id === id ? updatedCategory : c));
-        return true;
-      }
-      
-      return false;
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, name } : c));
+      toast({
+        title: "Success",
+        description: "Category updated successfully"
+      });
+      return true;
     } catch (error) {
       console.error('Error updating category:', error);
       toast({
         title: "Error",
-        description: "Failed to update category. Please try again.",
+        description: "Failed to update category.",
         variant: "destructive"
       });
       return false;
@@ -141,48 +135,37 @@ export const useCategories = (userId: string | undefined) => {
 
   const deleteCategory = async (id: string) => {
     try {
-      if (!userId) return false;
+      const result = await deleteProductCategoryAction(id);
 
-      // First check if there are any products using this category
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('id')
-        .eq('category', categories.find(c => c.id === id)?.name || '');
-      
-      if (productsError) throw productsError;
-      
-      if (products && products.length > 0) {
+      if (!result.success) {
         toast({
           title: "Cannot delete category",
-          description: "This category is being used by one or more products.",
+          description: result.error || "Failed to delete category.",
           variant: "destructive"
         });
         return false;
       }
 
-      const { error } = await supabase
-        .from('product_categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setCategories(categories.filter(c => c.id !== id));
+      setCategories(prev => prev.filter(c => c.id !== id));
+      toast({
+        title: "Success",
+        description: "Category deleted successfully"
+      });
       return true;
     } catch (error) {
       console.error('Error deleting category:', error);
       toast({
         title: "Error",
-        description: "Failed to delete category. Please try again.",
+        description: "Failed to delete category.",
         variant: "destructive"
       });
       return false;
     }
   };
 
-  return { 
-    categories, 
-    isLoading, 
+  return {
+    categories,
+    isLoading,
     loadCategories,
     createCategory,
     updateCategory,

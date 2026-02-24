@@ -1,9 +1,14 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+// Supabase realtime removed – toast imported for future use
+// import { toast } from 'sonner';
 
 export const useSaleNotifications = () => {
   useEffect(() => {
+    // Realtime notifications via Supabase are being deprecated/removed in favor of Prisma.
+    // Since Prisma does not have a native client-side realtime event system, 
+    // this logic is currently disabled.
+
+    /*
     const subscription = supabase
       .channel('public:sales')
       .on(
@@ -19,5 +24,6 @@ export const useSaleNotifications = () => {
     return () => {
       supabase.removeChannel(subscription);
     };
+    */
   }, []);
 };

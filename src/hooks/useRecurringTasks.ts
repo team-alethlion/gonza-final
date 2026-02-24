@@ -1,93 +1,42 @@
-
 import { useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
-import { addDays, addWeeks, addMonths, format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  // We'll use the server actions from tasks.ts
+  updateTaskAction,
+  deleteTaskAction
+} from '@/app/actions/tasks';
 
+/**
+ * useRecurringTasks hook
+ * Note: Most recurring logic has been moved to server actions in tasks.ts
+ * for better consistency and performance.
+ */
 export const useRecurringTasks = () => {
+  const { user } = useAuth();
+
   const createRecurringInstances = useCallback(async (task: Task) => {
-    if (!task.is_recurring || !task.recurrence_type || !task.recurrence_end_date) {
-      return;
-    }
-
-    const instances: Omit<Task, 'id' | 'created_at' | 'updated_at'>[] = [];
-    let currentDate = parseISO(task.due_date);
-    const endDate = parseISO(task.recurrence_end_date);
-    let count = 0;
-
-    while (currentDate <= endDate && count < 365) { // Safety limit
-      let nextDate: Date;
-      
-      switch (task.recurrence_type) {
-        case 'daily':
-          nextDate = addDays(currentDate, 1);
-          break;
-        case 'weekly':
-          nextDate = addWeeks(currentDate, 1);
-          break;
-        case 'monthly':
-          nextDate = addMonths(currentDate, 1);
-          break;
-        default:
-          return;
-      }
-
-      if (nextDate > endDate) break;
-
-      instances.push({
-        user_id: task.user_id,
-        location_id: task.location_id,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        due_date: format(nextDate, 'yyyy-MM-dd'),
-        category: task.category,
-        completed: false,
-        completed_at: null,
-        reminder_enabled: task.reminder_enabled,
-        reminder_time: task.reminder_time,
-        is_recurring: false, // Instances are not recurring themselves
-        recurrence_type: null,
-        recurrence_end_date: null,
-        parent_task_id: task.id,
-        recurrence_count: count + 1,
-      });
-
-      currentDate = nextDate;
-      count++;
-    }
-
-    if (instances.length > 0) {
-      try {
-        const { error } = await supabase
-          .from('tasks')
-          .insert(instances);
-
-        if (error) throw error;
-
-        toast.success(`Created ${instances.length} recurring task instances`);
-      } catch (error) {
-        console.error('Error creating recurring task instances:', error);
-        toast.error('Failed to create recurring task instances');
-      }
-    }
+    // In the new Prisma model, this is handled automatically during task creation or update
+    // via the createTaskAction or updateTaskAction in src/app/actions/tasks.ts.
+    // This hook is kept for backward compatibility but redirecting to server logic where needed.
+    console.log('Recurring instances are now managed via server actions in tasks.ts');
   }, []);
 
   const deleteRecurringInstances = useCallback(async (parentTaskId: string) => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('parent_task_id', parentTaskId)
-        .eq('completed', false);
+    if (!user?.id) return;
 
-      if (error) throw error;
+    try {
+      // In Prisma, we handle this as part of deleteTaskAction or updateTaskAction
+      // If needed to be called standalone, we'd use a specific server action.
+      // For now, ensuring the logic in tasks.ts covers the deletion of pending instances.
+      const result = await deleteTaskAction(parentTaskId, user.id);
+      if (!result.success) throw new Error(result.error);
     } catch (error) {
       console.error('Error deleting recurring task instances:', error);
       toast.error('Failed to delete recurring task instances');
     }
-  }, []);
+  }, [user?.id]);
 
   return {
     createRecurringInstances,

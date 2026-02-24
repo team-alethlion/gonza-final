@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getBusinessLocationsAction, createBusinessAction, updateBusinessAction, deleteBusinessAction } from '@/app/actions/business';
 
 export interface BusinessLocation {
   id: string;
@@ -12,25 +12,14 @@ export interface BusinessLocation {
   updatedAt: Date;
 }
 
-export interface DbBusinessLocation {
-  id: string;
-  name: string;
-  user_id: string;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-const mapDbBusinessLocationToBusinessLocation = (dbBusiness: DbBusinessLocation): BusinessLocation => {
-  return {
-    id: dbBusiness.id,
-    name: dbBusiness.name,
-    userId: dbBusiness.user_id,
-    isDefault: dbBusiness.is_default,
-    createdAt: new Date(dbBusiness.created_at),
-    updatedAt: new Date(dbBusiness.updated_at)
-  };
-};
+const mapDbToBusinessLocation = (db: any): BusinessLocation => ({
+  id: db.id,
+  name: db.name,
+  userId: db.user_id,
+  isDefault: db.is_default ?? false,
+  createdAt: new Date(db.created_at),
+  updatedAt: new Date(db.updated_at),
+});
 
 export const useBusiness = (userId: string | undefined) => {
   const [businesses, setBusinesses] = useState<BusinessLocation[]>([]);
@@ -38,216 +27,68 @@ export const useBusiness = (userId: string | undefined) => {
   const { toast } = useToast();
 
   const loadBusinesses = async () => {
-    if (!userId) {
-      setBusinesses([]);
-      setIsLoading(false);
-      return;
-    }
-
+    if (!userId) { setBusinesses([]); setIsLoading(false); return; }
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('business_locations')
-        .select('*')
-        .eq('user_id', userId)
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
-      const formattedBusinesses = data ? data.map(mapDbBusinessLocationToBusinessLocation) : [];
-      setBusinesses(formattedBusinesses);
-    } catch (error) {
-      console.error('Error loading businesses:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load business locations. Please try again.",
-        variant: "destructive"
-      });
+      const data = await getBusinessLocationsAction(userId);
+      setBusinesses(data ? data.map(mapDbToBusinessLocation) : []);
+    } catch (err) {
+      console.error('Error loading businesses:', err);
+      toast({ title: 'Error', description: 'Failed to load business locations.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const createBusiness = async (name: string): Promise<BusinessLocation | null> => {
+    if (!userId) return null;
+    try {
+      const result = await createBusinessAction(userId, name);
+      if (!result.success || !result.data) throw new Error(result.error);
+      const newBusiness = mapDbToBusinessLocation(result.data);
+      setBusinesses(prev => [...prev, newBusiness]);
+      toast({ title: 'Success', description: 'Business location created.' });
+      return newBusiness;
+    } catch (err) {
+      console.error('Error creating business:', err);
+      toast({ title: 'Error', description: 'Failed to create business location.', variant: 'destructive' });
+      return null;
+    }
+  };
+
+  const updateBusiness = async (id: string, name: string): Promise<boolean> => {
+    if (!userId) return false;
+    try {
+      const result = await updateBusinessAction(id, userId, name);
+      if (!result.success) throw new Error(result.error);
+      setBusinesses(prev => prev.map(b => b.id === id ? { ...b, name } : b));
+      toast({ title: 'Success', description: 'Business location updated.' });
+      return true;
+    } catch (err) {
+      console.error('Error updating business:', err);
+      toast({ title: 'Error', description: 'Failed to update business location.', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const deleteBusiness = async (id: string): Promise<boolean> => {
+    if (!userId) return false;
+    try {
+      const result = await deleteBusinessAction(id, userId);
+      if (!result.success) throw new Error(result.error);
+      setBusinesses(prev => prev.filter(b => b.id !== id));
+      toast({ title: 'Success', description: 'Business location deleted.' });
+      return true;
+    } catch (err) {
+      console.error('Error deleting business:', err);
+      toast({ title: 'Error', description: 'Failed to delete business location.', variant: 'destructive' });
+      return false;
     }
   };
 
   useEffect(() => {
     loadBusinesses();
   }, [userId]);
-
-  const createBusiness = async (name: string, setAsDefault: boolean = false): Promise<BusinessLocation | null> => {
-    try {
-      if (!userId) return null;
-
-      // If setting as default, first remove default from all existing businesses
-      if (setAsDefault) {
-        await supabase
-          .from('business_locations')
-          .update({ is_default: false })
-          .eq('user_id', userId);
-      }
-
-      const { data, error } = await supabase
-        .from('business_locations')
-        .insert({
-          user_id: userId,
-          name: name,
-          is_default: setAsDefault
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const newBusiness = mapDbBusinessLocationToBusinessLocation(data);
-      await loadBusinesses(); // Reload to get updated list
-      
-      toast({
-        title: "Success",
-        description: `Business location "${name}" created successfully.`
-      });
-
-      return newBusiness;
-    } catch (error) {
-      console.error('Error creating business:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create business location. Please try again.",
-        variant: "destructive"
-      });
-      return null;
-    }
-  };
-
-  const updateBusiness = async (id: string, name: string): Promise<boolean> => {
-    try {
-      if (!userId) return false;
-
-      const { error } = await supabase
-        .from('business_locations')
-        .update({ name })
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw error;
-      }
-
-      await loadBusinesses();
-      
-      toast({
-        title: "Success",
-        description: "Business location updated successfully."
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error updating business:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update business location. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-  };
-
-  const deleteBusiness = async (id: string): Promise<boolean> => {
-    try {
-      if (!userId) return false;
-
-      // Check if this is the default business
-      const businessToDelete = businesses.find(b => b.id === id);
-      if (!businessToDelete) {
-        toast({
-          title: "Error",
-          description: "Business location not found.",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      if (businessToDelete.isDefault) {
-        toast({
-          title: "Cannot Delete",
-          description: "Cannot delete the default business location. Please set another location as default first.",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      // With CASCADE constraints, deleting the business will automatically clean up all associated data
-      const { error } = await supabase
-        .from('business_locations')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw error;
-      }
-
-      await loadBusinesses();
-      
-      toast({
-        title: "Success",
-        description: `Business location "${businessToDelete.name}" and all associated data have been deleted successfully.`
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error deleting business:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete business location. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-  };
-
-  const setDefaultBusiness = async (id: string): Promise<boolean> => {
-    try {
-      if (!userId) return false;
-
-      // First, remove default from all businesses
-      await supabase
-        .from('business_locations')
-        .update({ is_default: false })
-        .eq('user_id', userId);
-
-      // Then set the selected business as default
-      const { error } = await supabase
-        .from('business_locations')
-        .update({ is_default: true })
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw error;
-      }
-
-      await loadBusinesses();
-      
-      const business = businesses.find(b => b.id === id);
-      toast({
-        title: "Success",
-        description: `"${business?.name}" is now the default business location.`
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error setting default business:', error);
-      toast({
-        title: "Error",
-        description: "Failed to set default business location. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-  };
 
   return {
     businesses,
@@ -256,6 +97,5 @@ export const useBusiness = (userId: string | undefined) => {
     createBusiness,
     updateBusiness,
     deleteBusiness,
-    setDefaultBusiness
   };
 };

@@ -1,10 +1,15 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { TaskCategory } from '@/types/task';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
+import {
+  getTaskCategoriesAction,
+  createTaskCategoryAction,
+  updateTaskCategoryAction,
+  deleteTaskCategoryAction,
+  createDefaultTaskCategoriesAction
+} from '@/app/actions/tasks';
 
 export const useTaskCategories = () => {
   const [categories, setCategories] = useState<TaskCategory[]>([]);
@@ -20,16 +25,13 @@ export const useTaskCategories = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('task_categories')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentBusiness.id)
-        .order('name');
+      const result = await getTaskCategoriesAction(user.id, currentBusiness.id);
 
-      if (error) throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch categories');
+      }
 
-      setCategories(data || []);
+      setCategories(result.data as any[]);
     } catch (error) {
       console.error('Error loading task categories:', error);
       toast.error('Failed to load task categories');
@@ -43,21 +45,24 @@ export const useTaskCategories = () => {
     if (!user?.id || !currentBusiness?.id) return null;
 
     try {
-      const { data, error } = await supabase
-        .from('task_categories')
-        .insert({
-          user_id: user.id,
-          location_id: currentBusiness.id,
-          name: name.trim(),
-        })
-        .select()
-        .single();
+      const result = await createTaskCategoryAction(user.id, currentBusiness.id, name.trim());
 
-      if (error) throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error);
+      }
 
-      setCategories(prev => [...prev, data]);
+      const data = result.data as any;
+      const newCategory: TaskCategory = {
+        ...data,
+        user_id: data.userId,
+        location_id: data.locationId,
+        created_at: data.createdAt.toISOString(),
+        updated_at: data.updatedAt.toISOString()
+      };
+
+      setCategories(prev => [...prev, newCategory]);
       toast.success('Category created successfully');
-      return data;
+      return newCategory;
     } catch (error) {
       console.error('Error creating task category:', error);
       toast.error('Failed to create category');
@@ -69,13 +74,9 @@ export const useTaskCategories = () => {
     if (!user?.id) return false;
 
     try {
-      const { error } = await supabase
-        .from('task_categories')
-        .update({ name: name.trim() })
-        .eq('id', id)
-        .eq('user_id', user.id);
+      const result = await updateTaskCategoryAction(id, user.id, name.trim());
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setCategories(prev =>
         prev.map(cat => (cat.id === id ? { ...cat, name: name.trim() } : cat))
@@ -93,13 +94,9 @@ export const useTaskCategories = () => {
     if (!user?.id) return false;
 
     try {
-      const { error } = await supabase
-        .from('task_categories')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+      const result = await deleteTaskCategoryAction(id, user.id);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setCategories(prev => prev.filter(cat => cat.id !== id));
       toast.success('Category deleted successfully');
@@ -114,25 +111,13 @@ export const useTaskCategories = () => {
   const createDefaultCategories = async () => {
     if (!user?.id || !currentBusiness?.id) return;
 
-    const defaultCategories = ['General', 'Marketing', 'Operations', 'Finance', 'Follow-up'];
-    
     try {
-      const categoriesToCreate = defaultCategories.map(name => ({
-        user_id: user.id,
-        location_id: currentBusiness.id,
-        name,
-      }));
+      const result = await createDefaultTaskCategoriesAction(user.id, currentBusiness.id);
 
-      const { data, error } = await supabase
-        .from('task_categories')
-        .insert(categoriesToCreate)
-        .select();
+      if (!result.success) throw new Error(result.error);
 
-      if (error) throw error;
-
-      if (data) {
-        setCategories(prev => [...prev, ...data]);
-      }
+      // Refresh to get the new categories
+      await loadCategories();
     } catch (error) {
       console.error('Error creating default categories:', error);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useProfiles, BusinessRole } from '@/contexts/ProfileContext';
+import { getRolesAction, upsertRoleAction, deleteRoleAction } from '@/app/actions/profiles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,14 +46,8 @@ export const RoleManagement: React.FC = () => {
         if (!currentBusiness?.id) return;
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('business_roles')
-                .select('*')
-                .eq('business_location_id', currentBusiness.id)
-                .order('name');
-
-            if (error) throw error;
-            setRoles((data || []) as unknown as BusinessRole[]);
+            const data = await getRolesAction(currentBusiness.id);
+            setRoles(data as unknown as BusinessRole[]);
         } catch (error) {
             console.error('Error loading roles:', error);
             toast.error('Failed to load roles');
@@ -67,26 +61,18 @@ export const RoleManagement: React.FC = () => {
 
         try {
             const roleData = {
+                id: editingRole.id,
                 business_location_id: currentBusiness.id,
                 name: editingRole.name,
                 description: editingRole.description || null,
                 permissions: editingRole.permissions || {},
             };
 
-            if (editingRole.id) {
-                const { error } = await supabase
-                    .from('business_roles')
-                    .update(roleData)
-                    .eq('id', editingRole.id);
-                if (error) throw error;
-                toast.success('Role updated');
-            } else {
-                const { error } = await supabase
-                    .from('business_roles')
-                    .insert(roleData);
-                if (error) throw error;
-                toast.success('Role created');
-            }
+            const result = await upsertRoleAction(currentBusiness.id, roleData);
+
+            if (!result.success) throw new Error(result.error);
+
+            toast.success(editingRole.id ? 'Role updated' : 'Role created');
 
             setEditingRole(null);
             await loadRoles();
@@ -101,11 +87,8 @@ export const RoleManagement: React.FC = () => {
         if (!confirm('Are you sure you want to delete this role? Profiles assigned to this role will lose their special permissions.')) return;
 
         try {
-            const { error } = await supabase
-                .from('business_roles')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
+            const result = await deleteRoleAction(id);
+            if (!result.success) throw new Error(result.error);
             toast.success('Role deleted');
             await loadRoles();
             await reloadProfiles();

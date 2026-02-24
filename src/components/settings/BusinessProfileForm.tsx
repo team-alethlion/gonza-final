@@ -18,7 +18,7 @@ const BUSINESS_SIZES = [
 
 interface BusinessProfileFormProps {
   settings: BusinessSettings;
-  onSettingsChange: (e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: any } }) => void;
+  onSettingsChange: (e: any) => void;
   onLogoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 

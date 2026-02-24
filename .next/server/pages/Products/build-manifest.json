@@ -1,0 +1,30 @@
+{
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [],
+  "pages": {
+    "/Products": [
+      "static/chunks/0c7e7a3c8879da76.js",
+      "static/chunks/d74e24cdd52a1b1d.js",
+      "static/chunks/79638d6134dc386a.js",
+      "static/chunks/a89acb2d272b485b.js",
+      "static/chunks/ef51d8e2ce9c9d94.js",
+      "static/chunks/0d22156200cb1352.js",
+      "static/chunks/054d90b6f5904a61.js",
+      "static/chunks/5c0d21c4642c567f.js",
+      "static/chunks/ec8b61db5f993a9e.js",
+      "static/chunks/203653d2c1616873.js",
+      "static/chunks/1ba490cb7df6c97d.js",
+      "static/chunks/e27b932a0aa32323.js",
+      "static/chunks/91d99dba36e06cbd.js",
+      "static/chunks/f3c19e7ec015015e.js",
+      "static/chunks/f4fe19d968fba506.js",
+      "static/chunks/6eaf0f61f8c940dc.js",
+      "static/chunks/3b1a658302fec08c.js",
+      "static/chunks/turbopack-77d772786ba5bebe.js"
+    ]
+  },
+  "ampFirstPages": []
+}

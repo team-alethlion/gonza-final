@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import { getActivityByEntityIdsAction, updateStockHistoryDatesAction } from '@/app/actions/inventory';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,41 +106,16 @@ const StockInputHistory = () => {
 
       setIsScavenging(true);
       try {
-        const { data: activityData, error: activityError } = await (supabase as any)
-          .from('activity_history')
-          .select('entity_id, entity_name, metadata')
-          .in('entity_id', missingProductIds);
-
+        // Fetch entity names from activity history via server action
+        const result = await getActivityByEntityIdsAction(missingProductIds);
         const newNames: Record<string, string> = { ...scavengedNames };
 
-        if (!activityError && activityData) {
-          activityData.forEach((item: any) => {
-            if (item.entity_id && item.entity_name && !newNames[item.entity_id]) {
-              newNames[item.entity_id] = item.entity_name;
+        if (result.success && result.data) {
+          result.data.forEach((item: any) => {
+            if (item.entityId && item.entityName && !newNames[item.entityId]) {
+              newNames[item.entityId] = item.entityName;
             }
           });
-        }
-
-        const stillMissing = missingProductIds.filter(id => !newNames[id]);
-        if (stillMissing.length > 0) {
-          const { data: salesData } = await (supabase as any)
-            .from('sales')
-            .select('items')
-            .limit(100)
-            .order('created_at', { ascending: false });
-
-          if (salesData) {
-            (salesData as any[]).forEach((sale: any) => {
-              const items = sale.items as any[];
-              if (Array.isArray(items)) {
-                items.forEach(item => {
-                  if (item.productId && stillMissing.includes(item.productId) && item.description) {
-                    newNames[item.productId] = item.description;
-                  }
-                });
-              }
-            });
-          }
         }
 
         if (Object.keys(newNames).length > Object.keys(scavengedNames).length) {
@@ -447,18 +422,11 @@ const StockInputHistory = () => {
     const productIds = Array.from(new Set(editGroupDateDialog.group.entries.map(e => e.productId)));
 
     try {
-      // Update created_at for all entries in the group
-      const { error: updateError } = await supabase
-        .from('stock_history')
-        .update({ created_at: newDate.toISOString() })
-        .in('id', entryIds);
+      const result = await updateStockHistoryDatesAction(entryIds, newDate.toISOString());
+      if (!result.success) throw new Error(result.error);
 
-      if (updateError) throw updateError;
-
-      // Recalculate stock for all affected products
       await Promise.all(productIds.map(id => recalculateProductStock(id)));
 
-      // Refresh data
       clearAllLocationCaches();
       await Promise.all([
         loadStockHistory(),

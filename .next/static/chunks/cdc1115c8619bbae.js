@@ -1,0 +1,11 @@
+__turbopack_load_page_chunks__("/DeletePersonalData", [
+  "static/chunks/67777686762f2a1e.js",
+  "static/chunks/54059f51ef515662.js",
+  "static/chunks/2e3152dd202b78ce.js",
+  "static/chunks/f3c19e7ec015015e.js",
+  "static/chunks/ef51d8e2ce9c9d94.js",
+  "static/chunks/d308c35557bf7137.js",
+  "static/chunks/167328af80058a04.js",
+  "static/chunks/6eaf0f61f8c940dc.js",
+  "static/chunks/turbopack-2beacbf0d65c4209.js"
+])

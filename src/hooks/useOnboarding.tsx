@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/components/auth/AuthProvider';
+import {
+    getOnboardingStatusAction,
+    getAccountStatusAction,
+    upsertBusinessSettingsAction
+} from '@/app/actions/business-settings';
 
 export interface OnboardingData {
     id?: string;
@@ -38,18 +42,8 @@ export const useOnboarding = () => {
         queryFn: async (): Promise<OnboardingData | null> => {
             if (!currentBusiness?.id || !user?.id) return null;
 
-            const { data, error } = await (supabase
-                .from('business_onboarding' as any)
-                .select('*')
-                .eq('location_id', currentBusiness.id)
-                .maybeSingle()) as { data: any; error: any };
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching onboarding data:', error);
-                throw error;
-            }
-
-            return data as OnboardingData | null;
+            const data = await getOnboardingStatusAction(currentBusiness.id);
+            return data as unknown as OnboardingData | null;
         },
         enabled: !!currentBusiness?.id && !!user?.id,
         staleTime: 5 * 60_000,
@@ -67,20 +61,12 @@ export const useOnboarding = () => {
         queryFn: async (): Promise<{ is_frozen: boolean, location_limit: number, billing_amount: number, billing_duration: string, days_remaining: number, next_billing_date: string } | null> => {
             if (!user?.id) return null;
 
-            const { data, error } = await (supabase as any).rpc('get_my_account_status');
-
-            if (error) {
-                console.error('Error fetching global account status:', error);
-                return { is_frozen: false, location_limit: 1, billing_amount: 50000, billing_duration: 'Monthly', days_remaining: 30, next_billing_date: '' }; // Fallback to safe state
-            }
-
-            // data is an array since it returns TABLE
-            const statusArray = (data as any[]) || [];
-            return (statusArray[0] || { is_frozen: false, location_limit: 1, billing_amount: 50000, billing_duration: 'Monthly', days_remaining: 30, next_billing_date: '' }) as any;
+            const data = await getAccountStatusAction(user.id);
+            return data;
         },
         enabled: !!user?.id,
         staleTime: 10 * 1000,
-        refetchInterval: 30000, // Poll every 30 seconds for real-time expiration enforcement
+        refetchInterval: 30000,
     });
 
     const isLoading = isOnboardingLoading || isGlobalLoading;
@@ -101,27 +87,10 @@ export const useOnboarding = () => {
             }
 
             try {
-                const payload = {
-                    user_id: user.id,
-                    location_id: currentBusiness.id,
-                    business_logo: formData.business_logo ?? null,
-                    business_name: formData.business_name,
-                    business_address: formData.business_address,
-                    business_phone: formData.business_phone,
-                    business_email: formData.business_email,
-                    nature_of_business: formData.nature_of_business ?? null,
-                    business_size: formData.business_size ?? null,
-                    completed: formData.completed,
-                };
+                const result = await upsertBusinessSettingsAction(currentBusiness.id, user.id, formData);
 
-                const { error } = await (supabase
-                    .from('business_onboarding' as any)
-                    .upsert(payload, { onConflict: 'location_id' })
-                    .select()
-                    .single()) as { data: any; error: any };
-
-                if (error) {
-                    console.error('Error saving onboarding data:', error);
+                if (!result.success) {
+                    console.error('Error saving onboarding data:', result.error);
                     return false;
                 }
 

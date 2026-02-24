@@ -1,16 +1,19 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Sale } from '@/types';
 
 export const useSalesActions = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [isDeletingSale, setIsDeletingSale] = useState(false);
 
   const handleEditSale = useCallback((sale: Sale) => {
-    navigate('/new-sale', { state: { editSale: sale } });
-  }, [navigate]);
+    // Next.js params will be handled differently perhaps, but router.push does not take state object easily.
+    // Assuming edit goes to new-sale page, but new-sale usually uses id param instead of passing the whole object
+    // For now we push to /new-sale?editId=${sale.id} or similar.
+    router.push(`/new-sale?editId=${sale.id}`);
+  }, [router]);
 
   const handleViewReceipt = useCallback((sale: Sale) => {
     setSelectedSale(sale);

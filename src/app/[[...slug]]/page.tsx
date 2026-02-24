@@ -29,7 +29,6 @@ const Sales = lazy(() => import("@/pages/Sales"));
 const NewSale = lazy(() => import("@/pages/NewSale"));
 const Expenses = lazy(() => import("@/pages/Expenses"));
 const Inventory = lazy(() => import("@/pages/Inventory"));
-const Customers = lazy(() => import("@/pages/Customers"));
 const Cash = lazy(() => import("@/pages/Cash"));
 
 // 🛠️ Secondary feature routes
@@ -42,14 +41,10 @@ const StockReconciliationPage = lazy(() => import("@/pages/StockReconciliationPa
 const CashAccount = lazy(() => import("@/pages/CashAccount"));
 const Messages = lazy(() => import("@/pages/Messages"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
-const Profiles = lazy(() => import("@/pages/Profiles"));
 const HistoryPage = lazy(() => import("@/pages/History"));
-const BillingHistory = lazy(() => import("@/pages/BillingHistory"));
 
 // ⚙️ Settings and utility routes
 const BusinessSettings = lazy(() => import("@/components/BusinessSettings"));
-const BusinessManagement = lazy(() => import("@/pages/BusinessManagement"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const PaymentCallback = lazy(() => import("@/pages/PaymentCallback"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const DeletePersonalData = lazy(() => import("@/pages/DeletePersonalData"));
@@ -85,7 +80,7 @@ const AuthenticatedApp = () => {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
-  
+
   useSaleNotifications();
 
   const handleRefresh = () => {
@@ -139,7 +134,6 @@ const AuthenticatedApp = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/delete-personal-data" element={<DeletePersonalData />} />
           <Route path="/payment-callback" element={<PaymentCallback />} />
@@ -157,7 +151,6 @@ const AuthenticatedApp = () => {
           <Routes>
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/signup" element={<Navigate to="/" replace />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/delete-personal-data" element={<DeletePersonalData />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route
@@ -174,7 +167,6 @@ const AuthenticatedApp = () => {
               <Route path="/new-sale" element={<NewSale />} />
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/settings" element={<BusinessSettings />} />
-              <Route path="/business-management" element={<BusinessManagement />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               {/* Inventory routes - specific routes first, then dynamic routes */}
               <Route path="/inventory" element={<Inventory />} />
@@ -188,16 +180,11 @@ const AuthenticatedApp = () => {
               {/* Cash routes */}
               <Route path="/cash" element={<Cash />} />
               <Route path="/cash/:accountId" element={<CashAccount />} />
-              {/* Customers route */}
-              <Route path="/customers" element={<Customers />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/payment-callback" element={<PaymentCallback />} />
-              {/* Profiles route */}
-              <Route path="/profiles" element={<Profiles />} />
               {/* Tasks route */}
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/history" element={<HistoryPage />} />
-              <Route path="/billing" element={<BillingHistory />} />
               {/* Help route */}
               <Route path="/help" element={<Help />} />
               <Route path="*" element={<NotFound />} />
@@ -212,7 +199,7 @@ const AuthenticatedApp = () => {
 // The App component with corrected provider ordering
 function App() {
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);

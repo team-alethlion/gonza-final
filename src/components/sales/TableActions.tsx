@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { FileDown, FileText, Plus } from 'lucide-react';
 import { exportToCSV } from '@/utils/exportToCSV';
@@ -28,7 +28,7 @@ const TableActions: React.FC<TableActionsProps> = ({
   dateRange,
   specificDate
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
   const { settings } = useBusinessSettings();
   const { hasPermission } = useProfiles();
@@ -146,7 +146,7 @@ const TableActions: React.FC<TableActionsProps> = ({
       </div>
       {hasPermission('sales', 'create') && (
         <Button
-          onClick={() => navigate('/new-sale')}
+          onClick={() => router.push('/new-sale')}
           size="lg"
           className="w-full gap-2 h-12 text-sm font-medium"
         >

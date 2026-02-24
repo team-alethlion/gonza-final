@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
 
 const EmptySalesState: React.FC = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   return (
     <div className="text-center py-12 bg-white rounded-lg shadow-md p-8">
@@ -17,7 +17,7 @@ const EmptySalesState: React.FC = () => {
         <p className="text-gray-500 mb-4">
           Create your first sale to start tracking your business performance
         </p>
-        <Button onClick={() => navigate('/new-sale')} className="mt-2">
+        <Button onClick={() => router.push('/new-sale')} className="mt-2">
           Create Your First Sale
         </Button>
       </div>

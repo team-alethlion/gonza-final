@@ -1,0 +1,8 @@
+__turbopack_load_page_chunks__("/PaymentCallback", [
+  "static/chunks/2639d319d7bde48a.js",
+  "static/chunks/23e1a808d01437aa.js",
+  "static/chunks/6eaf0f61f8c940dc.js",
+  "static/chunks/ef51d8e2ce9c9d94.js",
+  "static/chunks/f3c19e7ec015015e.js",
+  "static/chunks/turbopack-1967fc1fde1072a9.js"
+])

@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getRequisitionsAction,
+  createRequisitionAction,
+  updateRequisitionAction,
+  deleteRequisitionAction
+} from '@/app/actions/inventory';
 
 export interface Requisition {
   id: string;
@@ -23,34 +28,6 @@ export interface RequisitionItem {
   urgentItem?: boolean;
 }
 
-export interface DbRequisition {
-  id: string;
-  user_id: string;
-  location_id: string;
-  requisition_number: string;
-  title: string;
-  items: any;
-  notes: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-const mapDbRequisitionToRequisition = (dbRequisition: DbRequisition): Requisition => {
-  return {
-    id: dbRequisition.id,
-    userId: dbRequisition.user_id,
-    locationId: dbRequisition.location_id,
-    requisitionNumber: dbRequisition.requisition_number,
-    title: dbRequisition.title,
-    items: dbRequisition.items as RequisitionItem[],
-    notes: dbRequisition.notes,
-    status: dbRequisition.status as 'draft' | 'submitted' | 'approved' | 'completed',
-    createdAt: new Date(dbRequisition.created_at),
-    updatedAt: new Date(dbRequisition.updated_at)
-  };
-};
-
 export const useRequisitions = (userId: string | undefined, locationId: string | undefined) => {
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,19 +42,16 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
 
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('requisitions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('location_id', locationId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      const result = await getRequisitionsAction(userId, locationId);
+      if (result.success && result.data) {
+        setRequisitions(result.data.map((req: any) => ({
+          ...req,
+          createdAt: new Date(req.createdAt),
+          updatedAt: new Date(req.updatedAt)
+        })));
+      } else {
+        throw new Error(result.error);
       }
-
-      const formattedRequisitions = data ? data.map(mapDbRequisitionToRequisition) : [];
-      setRequisitions(formattedRequisitions);
     } catch (error) {
       console.error('Error loading requisitions:', error);
       toast({
@@ -104,27 +78,29 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     try {
       const requisitionNumber = generateRequisitionNumber();
 
-      const { data, error } = await supabase
-        .from('requisitions')
-        .insert({
-          user_id: userId,
-          location_id: locationId,
-          requisition_number: requisitionNumber,
-          title: title,
-          items: items as any,
-          notes: notes || null,
-          status: 'draft'
-        })
-        .select()
-        .single();
+      const result = await createRequisitionAction({
+        userId,
+        locationId,
+        requisitionNumber,
+        title,
+        items,
+        notes: notes || null,
+        status: 'draft'
+      });
 
-      if (error) {
-        throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error);
       }
 
-      const newRequisition = mapDbRequisitionToRequisition(data);
+      const data = result.data;
+      const newRequisition: Requisition = {
+        ...data,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt)
+      };
+
       setRequisitions(prev => [newRequisition, ...prev]);
-      
+
       toast({
         title: "Requisition created",
         description: `Requisition ${requisitionNumber} has been created successfully.`
@@ -154,25 +130,21 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     if (!userId) return false;
 
     try {
-      const { data, error } = await supabase
-        .from('requisitions')
-        .update({
-          ...updates,
-          items: updates.items as any,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
+      const result = await updateRequisitionAction(id, userId, updates);
 
-      if (error) {
-        throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error);
       }
 
-      const updatedRequisition = mapDbRequisitionToRequisition(data);
+      const data = result.data;
+      const updatedRequisition: Requisition = {
+        ...data,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt)
+      };
+
       setRequisitions(prev => prev.map(req => req.id === id ? updatedRequisition : req));
-      
+
       toast({
         title: "Requisition updated",
         description: "Requisition has been updated successfully."
@@ -194,18 +166,14 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     if (!userId) return false;
 
     try {
-      const { error } = await supabase
-        .from('requisitions')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
+      const result = await deleteRequisitionAction(id, userId);
 
-      if (error) {
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       setRequisitions(prev => prev.filter(req => req.id !== id));
-      
+
       toast({
         title: "Requisition deleted",
         description: "Requisition has been deleted successfully."

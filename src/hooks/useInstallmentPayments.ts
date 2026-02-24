@@ -1,6 +1,14 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  getInstallmentPaymentsAction,
+  createInstallmentPaymentAction,
+  updateInstallmentPaymentAction,
+  deleteInstallmentPaymentAction,
+  linkInstallmentToCashAction,
+  unlinkInstallmentFromCashAction
+} from '@/app/actions/finance';
 
 export interface InstallmentPayment {
   id: string;
@@ -18,29 +26,21 @@ export const useInstallmentPayments = (saleId?: string) => {
   const [payments, setPayments] = useState<InstallmentPayment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const fetchPayments = async (targetSaleId: string) => {
+  const fetchPayments = useCallback(async (targetSaleId: string) => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('installment_payments')
-        .select('*')
-        .eq('sale_id', targetSaleId)
-        .order('payment_date', { ascending: false });
+      const result = await getInstallmentPaymentsAction(targetSaleId);
 
-      if (error) throw error;
+      if (!result.success || !result.data) throw new Error(result.error);
 
-      const formattedPayments: InstallmentPayment[] = data?.map(payment => ({
-        id: payment.id,
-        saleId: payment.sale_id,
-        userId: payment.user_id,
-        amount: Number(payment.amount),
-        paymentDate: new Date(payment.payment_date),
-        notes: payment.notes || undefined,
-        cashTransactionId: payment.cash_transaction_id || undefined,
-        createdAt: new Date(payment.created_at),
-        updatedAt: new Date(payment.updated_at)
-      })) || [];
+      const formattedPayments: InstallmentPayment[] = result.data.map((payment: any) => ({
+        ...payment,
+        paymentDate: new Date(payment.paymentDate),
+        createdAt: new Date(payment.createdAt),
+        updatedAt: new Date(payment.updatedAt)
+      }));
 
       setPayments(formattedPayments);
     } catch (error) {
@@ -53,123 +53,32 @@ export const useInstallmentPayments = (saleId?: string) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const createCashTransactionForPayment = async (payment: {
-    amount: number;
-    description: string;
-    date: Date;
-    accountId: string;
-    locationId: string;
-  }) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('cash_transactions')
-        .insert({
-          user_id: userData.user.id,
-          account_id: payment.accountId,
-          location_id: payment.locationId,
-          amount: payment.amount,
-          transaction_type: 'cash_in',
-          category: 'Installment payment',
-          description: payment.description,
-          date: payment.date.toISOString().split('T')[0],
-          person_in_charge: '',
-          tags: [],
-          payment_method: '',
-          receipt_image: ''
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data.id;
-    } catch (error) {
-      console.error('Error creating cash transaction:', error);
-      return null;
-    }
-  };
+  }, [toast]);
 
   const createPayment = async (payment: {
     saleId: string;
     amount: number;
     notes?: string;
     accountId?: string;
-    saleDescription?: string;
     locationId?: string;
     paymentDate?: Date;
   }) => {
+    if (!user) return null;
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
+      const result = await createInstallmentPaymentAction({
+        ...payment,
+        userId: user.id,
+        paymentDate: payment.paymentDate?.toISOString()
+      });
 
-      // Count existing payments to determine if this is the first payment
-      const { data: existingPayments, error: countError } = await supabase
-        .from('installment_payments')
-        .select('id')
-        .eq('sale_id', payment.saleId);
-
-      if (countError) throw countError;
-
-      // Determine the note based on payment count
-      const isFirstPayment = !existingPayments || existingPayments.length === 0;
-      const automaticNote = isFirstPayment ? 'Initial payment' : 'Payment update';
-      
-      // Use provided notes or automatic note
-      const finalNotes = payment.notes || automaticNote;
-
-      let cashTransactionId = null;
-
-      // Create cash transaction if account ID and location ID are provided
-      if (payment.accountId && payment.locationId) {
-        // Get sale details for better description
-        const { data: saleData } = await supabase
-          .from('sales')
-          .select('customer_name, receipt_number')
-          .eq('id', payment.saleId)
-          .single();
-        
-        const description = saleData 
-          ? `Installment payment for ${saleData.customer_name} - Receipt #${saleData.receipt_number}`
-          : `Installment payment for sale`;
-          
-        cashTransactionId = await createCashTransactionForPayment({
-          amount: payment.amount,
-          description: description,
-          date: payment.paymentDate || new Date(),
-          accountId: payment.accountId,
-          locationId: payment.locationId
-        });
-      }
-
-      const { data, error } = await supabase
-        .from('installment_payments')
-        .insert({
-          sale_id: payment.saleId,
-          user_id: userData.user.id,
-          amount: payment.amount,
-          notes: finalNotes,
-          cash_transaction_id: cashTransactionId,
-          payment_date: payment.paymentDate?.toISOString() || new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (!result.success || !result.data) throw new Error(result.error);
 
       const newPayment: InstallmentPayment = {
-        id: data.id,
-        saleId: data.sale_id,
-        userId: data.user_id,
-        amount: Number(data.amount),
-        paymentDate: new Date(data.payment_date),
-        notes: data.notes || undefined,
-        cashTransactionId: data.cash_transaction_id || undefined,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
+        ...result.data,
+        paymentDate: new Date(result.data.paymentDate),
+        createdAt: new Date(result.data.createdAt),
+        updatedAt: new Date(result.data.updatedAt)
       };
 
       setPayments(prev => [newPayment, ...prev]);
@@ -191,53 +100,18 @@ export const useInstallmentPayments = (saleId?: string) => {
     paymentDate?: Date;
   }) => {
     try {
-      const payment = payments.find(p => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
+      const result = await updateInstallmentPaymentAction(paymentId, {
+        ...updates,
+        paymentDate: updates.paymentDate?.toISOString()
+      });
 
-      // Prepare update data
-      const updateData: any = {};
-      if (updates.amount !== undefined) updateData.amount = updates.amount;
-      if (updates.notes !== undefined) updateData.notes = updates.notes;
-      if (updates.paymentDate !== undefined) updateData.payment_date = updates.paymentDate.toISOString();
-
-      // Update installment payment
-      const { data, error } = await supabase
-        .from('installment_payments')
-        .update(updateData)
-        .eq('id', paymentId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update associated cash transaction if it exists
-      if (payment.cashTransactionId) {
-        const cashUpdateData: any = {};
-        if (updates.amount !== undefined) cashUpdateData.amount = updates.amount;
-        if (updates.paymentDate !== undefined) cashUpdateData.date = updates.paymentDate.toISOString().split('T')[0];
-
-        if (Object.keys(cashUpdateData).length > 0) {
-          const { error: cashError } = await supabase
-            .from('cash_transactions')
-            .update(cashUpdateData)
-            .eq('id', payment.cashTransactionId);
-
-          if (cashError) {
-            console.error('Error updating cash transaction:', cashError);
-          }
-        }
-      }
+      if (!result.success || !result.data) throw new Error(result.error);
 
       const updatedPayment: InstallmentPayment = {
-        id: data.id,
-        saleId: data.sale_id,
-        userId: data.user_id,
-        amount: Number(data.amount),
-        paymentDate: new Date(data.payment_date),
-        notes: data.notes || undefined,
-        cashTransactionId: data.cash_transaction_id || undefined,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
+        ...result.data,
+        paymentDate: new Date(result.data.paymentDate),
+        createdAt: new Date(result.data.createdAt),
+        updatedAt: new Date(result.data.updatedAt)
       };
 
       setPayments(prev => prev.map(p => p.id === paymentId ? updatedPayment : p));
@@ -246,11 +120,11 @@ export const useInstallmentPayments = (saleId?: string) => {
         description: "Payment updated successfully",
       });
       return updatedPayment;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating payment:', error);
       toast({
         title: "Error",
-        description: "Failed to update payment",
+        description: error.message || "Failed to update payment",
         variant: "destructive"
       });
       return null;
@@ -259,34 +133,15 @@ export const useInstallmentPayments = (saleId?: string) => {
 
   const deletePayment = async (paymentId: string) => {
     try {
-      const payment = payments.find(p => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
-
-      // Delete associated cash transaction first if it exists
-      if (payment.cashTransactionId) {
-        const { error: cashError } = await supabase
-          .from('cash_transactions')
-          .delete()
-          .eq('id', payment.cashTransactionId);
-
-        if (cashError) {
-          console.error('Error deleting cash transaction:', cashError);
-        }
-      }
-
-      // Delete installment payment
-      const { error } = await supabase
-        .from('installment_payments')
-        .delete()
-        .eq('id', paymentId);
-
-      if (error) throw error;
+      const result = await deleteInstallmentPaymentAction(paymentId);
+      if (!result.success) throw new Error(result.error);
 
       setPayments(prev => prev.filter(p => p.id !== paymentId));
       toast({
         title: "Success",
         description: "Payment deleted successfully",
       });
+      return true;
     } catch (error) {
       console.error('Error deleting payment:', error);
       toast({
@@ -294,64 +149,19 @@ export const useInstallmentPayments = (saleId?: string) => {
         description: "Failed to delete payment",
         variant: "destructive"
       });
+      return false;
     }
   };
 
-  const linkPaymentToCashAccount = async (paymentId: string, accountId: string) => {
+  const linkPaymentToCashAccount = async (paymentId: string, accountId: string, locationId: string) => {
+    if (!user) return;
     try {
-      const payment = payments.find(p => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
-      
-      if (payment.cashTransactionId) {
-        throw new Error('Payment is already linked to a cash account');
-      }
+      const result = await linkInstallmentToCashAction(paymentId, accountId, locationId, user.id);
+      if (!result.success || !result.data) throw new Error(result.error);
 
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('User not authenticated');
-
-      // Get account info for location_id
-      const { data: accountData, error: accountError } = await supabase
-        .from('cash_accounts')
-        .select('location_id')
-        .eq('id', accountId)
-        .single();
-
-      if (accountError) throw accountError;
-
-      // Get sale details for better description
-      const { data: saleData } = await supabase
-        .from('sales')
-        .select('customer_name, receipt_number')
-        .eq('id', payment.saleId)
-        .single();
-
-      const description = saleData 
-        ? `Installment payment for ${saleData.customer_name} - Receipt #${saleData.receipt_number}`
-        : `Installment payment #${payment.id.substring(0, 8)}`;
-
-      // Create cash transaction
-      const cashTransactionId = await createCashTransactionForPayment({
-        amount: payment.amount,
-        description: description,
-        date: payment.paymentDate,
-        accountId,
-        locationId: accountData.location_id
-      });
-
-      if (!cashTransactionId) throw new Error('Failed to create cash transaction');
-
-      // Update payment with cash transaction ID
-      const { error: updateError } = await supabase
-        .from('installment_payments')
-        .update({ cash_transaction_id: cashTransactionId })
-        .eq('id', paymentId);
-
-      if (updateError) throw updateError;
-
-      // Update local state
-      setPayments(prev => prev.map(p => 
-        p.id === paymentId 
-          ? { ...p, cashTransactionId }
+      setPayments(prev => prev.map(p =>
+        p.id === paymentId
+          ? { ...p, cashTransactionId: result.data.id }
           : p
       ));
 
@@ -359,45 +169,23 @@ export const useInstallmentPayments = (saleId?: string) => {
         title: "Success",
         description: "Payment linked to cash account successfully",
       });
-    } catch (error) {
-      console.error('Error linking payment to cash account:', error);
+    } catch (error: any) {
+      console.error('Error linking payment:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to link payment to cash account",
+        description: error.message || "Failed to link payment",
         variant: "destructive"
       });
-      throw error;
     }
   };
 
   const unlinkPaymentFromCashAccount = async (paymentId: string) => {
     try {
-      const payment = payments.find(p => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
-      
-      if (!payment.cashTransactionId) {
-        throw new Error('Payment is not linked to a cash account');
-      }
+      const result = await unlinkInstallmentFromCashAction(paymentId);
+      if (!result.success) throw new Error(result.error);
 
-      // Delete cash transaction
-      const { error: cashError } = await supabase
-        .from('cash_transactions')
-        .delete()
-        .eq('id', payment.cashTransactionId);
-
-      if (cashError) throw cashError;
-
-      // Update payment to remove cash transaction ID
-      const { error: updateError } = await supabase
-        .from('installment_payments')
-        .update({ cash_transaction_id: null })
-        .eq('id', paymentId);
-
-      if (updateError) throw updateError;
-
-      // Update local state
-      setPayments(prev => prev.map(p => 
-        p.id === paymentId 
+      setPayments(prev => prev.map(p =>
+        p.id === paymentId
           ? { ...p, cashTransactionId: undefined }
           : p
       ));
@@ -406,14 +194,13 @@ export const useInstallmentPayments = (saleId?: string) => {
         title: "Success",
         description: "Payment unlinked from cash account successfully",
       });
-    } catch (error) {
-      console.error('Error unlinking payment from cash account:', error);
+    } catch (error: any) {
+      console.error('Error unlinking payment:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to unlink payment from cash account",
+        description: error.message || "Failed to unlink payment",
         variant: "destructive"
       });
-      throw error;
     }
   };
 
@@ -421,7 +208,7 @@ export const useInstallmentPayments = (saleId?: string) => {
     if (saleId) {
       fetchPayments(saleId);
     }
-  }, [saleId]);
+  }, [saleId, fetchPayments]);
 
   return {
     payments,

@@ -1,20 +1,20 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useCashTransactions } from '@/hooks/useCashTransactions';
+import { findCashTransactionAction } from '@/app/actions/finance';
 
 export const useCashTransactionOperations = () => {
-  const { 
-    createTransaction: createCashTransaction, 
-    updateTransaction: updateCashTransaction, 
-    deleteTransaction: deleteCashTransaction 
+  const {
+    createTransaction: createCashTransaction,
+    updateTransaction: updateCashTransaction,
+    deleteTransaction: deleteCashTransaction
   } = useCashTransactions();
 
   const createCashTransactionForSale = useCallback(async (
-    sale: any, 
-    amount: number, 
-    linkToCash: boolean, 
-    selectedCashAccountId: string, 
+    sale: any,
+    amount: number,
+    linkToCash: boolean,
+    selectedCashAccountId: string,
     selectedDate: Date,
     paymentStatus: string
   ) => {
@@ -23,9 +23,8 @@ export const useCashTransactionOperations = () => {
     }
 
     try {
-      console.log('Sale object for cash transaction:', sale);
       const description = `Sale to ${sale.customerName || sale.customer_name || 'Customer'} - Receipt #${sale.receiptNumber || sale.receipt_number || 'N/A'}`;
-      
+
       const cashTransaction = await createCashTransaction({
         accountId: selectedCashAccountId,
         amount: amount,
@@ -58,22 +57,11 @@ export const useCashTransactionOperations = () => {
     selectedDate: Date
   ) => {
     try {
-      console.log('updateCashTransactionForSale called with:', {
-        cashTransactionId,
-        linkToCash,
-        paymentStatus,
-        selectedCashAccountId: selectedCashAccountId || 'EMPTY',
-        amount
-      });
-
       const description = `Sale to ${sale.customerName || sale.customer_name || 'Customer'} - Receipt #${sale.receiptNumber || sale.receipt_number || 'N/A'}`;
-      
-      // Validate selectedCashAccountId is not empty when linking to cash
+
       const validCashAccountId = selectedCashAccountId && selectedCashAccountId.trim() !== '';
-      
-      // If no existing cash transaction but user wants to link to cash account
+
       if (!cashTransactionId && linkToCash && paymentStatus === 'Paid' && validCashAccountId) {
-        console.log('Creating new cash transaction for sale update');
         const cashTransaction = await createCashTransaction({
           accountId: selectedCashAccountId,
           amount: amount,
@@ -86,25 +74,19 @@ export const useCashTransactionOperations = () => {
           paymentMethod: '',
           receiptImage: ''
         });
-        console.log('Created cash transaction:', cashTransaction?.id);
         return cashTransaction?.id || null;
       }
-      
-      // If no existing cash transaction and not linking to cash, return null
+
       if (!cashTransactionId) {
-        console.log('No cash transaction to update, returning null');
         return null;
       }
-      
-      // Handle existing cash transaction
+
       if (originalPaymentStatus === 'Paid' && paymentStatus === 'Installment Sale') {
-        console.log('Deleting cash transaction due to status change to Installment Sale');
         await deleteCashTransaction(cashTransactionId);
         return null;
       }
-      
+
       if (linkToCash && paymentStatus === 'Paid' && validCashAccountId) {
-        console.log('Updating existing cash transaction');
         await updateCashTransaction(cashTransactionId, {
           amount: amount,
           category: 'Cash sale',
@@ -113,7 +95,6 @@ export const useCashTransactionOperations = () => {
         });
         return cashTransactionId;
       } else {
-        console.log('Deleting cash transaction - not linking to cash or not paid');
         await deleteCashTransaction(cashTransactionId);
         return null;
       }
@@ -148,7 +129,6 @@ export const useCashTransactionOperations = () => {
       saleId,
       amount,
       accountId: selectedCashAccountId,
-      saleDescription,
       locationId,
       date: new Date()
     });
@@ -156,14 +136,9 @@ export const useCashTransactionOperations = () => {
 
   const findCashTransactionForSale = useCallback(async (cashTransactionId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('cash_transactions')
-        .select('account_id')
-        .eq('id', cashTransactionId)
-        .single();
-      
-      if (!error && data) {
-        return data.account_id;
+      const result = await findCashTransactionAction(cashTransactionId);
+      if (result.success && result.data) {
+        return result.data.accountId;
       }
     } catch (error) {
       console.error('Error finding cash transaction:', error);

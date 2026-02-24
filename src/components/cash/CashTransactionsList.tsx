@@ -35,7 +35,7 @@ const CashTransactionsList: React.FC<CashTransactionsListProps> = ({
   onViewTransaction,
   onTransactionDeleted
 }) => {
-  const { deleteTransaction, transactions: allTransactions } = useCashTransactions(accountId);
+  const { deleteTransaction, transactions: allTransactions } = useCashTransactions(accountId || undefined);
   const { accounts } = useCashAccounts();
   const { settings } = useBusinessSettings();
   const { hasPermission } = useProfiles();

@@ -14,7 +14,6 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import {
     Building2,
@@ -62,8 +61,6 @@ const Onboarding = () => {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // ── Hooks must be called unconditionally at the top ──
-
     // Redirect if already completed
     useEffect(() => {
         if (!onboardingLoading && isCompleted) {
@@ -72,7 +69,7 @@ const Onboarding = () => {
         }
     }, [onboardingLoading, isCompleted, navigate]);
 
-    // Auto-fill form from existing business_settings once loaded
+    // Auto-fill form from existing settings once loaded
     useEffect(() => {
         if (settingsLoading || !settings) return;
         setForm((prev) => ({
@@ -102,8 +99,6 @@ const Onboarding = () => {
         const file = e.dataTransfer.files?.[0];
         if (file) processImageFile(file);
     }, [processImageFile]);
-
-    // ── Early return only AFTER all hooks are declared ──
 
     if (onboardingLoading || settingsLoading) {
         return (
@@ -144,19 +139,9 @@ const Onboarding = () => {
     };
 
     const uploadLogo = async (): Promise<string | null> => {
-        if (!logoFile || !user?.id) return null;
-        try {
-            const ext = logoFile.name.split('.').pop();
-            const path = `${user.id}/business-logo.${ext}`;
-            const { error } = await supabase.storage
-                .from('business-logos')
-                .upload(path, logoFile, { upsert: true });
-            if (error) return logoPreview;
-            const { data } = supabase.storage.from('business-logos').getPublicUrl(path);
-            return data.publicUrl;
-        } catch {
-            return logoPreview;
-        }
+        // Mock image upload for now – in a real app this would call a server action
+        console.warn('Logo upload placeholder – integration with Prisma server action required');
+        return logoPreview;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -164,7 +149,7 @@ const Onboarding = () => {
         if (!validate()) return;
         setSaving(true);
         try {
-            const logoUrl = logoFile ? await uploadLogo() : null;
+            const logoUrl = logoFile ? await uploadLogo() : logoPreview;
 
             const saved = await saveOnboarding({
                 business_logo: logoUrl ?? undefined,
@@ -174,7 +159,6 @@ const Onboarding = () => {
                 business_email: form.businessEmail.trim(),
                 nature_of_business: form.natureOfBusiness.trim() || undefined,
                 business_size: form.businessSize || undefined,
-                is_frozen: onboarding?.is_frozen ?? false,
                 completed: true,
             });
 
@@ -200,23 +184,13 @@ const Onboarding = () => {
 
     return (
         <div className="min-h-screen bg-background flex flex-col lg:flex-row">
-
-            {/* ── Left / Top panel — branding ── */}
             <div
-                className="
-          w-full lg:w-2/5 xl:w-1/3
-          flex flex-col
-          px-6 py-8 lg:p-10
-          relative overflow-hidden
-          lg:min-h-screen
-        "
+                className="w-full lg:w-2/5 xl:w-1/3 flex flex-col px-6 py-8 lg:p-10 relative overflow-hidden lg:min-h-screen"
                 style={{ background: 'hsl(var(--primary))' }}
             >
-                {/* Decorative blobs */}
                 <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full opacity-10 bg-white pointer-events-none" />
                 <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full opacity-10 bg-white pointer-events-none" />
 
-                {/* Logo */}
                 <div className="relative z-10">
                     <img
                         src="/lovable-uploads/798d07d7-1db7-498c-92f3-6f6346827d59.png"
@@ -225,22 +199,17 @@ const Onboarding = () => {
                     />
                 </div>
 
-                {/* Copy — shown inline on mobile, centered vertically on desktop */}
                 <div className="relative z-10 mt-6 lg:mt-auto lg:mb-auto space-y-4">
                     <div className="inline-flex items-center gap-2 bg-white/10 text-white/90 text-xs font-medium px-3 py-1.5 rounded-full border border-white/20">
                         <Sparkles className="h-3.5 w-3.5" />
                         One-time setup
                     </div>
-
                     <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug">
                         Let's get your<br className="hidden sm:block" /> business ready.
                     </h2>
-
                     <p className="text-white/70 text-sm leading-relaxed max-w-xs">
                         Fill in your business details to personalise your workspace. You can always update these later in Settings.
                     </p>
-
-                    {/* Benefit list — hidden on very small screens to save space */}
                     <ul className="hidden sm:flex flex-col gap-2.5 text-sm text-white/80 pt-2">
                         {[
                             'Appears on receipts & invoices',
@@ -254,19 +223,14 @@ const Onboarding = () => {
                         ))}
                     </ul>
                 </div>
-
-                {/* Footer — desktop only */}
                 <p className="relative z-10 hidden lg:block text-white/30 text-xs mt-auto pt-8">
                     © {new Date().getFullYear()} Gonzo Systems
                 </p>
             </div>
 
-            {/* ── Right / Bottom panel — form ── */}
             <div className="flex-1 flex flex-col overflow-y-auto">
                 <div className="flex-1 flex items-start justify-center px-4 sm:px-8 py-8 lg:py-16">
                     <div className="w-full max-w-xl">
-
-                        {/* Heading & Logout */}
                         <div className="flex justify-between items-start mb-6 font-geist">
                             <div>
                                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">Set up your business</h1>
@@ -287,14 +251,11 @@ const Onboarding = () => {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-
-                            {/* Logo Upload */}
                             <div className="space-y-1.5">
                                 <Label className="text-sm font-medium">
                                     Business Logo{' '}
                                     <span className="text-muted-foreground font-normal text-xs">(optional)</span>
                                 </Label>
-
                                 {logoPreview ? (
                                     <div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/30">
                                         <img
@@ -338,7 +299,6 @@ const Onboarding = () => {
                                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
                             </div>
 
-                            {/* Business Name */}
                             <div className="space-y-1.5">
                                 <Label htmlFor="businessName" className="text-sm font-medium flex items-center gap-1.5">
                                     <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -354,7 +314,6 @@ const Onboarding = () => {
                                 {errors.businessName && <p className="text-xs text-destructive">{errors.businessName}</p>}
                             </div>
 
-                            {/* Address */}
                             <div className="space-y-1.5">
                                 <Label htmlFor="businessAddress" className="text-sm font-medium flex items-center gap-1.5">
                                     <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -370,7 +329,6 @@ const Onboarding = () => {
                                 {errors.businessAddress && <p className="text-xs text-destructive">{errors.businessAddress}</p>}
                             </div>
 
-                            {/* Phone & Email */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="businessPhone" className="text-sm font-medium flex items-center gap-1.5">
@@ -387,7 +345,6 @@ const Onboarding = () => {
                                     />
                                     {errors.businessPhone && <p className="text-xs text-destructive">{errors.businessPhone}</p>}
                                 </div>
-
                                 <div className="space-y-1.5">
                                     <Label htmlFor="businessEmail" className="text-sm font-medium flex items-center gap-1.5">
                                         <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -405,13 +362,11 @@ const Onboarding = () => {
                                 </div>
                             </div>
 
-                            {/* Optional fields */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="natureOfBusiness" className="text-sm font-medium flex items-center gap-1.5">
                                         <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                                        Nature of Business
-                                        <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                                        Nature of Business <span className="text-muted-foreground font-normal text-xs">(optional)</span>
                                     </Label>
                                     <Input
                                         id="natureOfBusiness"
@@ -420,12 +375,10 @@ const Onboarding = () => {
                                         placeholder=""
                                     />
                                 </div>
-
                                 <div className="space-y-1.5">
                                     <Label htmlFor="businessSize" className="text-sm font-medium flex items-center gap-1.5">
                                         <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                        Business Size
-                                        <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                                        Business Size <span className="text-muted-foreground font-normal text-xs">(optional)</span>
                                     </Label>
                                     <Select value={form.businessSize} onValueChange={(val) => handleChange('businessSize', val)}>
                                         <SelectTrigger id="businessSize">
@@ -440,7 +393,6 @@ const Onboarding = () => {
                                 </div>
                             </div>
 
-                            {/* Submit */}
                             <div className="pt-2 pb-4">
                                 <Button type="submit" disabled={saving} className="w-full h-11 font-semibold gap-2">
                                     {saving ? (

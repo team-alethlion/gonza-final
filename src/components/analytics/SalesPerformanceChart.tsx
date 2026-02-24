@@ -1,45 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { Lock as LockIcon } from 'lucide-react';
+import { Lock as LockIcon, ChartLine } from 'lucide-react';
 import { Sale } from '@/types';
-import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import {
-  format,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  endOfYear,
-  subDays,
-  subWeeks,
-  subMonths,
-  startOfDay,
-  endOfDay
+  format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
+  startOfYear, endOfYear, subDays, subWeeks, subMonths, startOfDay, endOfDay
 } from 'date-fns';
-import { ChartLine } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
+import { getExpensesForChartAction } from '@/app/actions/expenses';
 
 interface SalesPerformanceChartProps {
   sales: Sale[];
   formatCurrency: (value: any) => string;
   dateFilter?: string;
-  dateRange?: { from: Date | undefined; to: Date | undefined; };
+  dateRange?: { from: Date | undefined; to: Date | undefined };
   isCustomRange?: boolean;
 }
 
@@ -56,340 +37,149 @@ const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
   formatCurrency,
   dateFilter = 'this-month',
   dateRange = { from: undefined, to: undefined },
-  isCustomRange = false
+  isCustomRange = false,
 }) => {
   const { currentBusiness } = useBusiness();
   const { canViewTotalSales, canViewTotalExpenses } = useFinancialVisibility();
   const [timeFrame, setTimeFrame] = useState('monthly');
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
-  const [expensesData, setExpensesData] = useState<Array<{ date: string, amount: number }>>([]);
+  const [expensesData, setExpensesData] = useState<{ date: string; amount: number }[]>([]);
 
-  // Calculate current year and available years for filtering
   const currentYear = new Date().getFullYear();
-  const years = Array.from(
-    new Set(
-      sales.map(sale => new Date(sale.date).getFullYear())
-    )
-  ).sort((a, b) => b - a); // Sort descending (most recent first)
+  const years = [
+    ...new Set(sales.map(s => new Date(s.date).getFullYear()))
+  ].sort((a, b) => b - a);
+  if (years.length === 0) years.push(currentYear);
 
-  // If no years found (no sales), add current year
-  if (years.length === 0) {
-    years.push(currentYear);
-  }
-
-  // Filter sales based on the date filter
   const getFilteredSales = () => {
-    // First filter sales to exclude quotes
-    const nonQuoteSales = sales.filter(sale => sale.paymentStatus !== 'Quote');
-
-    // For performance chart, show full year by default unless specific filters are applied
+    const nonQuote = sales.filter(s => s.paymentStatus !== 'Quote');
     if (isCustomRange && dateRange.from && dateRange.to) {
-      return nonQuoteSales.filter(sale => {
-        const saleDate = new Date(sale.date);
-        return saleDate >= startOfDay(dateRange.from) && saleDate <= endOfDay(dateRange.to);
+      return nonQuote.filter(s => {
+        const d = new Date(s.date);
+        return d >= startOfDay(dateRange.from!) && d <= endOfDay(dateRange.to!);
       });
-    } else if (dateFilter && dateFilter !== 'all' && dateFilter !== 'this-month') {
-      // Only apply specific date filters (not the default 'this-month')
+    }
+    if (dateFilter && dateFilter !== 'all' && dateFilter !== 'this-month') {
       const today = new Date();
-
-      return nonQuoteSales.filter(sale => {
-        const saleDate = new Date(sale.date);
-
+      return nonQuote.filter(s => {
+        const d = new Date(s.date);
         switch (dateFilter) {
-          case 'today':
-            return saleDate >= startOfDay(today) && saleDate <= endOfDay(today);
-          case 'yesterday':
-            const yesterday = subDays(today, 1);
-            return saleDate >= startOfDay(yesterday) && saleDate <= endOfDay(yesterday);
-          case 'this-week':
-            return saleDate >= startOfWeek(today, { weekStartsOn: 1 }) &&
-              saleDate <= endOfWeek(today, { weekStartsOn: 1 });
-          case 'last-week':
-            const lastWeekStart = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1);
-            const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-            return saleDate >= lastWeekStart && saleDate <= lastWeekEnd;
-          case 'last-month':
-            const lastMonth = subMonths(today, 1);
-            return saleDate >= startOfMonth(lastMonth) && saleDate <= endOfMonth(lastMonth);
-          case 'this-year':
-            return saleDate >= startOfYear(today) && saleDate <= endOfYear(today);
-          default:
-            return true;
+          case 'today': return d >= startOfDay(today) && d <= endOfDay(today);
+          case 'yesterday': { const y = subDays(today, 1); return d >= startOfDay(y) && d <= endOfDay(y); }
+          case 'this-week': return d >= startOfWeek(today, { weekStartsOn: 1 }) && d <= endOfWeek(today, { weekStartsOn: 1 });
+          case 'last-week': { const lws = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1); return d >= lws && d <= endOfWeek(lws, { weekStartsOn: 1 }); }
+          case 'last-month': { const lm = subMonths(today, 1); return d >= startOfMonth(lm) && d <= endOfMonth(lm); }
+          case 'this-year': return d >= startOfYear(today) && d <= endOfYear(today);
+          default: return true;
         }
       });
     }
-
-    // Default: Filter by selected year for the chart (show full year)
-    return nonQuoteSales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      return saleDate.getFullYear() === parseInt(yearFilter);
-    });
+    return nonQuote.filter(s => new Date(s.date).getFullYear() === parseInt(yearFilter));
   };
 
-  // Fetch expenses data when timeframe or year changes or date filter changes
   useEffect(() => {
     const fetchExpenses = async () => {
+      if (!currentBusiness?.id) { setExpensesData([]); return; }
+
+      let from: string | undefined;
+      let to: string | undefined;
+
+      if (isCustomRange && dateRange.from && dateRange.to) {
+        from = dateRange.from.toISOString();
+        to = dateRange.to.toISOString();
+      } else if (dateFilter && dateFilter !== 'all' && dateFilter !== 'this-month') {
+        const today = new Date();
+        switch (dateFilter) {
+          case 'today': from = startOfDay(today).toISOString(); to = endOfDay(today).toISOString(); break;
+          case 'yesterday': { const y = subDays(today, 1); from = startOfDay(y).toISOString(); to = endOfDay(y).toISOString(); break; }
+          case 'this-week': from = startOfWeek(today, { weekStartsOn: 1 }).toISOString(); to = endOfWeek(today, { weekStartsOn: 1 }).toISOString(); break;
+          case 'last-week': { const lws = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1); from = lws.toISOString(); to = endOfWeek(lws, { weekStartsOn: 1 }).toISOString(); break; }
+          case 'last-month': { const lm = subMonths(today, 1); from = startOfMonth(lm).toISOString(); to = endOfMonth(lm).toISOString(); break; }
+          case 'this-year': from = startOfYear(today).toISOString(); to = endOfYear(today).toISOString(); break;
+          default: { const yr = parseInt(yearFilter); from = new Date(yr, 0, 1).toISOString(); to = new Date(yr, 11, 31).toISOString(); }
+        }
+      } else {
+        const yr = parseInt(yearFilter);
+        from = new Date(yr, 0, 1).toISOString();
+        to = new Date(yr, 11, 31).toISOString();
+      }
+
       try {
-        // Return early if no business is selected
-        if (!currentBusiness?.id) {
-          setExpensesData([]);
-          return;
-        }
-
-        let query = supabase
-          .from('expenses')
-          .select('date, amount')
-          .eq('location_id', currentBusiness.id);
-
-        // Apply the same filtering as sales - show full year by default
-        if (isCustomRange && dateRange.from && dateRange.to) {
-          query = query
-            .gte('date', dateRange.from.toISOString())
-            .lte('date', dateRange.to.toISOString());
-        } else if (dateFilter && dateFilter !== 'all' && dateFilter !== 'this-month') {
-          // Only apply specific date filters (not the default 'this-month')
-          const today = new Date();
-
-          switch (dateFilter) {
-            case 'today':
-              query = query.gte('date', startOfDay(today).toISOString())
-                .lte('date', endOfDay(today).toISOString());
-              break;
-            case 'yesterday':
-              const yesterday = subDays(today, 1);
-              query = query.gte('date', startOfDay(yesterday).toISOString())
-                .lte('date', endOfDay(yesterday).toISOString());
-              break;
-            case 'this-week':
-              query = query.gte('date', startOfWeek(today, { weekStartsOn: 1 }).toISOString())
-                .lte('date', endOfWeek(today, { weekStartsOn: 1 }).toISOString());
-              break;
-            case 'last-week':
-              const lastWeekStart = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1);
-              const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-              query = query.gte('date', lastWeekStart.toISOString())
-                .lte('date', lastWeekEnd.toISOString());
-              break;
-            case 'last-month':
-              const lastMonth = subMonths(today, 1);
-              query = query.gte('date', startOfMonth(lastMonth).toISOString())
-                .lte('date', endOfMonth(lastMonth).toISOString());
-              break;
-            case 'this-year':
-              query = query.gte('date', startOfYear(today).toISOString())
-                .lte('date', endOfYear(today).toISOString());
-              break;
-            default:
-              // Default case - show full year
-              const selectedYear = parseInt(yearFilter);
-              const startDate = new Date(selectedYear, 0, 1); // Jan 1
-              const endDate = new Date(selectedYear, 11, 31); // Dec 31
-
-              query = query
-                .gte('date', startDate.toISOString())
-                .lte('date', endDate.toISOString());
-          }
-        } else {
-          // Default: show full year for the selected year
-          const selectedYear = parseInt(yearFilter);
-          const startDate = new Date(selectedYear, 0, 1); // Jan 1
-          const endDate = new Date(selectedYear, 11, 31); // Dec 31
-
-          query = query
-            .gte('date', startDate.toISOString())
-            .lte('date', endDate.toISOString());
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching expenses:', error);
-          return;
-        }
-
-        // Convert to format needed for chart
-        setExpensesData(data || []);
-      } catch (error) {
-        console.error('Error fetching expenses data:', error);
+        const result = await getExpensesForChartAction(currentBusiness.id, from, to);
+        setExpensesData(result || []);
+      } catch (e) {
+        console.error('Error fetching expenses data:', e);
       }
     };
-
     fetchExpenses();
   }, [timeFrame, yearFilter, dateFilter, dateRange, isCustomRange, currentBusiness?.id]);
 
-  // Prepare data for the chart based on the selected time frame
-  const prepareChartData = () => {
-    const filteredSales = getFilteredSales();
+  const salesTotal = (arr: Sale[]) =>
+    arr.reduce((sum, s) => sum + (Array.isArray(s.items) ? (s.items as any[]).reduce((a: number, i: any) => a + i.price * i.quantity, 0) : 0), 0);
+  const expTotal = (arr: { date: string; amount: number }[]) =>
+    arr.reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const prepareChartData = (): DataPoint[] => {
+    const filtered = getFilteredSales();
 
     if (timeFrame === 'weekly') {
-      // Get the start and end of the current week
-      const now = new Date();
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 }); // Sunday
-
-      // Group by day of the week
-      const dailyData: DataPoint[] = [];
-
-      // Create an array of all days in the week
-      for (let i = 0; i < 7; i++) {
-        const day = new Date(weekStart);
-        day.setDate(weekStart.getDate() + i);
-
-        // Filter sales for this day
-        const salesOnDay = filteredSales.filter(sale => {
-          const saleDate = new Date(sale.date);
-          return saleDate.toDateString() === day.toDateString();
-        });
-
-        // Calculate total sales amount for this day
-        const totalAmount = salesOnDay.reduce((sum, sale) => {
-          const saleTotalAmount = sale.items && Array.isArray(sale.items)
-            ? sale.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0)
-            : 0;
-          return sum + saleTotalAmount;
-        }, 0);
-
-        // Filter expenses for this day
-        const expensesOnDay = expensesData.filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate.toDateString() === day.toDateString();
-        });
-
-        // Calculate total expenses for this day
-        const totalExpenses = expensesOnDay.reduce((sum, expense) => sum + Number(expense.amount), 0);
-
-        // Format date for display and as key
-        const displayDate = format(day, 'EEE');
-        const dateStr = format(day, 'yyyy-MM-dd');
-
-        dailyData.push({
-          date: dateStr,
-          displayDate: displayDate,
-          amount: totalAmount,
-          expenses: totalExpenses,
-          rawDate: new Date(day)
-        });
-      }
-
-      return dailyData;
-    }
-    else if (timeFrame === 'monthly') {
-      // Group by month
-      const monthlyData: DataPoint[] = [];
-      const selectedYear = parseInt(yearFilter);
-
-      // Create array for all 12 months
-      for (let month = 0; month < 12; month++) {
-        const date = new Date(selectedYear, month, 1);
-        const monthStart = startOfMonth(date);
-        const monthEnd = endOfMonth(date);
-
-        // Filter sales for this month
-        const salesInMonth = filteredSales.filter(sale => {
-          const saleDate = new Date(sale.date);
-          return saleDate >= monthStart && saleDate <= monthEnd;
-        });
-
-        // Calculate total sales amount for this month
-        const totalAmount = salesInMonth.reduce((sum, sale) => {
-          const saleTotalAmount = sale.items && Array.isArray(sale.items)
-            ? sale.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0)
-            : 0;
-          return sum + saleTotalAmount;
-        }, 0);
-
-        // Filter expenses for this month
-        const expensesInMonth = expensesData.filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate >= monthStart && expenseDate <= monthEnd;
-        });
-
-        // Calculate total expenses for this month
-        const totalExpenses = expensesInMonth.reduce((sum, expense) => sum + Number(expense.amount), 0);
-
-        // Format date for display and as key
-        const displayDate = format(date, 'MMM');
-        const dateStr = format(date, 'yyyy-MM');
-
-        monthlyData.push({
-          date: dateStr,
-          displayDate: displayDate,
-          amount: totalAmount,
-          expenses: totalExpenses,
-          rawDate: new Date(date)
-        });
-      }
-
-      return monthlyData;
-    }
-    else if (timeFrame === 'yearly') {
-      // Group by year
-      const yearlyData: DataPoint[] = [];
-
-      // Use the available years from sales data
-      for (const year of years) {
-        const yearStart = startOfYear(new Date(year, 0, 1));
-        const yearEnd = endOfYear(new Date(year, 0, 1));
-
-        // Filter sales for this year
-        const salesInThisYear = filteredSales.filter(sale => {
-          const saleDate = new Date(sale.date);
-          return saleDate >= yearStart && saleDate <= yearEnd;
-        });
-
-        // Calculate total sales amount for this year
-        const totalAmount = salesInThisYear.reduce((sum, sale) => {
-          const saleTotalAmount = sale.items && Array.isArray(sale.items)
-            ? sale.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0)
-            : 0;
-          return sum + saleTotalAmount;
-        }, 0);
-
-        // Filter expenses for this year
-        const expensesInYear = expensesData.filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate >= yearStart && expenseDate <= yearEnd;
-        });
-
-        // Calculate total expenses for this year
-        const totalExpenses = expensesInYear.reduce((sum, expense) => sum + Number(expense.amount), 0);
-
-        // Format date for display and as key
-        yearlyData.push({
-          date: year.toString(),
-          displayDate: year.toString(),
-          amount: totalAmount,
-          expenses: totalExpenses,
-          rawDate: new Date(year, 0, 1)
-        });
-      }
-
-      return yearlyData;
+      const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+      return Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(ws); day.setDate(ws.getDate() + i);
+        const ds = day.toDateString();
+        return {
+          date: format(day, 'yyyy-MM-dd'), displayDate: format(day, 'EEE'),
+          amount: salesTotal(filtered.filter(s => new Date(s.date).toDateString() === ds)),
+          expenses: expTotal(expensesData.filter(e => new Date(e.date).toDateString() === ds)),
+          rawDate: day,
+        };
+      });
     }
 
-    // Default: if no valid timeframe is selected
+    if (timeFrame === 'monthly') {
+      const yr = parseInt(yearFilter);
+      return Array.from({ length: 12 }, (_, month) => {
+        const d = new Date(yr, month, 1);
+        const ms = startOfMonth(d), me = endOfMonth(d);
+        return {
+          date: format(d, 'yyyy-MM'), displayDate: format(d, 'MMM'),
+          amount: salesTotal(filtered.filter(s => { const sd = new Date(s.date); return sd >= ms && sd <= me; })),
+          expenses: expTotal(expensesData.filter(e => { const ed = new Date(e.date); return ed >= ms && ed <= me; })),
+          rawDate: d,
+        };
+      });
+    }
+
+    if (timeFrame === 'yearly') {
+      return years.map(year => {
+        const ys = startOfYear(new Date(year, 0, 1)), ye = endOfYear(new Date(year, 0, 1));
+        return {
+          date: year.toString(), displayDate: year.toString(),
+          amount: salesTotal(filtered.filter(s => { const sd = new Date(s.date); return sd >= ys && sd <= ye; })),
+          expenses: expTotal(expensesData.filter(e => { const ed = new Date(e.date); return ed >= ys && ed <= ye; })),
+          rawDate: new Date(year, 0, 1),
+        };
+      });
+    }
+
     return [];
   };
 
   const chartData = prepareChartData();
 
-  // Custom tooltip component for the chart
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const dataPoint = payload[0].payload;
-      return (
-        <div className="bg-white p-3 border border-gray-200 shadow-sm rounded-md">
-          <p className="font-medium text-sm">{dataPoint.displayDate}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={`tooltip-${index}`} className="text-sm">
-              <span className="font-medium">{entry.name}: </span>
-              <span>{formatCurrency(entry.value)}</span>
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const dp = payload[0].payload;
+    return (
+      <div className="bg-white p-3 border border-gray-200 shadow-sm rounded-md">
+        <p className="font-medium text-sm">{dp.displayDate}</p>
+        {payload.map((entry: any, i: number) => (
+          <p key={i} className="text-sm">
+            <span className="font-medium">{entry.name}: </span>{formatCurrency(entry.value)}
+          </p>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -402,24 +192,14 @@ const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
             </CardTitle>
             <CardDescription>Visualize your sales and expenses over time</CardDescription>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={yearFilter} onValueChange={setYearFilter}>
+            <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
+            <SelectContent>
+              {years.map(yr => <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
-
       <CardContent>
         <Tabs defaultValue="monthly" value={timeFrame} onValueChange={setTimeFrame} className="w-full">
           <TabsList className="mb-4">
@@ -427,55 +207,25 @@ const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
             <TabsTrigger value="monthly">Monthly</TabsTrigger>
             <TabsTrigger value="yearly">Yearly</TabsTrigger>
           </TabsList>
-
           <div className="h-[300px] w-full">
             {(!canViewTotalSales && !canViewTotalExpenses) ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2">
                 <LockIcon className="h-8 w-8 opacity-20" />
                 <p>Private data restricted</p>
               </div>
-            ) : chartData && chartData.length > 0 ? (
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 20, right: 20, left: 30, bottom: 20 }}
-                >
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 30, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="displayDate"
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e0e0e0' }}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => formatCurrency(value)}
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e0e0e0' }}
-                    width={80}
-                  />
+                  <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e0e0e0' }} />
+                  <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e0e0e0' }} width={80} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   {canViewTotalSales && (
-                    <Line
-                      type="monotone"
-                      dataKey="amount"
-                      name="Sales"
-                      stroke="#9b87f5"
-                      activeDot={{ r: 8 }}
-                      strokeWidth={2}
-                    />
+                    <Line type="monotone" dataKey="amount" name="Sales" stroke="#9b87f5" activeDot={{ r: 8 }} strokeWidth={2} />
                   )}
-
                   {canViewTotalExpenses && (
-                    <Line
-                      type="monotone"
-                      dataKey="expenses"
-                      name="Expenses"
-                      stroke="#E76F51"
-                      activeDot={{ r: 6 }}
-                      strokeWidth={2}
-                    />
+                    <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#E76F51" activeDot={{ r: 6 }} strokeWidth={2} />
                   )}
                 </LineChart>
               </ResponsiveContainer>

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useToast } from '@/hooks/use-toast';
@@ -9,9 +8,16 @@ import {
   DbCashTransaction,
   CashTransactionFormData,
   DailyCashSummary,
-  mapDbCashTransactionToCashTransaction,
-  mapCashTransactionFormToDbInsert
+  mapDbCashTransactionToCashTransaction
 } from '@/types/cash';
+import {
+  getCashTransactionsAction,
+  createCashTransactionAction,
+  updateCashTransactionAction,
+  deleteCashTransactionAction,
+  getAccountOpeningBalanceAction,
+  createBulkCashTransactionsAction
+} from '@/app/actions/finance';
 
 export const useCashTransactions = (accountId?: string) => {
   const { user } = useAuth();
@@ -19,90 +25,25 @@ export const useCashTransactions = (accountId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Chunked transaction loading to bypass Supabase 1000 row limit
   const loadTransactions = useCallback(async (): Promise<CashTransaction[]> => {
     try {
       if (!user || !currentBusiness) {
         return [];
       }
 
-      // First, get the total count
-      let countQuery = supabase
-        .from('cash_transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('location_id', currentBusiness.id);
+      const result = await getCashTransactionsAction(currentBusiness.id, accountId);
 
-      if (accountId) {
-        countQuery = countQuery.eq('account_id', accountId);
-      }
-
-      const { count, error: countError } = await countQuery;
-
-      if (countError) {
-        console.error('Error getting transaction count:', countError);
-        throw countError;
-      }
-
-      // Load transactions in chunks of 1000 to bypass limit
-      const allTransactions: any[] = [];
-      const chunkSize = 1000;
-      let start = 0;
-
-      while (start < (count || 0)) {
-        let chunkQuery = supabase
-          .from('cash_transactions')
-          .select(`
-            id,
-            user_id,
-            account_id,
-            amount,
-            transaction_type,
-            category,
-            description,
-            person_in_charge,
-            tags,
-            date,
-            payment_method,
-            receipt_image,
-            created_at,
-            updated_at
-          `)
-          .eq('location_id', currentBusiness.id)
-          .order('date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .range(start, start + chunkSize - 1);
-
-        // Apply account filter if specified
-        if (accountId) {
-          chunkQuery = chunkQuery.eq('account_id', accountId);
-        }
-
-        const { data: chunkData, error: chunkError } = await chunkQuery;
-
-        if (chunkError) {
-          console.error('Error loading transaction chunk:', chunkError);
-          throw chunkError;
-        }
-
-        if (chunkData && chunkData.length > 0) {
-          allTransactions.push(...chunkData);
-        }
-
-        // If we got less than chunkSize, we've reached the end
-        if (!chunkData || chunkData.length < chunkSize) {
-          break;
-        }
-
-        start += chunkSize;
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch transactions');
       }
 
       // Format all transactions
-      const formattedTransactions = allTransactions.map((item: any) => {
+      const formattedTransactions = result.data.map((item: any) => {
         const dbTransaction: DbCashTransaction = {
           id: item.id,
           user_id: item.user_id,
           account_id: item.account_id,
-          amount: item.amount,
+          amount: Number(item.amount),
           transaction_type: item.transaction_type,
           category: item.category,
           description: item.description,
@@ -117,7 +58,7 @@ export const useCashTransactions = (accountId?: string) => {
         return mapDbCashTransactionToCashTransaction(dbTransaction);
       });
 
-      // Sort transactions by date and created_at descending (most recent first)
+      // Sort
       formattedTransactions.sort((a, b) => {
         const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
         if (dateCompare !== 0) return dateCompare;
@@ -129,119 +70,53 @@ export const useCashTransactions = (accountId?: string) => {
       console.error('Error loading cash transactions:', error);
       toast({
         title: "Error",
-        description: "Failed to load cash transactions. Please try again.",
+        description: "Failed to load cash transactions",
         variant: "destructive"
       });
       return [];
     }
   }, [user, currentBusiness?.id, accountId, toast]);
 
-  // React Query caching
   const queryKey = useMemo(() => ['cash_transactions', currentBusiness?.id, user?.id, accountId], [currentBusiness?.id, user?.id, accountId]);
 
   const { data: transactions = [], isLoading: isQueryLoading } = useQuery({
     queryKey,
     queryFn: loadTransactions,
     enabled: !!user && !!currentBusiness?.id,
-    staleTime: 0,
-    gcTime: 30 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    staleTime: 30_000,
   });
 
-  // Derived loading state to avoid flash on background refetch
   const isLoading = isQueryLoading && transactions.length === 0;
 
   const createTransaction = async (transactionData: CashTransactionFormData) => {
     try {
-      if (!user || !currentBusiness) throw new Error('User not authenticated or no business selected');
+      if (!user || !currentBusiness) throw new Error('User not authenticated');
 
-      // Get account names for proper transfer descriptions
-      const getAccountName = async (accountId: string) => {
-        const { data, error } = await supabase
-          .from('cash_accounts')
-          .select('name')
-          .eq('id', accountId)
-          .eq('location_id', currentBusiness.id)
-          .single();
+      const result = await createCashTransactionAction({
+        ...transactionData,
+        userId: user.id,
+        locationId: currentBusiness.id
+      });
 
-        if (error) throw error;
-        return data?.name || 'Unknown Account';
-      };
-
-      // Handle transfer transaction - create two transactions
-      if (transactionData.transactionType === 'transfer' && transactionData.toAccountId) {
-        const fromAccountName = await getAccountName(transactionData.accountId);
-        const toAccountName = await getAccountName(transactionData.toAccountId);
-
-        const transferOutData: CashTransactionFormData = {
-          ...transactionData,
-          transactionType: 'cash_out',
-          description: `Transfer to ${toAccountName}: ${transactionData.description}`
-        };
-
-        const transferInData: CashTransactionFormData = {
-          ...transactionData,
-          accountId: transactionData.toAccountId,
-          transactionType: 'cash_in',
-          description: `Transfer from ${fromAccountName}: ${transactionData.description}`
-        };
-
-        const dbTransferOut = {
-          ...mapCashTransactionFormToDbInsert(transferOutData, user.id),
-          location_id: currentBusiness.id,
-          transaction_type: 'transfer_out'
-        };
-        const dbTransferIn = {
-          ...mapCashTransactionFormToDbInsert(transferInData, user.id),
-          location_id: currentBusiness.id,
-          transaction_type: 'transfer_in'
-        };
-
-        const { error: error1 } = await supabase
-          .from('cash_transactions')
-          .insert(dbTransferOut);
-
-        const { error: error2 } = await supabase
-          .from('cash_transactions')
-          .insert(dbTransferIn);
-
-        if (error1 || error2) throw error1 || error2;
-
-        toast({
-          title: "Success",
-          description: "Transfer completed successfully"
-        });
-
-        queryClient.invalidateQueries({ queryKey });
-        return;
-      }
-
-      const dbInsertData = {
-        ...mapCashTransactionFormToDbInsert(transactionData, user.id),
-        location_id: currentBusiness.id
-      };
-
-      const { data, error } = await supabase
-        .from('cash_transactions')
-        .insert(dbInsertData)
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: "Success",
-        description: "Cash transaction created successfully"
+        description: transactionData.transactionType === 'transfer'
+          ? "Transfer completed successfully"
+          : "Cash transaction created successfully"
       });
 
       queryClient.invalidateQueries({ queryKey });
-      return mapDbCashTransactionToCashTransaction(data);
+
+      return Array.isArray(result.data)
+        ? mapDbCashTransactionToCashTransaction(result.data[0])
+        : mapDbCashTransactionToCashTransaction(result.data as any);
     } catch (error) {
       console.error('Error creating cash transaction:', error);
       toast({
         title: "Error",
-        description: "Failed to create cash transaction. Please try again.",
+        description: "Failed to create cash transaction",
         variant: "destructive"
       });
       throw error;
@@ -250,68 +125,17 @@ export const useCashTransactions = (accountId?: string) => {
 
   const createBulkTransactions = async (transactionsData: CashTransactionFormData[]) => {
     try {
-      if (!user || !currentBusiness) throw new Error('User not authenticated or no business selected');
+      if (!user || !currentBusiness) throw new Error('User not authenticated');
 
-      // Optimization: Fetch all accounts once for transfer descriptions
-      const { data: allAccounts, error: accountsError } = await (supabase as any)
-        .from('cash_accounts')
-        .select('id, name')
-        .eq('location_id', currentBusiness.id);
+      const payloads = transactionsData.map(t => ({
+        ...t,
+        userId: user.id,
+        locationId: currentBusiness.id
+      }));
 
-      if (accountsError) throw accountsError;
+      const result = await createBulkCashTransactionsAction(payloads);
 
-      const accountMap = new Map(allAccounts?.map((acc: any) => [acc.id, acc.name]));
-      const getAccountName = (id: string) => accountMap.get(id) || 'Unknown Account';
-
-      const dbInserts: any[] = [];
-
-      for (const transactionData of transactionsData) {
-        if (transactionData.transactionType === 'transfer' && transactionData.toAccountId) {
-          const fromAccountName = getAccountName(transactionData.accountId);
-          const toAccountName = getAccountName(transactionData.toAccountId);
-
-          dbInserts.push({
-            ...mapCashTransactionFormToDbInsert({
-              ...transactionData,
-              transactionType: 'cash_out',
-              description: `Transfer to ${toAccountName}: ${transactionData.description}`
-            }, user.id),
-            location_id: currentBusiness.id,
-            transaction_type: 'transfer_out'
-          });
-
-          dbInserts.push({
-            ...mapCashTransactionFormToDbInsert({
-              ...transactionData,
-              accountId: transactionData.toAccountId,
-              transactionType: 'cash_in',
-              description: `Transfer from ${fromAccountName}: ${transactionData.description}`
-            }, user.id),
-            location_id: currentBusiness.id,
-            transaction_type: 'transfer_in'
-          });
-        } else {
-          const finalTransactionType = transactionData.transactionType === 'transfer'
-            ? 'cash_out'
-            : transactionData.transactionType;
-
-          dbInserts.push({
-            ...mapCashTransactionFormToDbInsert({
-              ...transactionData,
-              transactionType: finalTransactionType as any
-            }, user.id),
-            location_id: currentBusiness.id,
-            transaction_type: finalTransactionType === 'cash_out' ? 'cash_out' : finalTransactionType
-          });
-        }
-      }
-
-      const { data, error } = await (supabase as any)
-        .from('cash_transactions')
-        .insert(dbInserts)
-        .select();
-
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: "Success",
@@ -319,12 +143,12 @@ export const useCashTransactions = (accountId?: string) => {
       });
 
       queryClient.invalidateQueries({ queryKey });
-      return data.map((item: any) => mapDbCashTransactionToCashTransaction(item));
+      return (result.data as any[]).map((item: any) => mapDbCashTransactionToCashTransaction(item));
     } catch (error) {
       console.error('Error creating bulk transactions:', error);
       toast({
         title: "Error",
-        description: "Failed to create bulk transactions. Please try again.",
+        description: "Failed to create bulk transactions",
         variant: "destructive"
       });
       throw error;
@@ -333,27 +157,8 @@ export const useCashTransactions = (accountId?: string) => {
 
   const updateTransaction = async (id: string, updates: Partial<CashTransactionFormData>) => {
     try {
-      if (!user || !currentBusiness) throw new Error('User not authenticated or no business selected');
-
-      const updateData: any = {};
-      if (updates.amount !== undefined) updateData.amount = updates.amount;
-      if (updates.category !== undefined) updateData.category = updates.category;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.personInCharge !== undefined) updateData.person_in_charge = updates.personInCharge || null;
-      if (updates.tags !== undefined) updateData.tags = updates.tags.length > 0 ? updates.tags : null;
-      if (updates.date !== undefined) updateData.date = updates.date.toISOString().split('T')[0];
-      if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod || null;
-      if (updates.receiptImage !== undefined) updateData.receipt_image = updates.receiptImage || null;
-
-      const { data, error } = await supabase
-        .from('cash_transactions')
-        .update(updateData)
-        .eq('id', id)
-        .eq('location_id', currentBusiness.id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const result = await updateCashTransactionAction(id, updates);
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: "Success",
@@ -361,43 +166,23 @@ export const useCashTransactions = (accountId?: string) => {
       });
 
       queryClient.invalidateQueries({ queryKey });
-      return mapDbCashTransactionToCashTransaction(data);
+      return mapDbCashTransactionToCashTransaction(result.data as any);
     } catch (error) {
       console.error('Error updating cash transaction:', error);
       toast({
         title: "Error",
-        description: "Failed to update transaction. Please try again.",
+        description: "Failed to update transaction",
         variant: "destructive"
       });
-      throw error;
+      return null;
     }
   };
 
   const deleteTransaction = async (id: string, onDeleted?: () => void) => {
     try {
       if (!currentBusiness) throw new Error('No business selected');
-
-      const { data: installmentPayments } = await supabase
-        .from('installment_payments')
-        .select('id')
-        .eq('cash_transaction_id', id);
-
-      if (installmentPayments && installmentPayments.length > 0) {
-        const { error: unlinkError } = await supabase
-          .from('installment_payments')
-          .update({ cash_transaction_id: null })
-          .eq('cash_transaction_id', id);
-
-        if (unlinkError) throw unlinkError;
-      }
-
-      const { error } = await supabase
-        .from('cash_transactions')
-        .delete()
-        .eq('id', id)
-        .eq('location_id', currentBusiness.id);
-
-      if (error) throw error;
+      const result = await deleteCashTransactionAction(id, currentBusiness.id);
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: "Success",
@@ -411,7 +196,7 @@ export const useCashTransactions = (accountId?: string) => {
       console.error('Error deleting cash transaction:', error);
       toast({
         title: "Error",
-        description: "Failed to delete cash transaction. Please try again.",
+        description: "Failed to delete cash transaction",
         variant: "destructive"
       });
       return false;
@@ -421,15 +206,8 @@ export const useCashTransactions = (accountId?: string) => {
   const getAccountOpeningBalance = useCallback(async (accountId: string): Promise<number> => {
     try {
       if (!currentBusiness) return 0;
-      const { data, error } = await supabase
-        .from('cash_accounts')
-        .select('opening_balance')
-        .eq('id', accountId)
-        .eq('location_id', currentBusiness.id)
-        .single();
-
-      if (error) return 0;
-      return Number(data?.opening_balance || 0);
+      const result = await getAccountOpeningBalanceAction(accountId, currentBusiness.id);
+      return result.success ? result.data : 0;
     } catch (error) {
       return 0;
     }
@@ -572,26 +350,6 @@ export const useCashTransactions = (accountId?: string) => {
   const refreshTransactions = useCallback(() => {
     queryClient.invalidateQueries({ queryKey });
   }, [queryClient, queryKey]);
-
-  useEffect(() => {
-    if (!user || !currentBusiness?.id) return;
-
-    const channel = supabase
-      .channel(`cash-tx-${currentBusiness.id}-${accountId || 'all'}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'cash_transactions',
-        filter: `location_id=eq.${currentBusiness.id}`
-      }, () => {
-        queryClient.invalidateQueries({ queryKey });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, currentBusiness?.id, accountId, queryClient, queryKey]);
 
   return useMemo(() => ({
     transactions,

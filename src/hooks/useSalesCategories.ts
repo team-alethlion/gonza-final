@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { SalesCategory } from '@/types';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  getSalesCategoriesAction,
+  createSalesCategoryAction,
+  updateSalesCategoryAction,
+  deleteSalesCategoryAction
+} from '@/app/actions/sales';
 
 export const useSalesCategories = () => {
   const [categories, setCategories] = useState<SalesCategory[]>([]);
@@ -19,14 +24,12 @@ export const useSalesCategories = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('sales_categories')
-        .select('*')
-        .eq('location_id', currentBusiness.id)
-        .order('name');
-
-      if (error) throw error;
-      setCategories(data || []);
+      const result = await getSalesCategoriesAction(currentBusiness.id);
+      if (result.success && result.data) {
+        setCategories(result.data as any);
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Error fetching sales categories:', error);
       toast({
@@ -54,23 +57,17 @@ export const useSalesCategories = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('sales_categories')
-        .insert({
-          name,
-          user_id: user.id,
-          location_id: currentBusiness.id,
+      const result = await createSalesCategoryAction(currentBusiness.id, user.id, name);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Sales category created successfully",
         });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Sales category created successfully",
-      });
-
-      fetchCategories();
-      return true;
+        fetchCategories();
+        return true;
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Error creating sales category:', error);
       toast({
@@ -84,20 +81,17 @@ export const useSalesCategories = () => {
 
   const updateCategory = async (id: string, name: string) => {
     try {
-      const { error } = await supabase
-        .from('sales_categories')
-        .update({ name })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Sales category updated successfully",
-      });
-
-      fetchCategories();
-      return true;
+      const result = await updateSalesCategoryAction(id, name);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Sales category updated successfully",
+        });
+        fetchCategories();
+        return true;
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Error updating sales category:', error);
       toast({
@@ -111,20 +105,17 @@ export const useSalesCategories = () => {
 
   const deleteCategory = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('sales_categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Sales category deleted successfully",
-      });
-
-      fetchCategories();
-      return true;
+      const result = await deleteSalesCategoryAction(id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Sales category deleted successfully",
+        });
+        fetchCategories();
+        return true;
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Error deleting sales category:', error);
       toast({
@@ -139,24 +130,12 @@ export const useSalesCategories = () => {
   const createDefaultCategories = async () => {
     if (!currentBusiness || !user) return;
 
-    const defaultCategories = [
-      { name: 'Retail', is_default: true },
-      { name: 'Online', is_default: true },
-      { name: 'Wholesale', is_default: true },
-    ];
+    const defaultCategories = ['Retail', 'Online', 'Wholesale'];
 
     try {
-      const { error } = await supabase
-        .from('sales_categories')
-        .insert(
-          defaultCategories.map(category => ({
-            ...category,
-            user_id: user.id,
-            location_id: currentBusiness.id,
-          }))
-        );
-
-      if (error) throw error;
+      for (const name of defaultCategories) {
+        await createSalesCategoryAction(currentBusiness.id, user.id, name, true);
+      }
       fetchCategories();
     } catch (error) {
       console.error('Error creating default categories:', error);

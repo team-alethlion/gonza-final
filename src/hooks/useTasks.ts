@@ -1,18 +1,22 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Task, CreateTaskData, UpdateTaskData } from '@/types/task';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { useRecurringTasks } from '@/hooks/useRecurringTasks';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getTasksAction,
+  createTaskAction,
+  updateTaskAction,
+  deleteTaskAction,
+  bulkUpdateTasksAction,
+  CreateTaskInput
+} from '@/app/actions/tasks';
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
-  const { createRecurringInstances, deleteRecurringInstances } = useRecurringTasks();
   const queryClient = useQueryClient();
 
   const loadTasks = useCallback(async (): Promise<Task[]> => {
@@ -21,16 +25,13 @@ export const useTasks = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentBusiness.id)
-        .order('due_date', { ascending: true });
+      const result = await getTasksAction(user.id, currentBusiness.id);
 
-      if (error) throw error;
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch tasks');
+      }
 
-      return (data || []) as Task[];
+      return result.data as Task[];
     } catch (error) {
       console.error('Error loading tasks:', error);
       toast.error('Failed to load tasks');
@@ -63,41 +64,52 @@ export const useTasks = () => {
     if (!user?.id || !currentBusiness?.id) return null;
 
     try {
-      // Clean the task data to handle empty reminder_time
-      const cleanTaskData = {
-        ...taskData,
-        reminder_time: taskData.reminder_time && taskData.reminder_time.trim() !== '' 
-          ? taskData.reminder_time 
-          : null,
+      const input: CreateTaskInput = {
+        userId: user.id,
+        locationId: currentBusiness.id,
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority as any,
+        dueDate: new Date(taskData.due_date),
+        category: taskData.category,
+        reminderEnabled: taskData.reminder_enabled,
+        reminderTime: taskData.reminder_time && taskData.reminder_time.trim() !== '' ? taskData.reminder_time : null,
+        isRecurring: taskData.is_recurring,
+        recurrenceType: taskData.recurrence_type as any,
+        recurrenceEndDate: taskData.recurrence_end_date ? new Date(taskData.recurrence_end_date) : null
       };
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: user.id,
-          location_id: currentBusiness.id,
-          ...cleanTaskData,
-        })
-        .select()
-        .single();
+      const result = await createTaskAction(input);
 
-      if (error) throw error;
-
-      const newTask = data as Task;
-      
-      // Create recurring instances if this is a recurring task
-      if (newTask.is_recurring) {
-        await createRecurringInstances(newTask);
+      if (!result.success || !result.data) {
+        throw new Error(result.error);
       }
 
-      // Update local state immediately
-      setTasks(prev => [newTask, ...prev]);
+      const data = result.data as any;
+      const newTask: Task = {
+        ...data,
+        user_id: data.userId,
+        location_id: data.locationId,
+        due_date: data.dueDate.toISOString().split('T')[0],
+        completed_at: data.completedAt?.toISOString() || null,
+        created_at: data.createdAt.toISOString(),
+        updated_at: data.updatedAt.toISOString(),
+        reminder_enabled: data.reminderEnabled,
+        reminder_time: data.reminderTime,
+        is_recurring: data.isRecurring,
+        recurrence_type: data.recurrenceType,
+        recurrence_end_date: data.recurrenceEndDate?.toISOString().split('T')[0] || null,
+        parent_task_id: data.parentTaskId,
+        recurrence_count: data.recurrenceCount
+      };
 
-      // Update React Query cache immediately
+      // Update local state and cache
+      setTasks(prev => [newTask, ...prev]);
       queryClient.setQueryData(queryKey, (oldData: Task[] | undefined) => {
         return oldData ? [newTask, ...oldData] : [newTask];
       });
-      
+
+      queryClient.invalidateQueries({ queryKey });
       toast.success('Task created successfully');
       return newTask;
     } catch (error) {
@@ -111,41 +123,29 @@ export const useTasks = () => {
     if (!user?.id) return false;
 
     try {
-      // Clean the updates to handle empty reminder_time
-      const cleanUpdates = {
+      // Prepare updates for server action
+      const serverUpdates: any = {
         ...updates,
-        reminder_time: updates.reminder_time !== undefined 
-          ? (updates.reminder_time && updates.reminder_time.trim() !== '' ? updates.reminder_time : null)
-          : undefined,
       };
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .update(cleanUpdates)
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      if (updates.due_date) serverUpdates.dueDate = new Date(updates.due_date);
+      if (updates.completed_at) serverUpdates.completedAt = new Date(updates.completed_at);
+      if (updates.recurrence_end_date) serverUpdates.recurrenceEndDate = new Date(updates.recurrence_end_date);
+      if (updates.is_recurring !== undefined) serverUpdates.isRecurring = updates.is_recurring;
+      if (updates.recurrence_type) serverUpdates.recurrenceType = updates.recurrence_type;
 
-      if (error) throw error;
-
-      const updatedTask = data as Task;
-
-      // If this is a recurring task and we're updating its recurrence settings
-      if (updatedTask.is_recurring && (updates.recurrence_type || updates.recurrence_end_date)) {
-        // Delete existing instances and create new ones
-        await deleteRecurringInstances(id);
-        await createRecurringInstances(updatedTask);
+      // Clean reminder_time
+      if (updates.reminder_time !== undefined) {
+        serverUpdates.reminderTime = (updates.reminder_time && updates.reminder_time.trim() !== '' ? updates.reminder_time : null);
       }
 
-      // Update local state immediately
-      setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
+      const result = await updateTaskAction(id, user.id, serverUpdates);
 
-      // Update React Query cache immediately
-      queryClient.setQueryData(queryKey, (oldData: Task[] | undefined) => {
-        return oldData ? oldData.map(t => t.id === id ? updatedTask : t) : [updatedTask];
-      });
+      if (!result.success || !result.data) {
+        throw new Error(result.error);
+      }
 
+      queryClient.invalidateQueries({ queryKey });
       return true;
     } catch (error) {
       console.error('Error updating task:', error);
@@ -164,7 +164,7 @@ export const useTasks = () => {
     };
 
     const success = await updateTask(id, updates);
-    
+
     if (success) {
       if (!task.completed) {
         toast.success('Well done! 🎉 Task completed');
@@ -172,7 +172,7 @@ export const useTasks = () => {
         toast.success('Task marked as pending');
       }
     }
-    
+
     return success;
   };
 
@@ -180,20 +180,9 @@ export const useTasks = () => {
     if (!user?.id) return false;
 
     try {
-      const task = tasks.find(t => t.id === id);
-      
-      // If this is a recurring task, delete its instances too
-      if (task?.is_recurring) {
-        await deleteRecurringInstances(id);
-      }
+      const result = await deleteTaskAction(id, user.id);
 
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       queryClient.invalidateQueries({ queryKey });
       toast.success('Task deleted successfully');
@@ -209,13 +198,14 @@ export const useTasks = () => {
     if (!user?.id || taskIds.length === 0) return false;
 
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .update(updates)
-        .in('id', taskIds)
-        .eq('user_id', user.id);
+      // Map keys as in updateTask
+      const serverUpdates: any = { ...updates };
+      if (updates.completed !== undefined) serverUpdates.completed = updates.completed;
+      if (updates.completed_at !== undefined) serverUpdates.completedAt = updates.completed_at ? new Date(updates.completed_at) : null;
 
-      if (error) throw error;
+      const result = await bulkUpdateTasksAction(taskIds, user.id, serverUpdates);
+
+      if (!result.success) throw new Error(result.error);
 
       queryClient.invalidateQueries({ queryKey });
       toast.success(`Updated ${taskIds.length} tasks`);
@@ -226,31 +216,6 @@ export const useTasks = () => {
       return false;
     }
   };
-
-  // Set up real-time subscription
-  useEffect(() => {
-    if (!user?.id || !currentBusiness?.id) return;
-
-    const channel = supabase
-      .channel('tasks_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, currentBusiness?.id, queryClient, queryKey]);
 
   const refreshTasks = () => {
     queryClient.invalidateQueries({ queryKey });

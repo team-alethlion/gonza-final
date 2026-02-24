@@ -1,7 +1,7 @@
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { getStockSummaryReportAction } from '@/app/actions/inventory';
 
 export interface StockSummaryData {
   productId: string;
@@ -16,7 +16,6 @@ export interface StockSummaryData {
   stockIn: number;
   transferOut: number;
   returnIn: number;
-  returnOut: number;
   returnOut: number;
   adjustmentsIn: number;
   adjustmentsOut: number;
@@ -34,28 +33,22 @@ export const useStockSummaryData = (
   const fetchStockSummary = async (): Promise<StockSummaryData[]> => {
     if (!user?.id || !currentBusiness?.id || !dateRange?.from || !dateRange?.to) return [];
 
-    console.log('[StockSummary] Fetching report...', {
-      location: currentBusiness.id,
-      from: dateRange.from.toISOString(),
-      to: dateRange.to.toISOString()
-    });
+    try {
+      const result = await getStockSummaryReportAction(
+        currentBusiness.id,
+        dateRange.from.toISOString(),
+        dateRange.to.toISOString()
+      );
 
-    // We use "as any" to bypass strict type checking during this debug phase
-    const { data, error } = await (supabase.rpc as any)('get_stock_summary_report', {
-      p_location_id: currentBusiness.id,
-      p_start_date: dateRange.from.toISOString(),
-      p_end_date: dateRange.to.toISOString()
-    });
-
-    if (error) {
-      // LOG AS STRING SO IT IS VISIBLE IN THE USER LOGS
-      console.error('[StockSummary] CRITICAL ERROR MESSAGE:', error.message);
-      console.error('[StockSummary] FULL ERROR OBJECT:', JSON.stringify(error, null, 2));
+      if (result.success && result.data) {
+        return result.data as StockSummaryData[];
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('[StockSummary] Error fetching report:', error.message);
       throw error;
     }
-
-    console.log('[StockSummary] SUCCESS. Rows received:', data?.length || 0);
-    return (data || []) as StockSummaryData[];
   };
 
   const { data: stockSummaryData = [], isLoading, refetch } = useQuery({

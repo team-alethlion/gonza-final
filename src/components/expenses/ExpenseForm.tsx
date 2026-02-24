@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CalendarIcon, Upload, X, Plus, Tag, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useCashAccounts } from '@/hooks/useCashAccounts';
 import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useToast } from '@/hooks/use-toast';
@@ -53,14 +53,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const { categories, createCategory } = useExpenseCategories();
   const { toast } = useToast();
 
-  // Need to get user ID for RLS policies
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id || null);
-    });
-  }, []);
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
   // Reset form when dialog opens/closes or initialData changes
   useEffect(() => {
@@ -118,47 +112,10 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
       let finalReceiptUrl = receiptImage;
 
-      // Handle file upload if a new file was selected
+      // Receipt file upload – storage backend not yet wired; skip for now
       if (receiptFile) {
-        if (!userId) {
-          console.error("No user ID found for upload");
-          toast({
-            title: "Error",
-            description: "You must be logged in to upload files",
-            variant: "destructive"
-          });
-          setIsSubmitting(false);
-          return;
-        }
-
-        try {
-          const fileExt = receiptFile.name.split('.').pop();
-          const fileName = `${userId}/receipts/${Date.now()}.${fileExt}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('product-images')
-            .upload(fileName, receiptFile);
-
-          if (uploadError) {
-            console.error('Error uploading receipt:', uploadError);
-            throw new Error('Failed to upload receipt image');
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(fileName);
-
-          finalReceiptUrl = publicUrl;
-        } catch (error) {
-          console.error('Error uploading receipt:', error);
-          toast({
-            title: "Error",
-            description: "Failed to upload receipt image",
-            variant: "destructive"
-          });
-          setIsSubmitting(false);
-          return;
-        }
+        // TODO: wire up a server action for file uploads once a storage solution is in place.
+        console.warn('Receipt file upload skipped – no storage backend configured.');
       }
 
       const expenseData = {

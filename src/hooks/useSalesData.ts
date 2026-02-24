@@ -1,6 +1,4 @@
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Sale, DbSale, mapDbSaleToSale } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +7,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useProducts } from '@/hooks/useProducts';
 import { useInventoryActions } from '@/hooks/useInventoryActions';
 import { clearInventoryCaches } from '@/utils/inventoryCacheUtils';
+import { getSalesAction, deleteSaleAction } from '@/app/actions/sales';
 
 export interface TopCustomer {
   id?: string;
@@ -23,7 +22,6 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const { currentBusiness } = useBusiness();
-  const { updateProduct, loadProducts, updateProductsBulk } = useProducts(userId);
   const { restoreStockForSale } = useInventoryActions(userId);
 
   const loadSales = useCallback(async (): Promise<Sale[]> => {
@@ -32,146 +30,36 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
         return [];
       }
 
-      // If pageSize is specified, load only that many records (for dashboard optimization)
-      if (pageSize && pageSize > 0) {
-        const { data, error } = await supabase
-          .from('sales' as any)
-          .select(`
-              id,
-              user_id,
-              receipt_number,
-              customer_name,
-              customer_address,
-              customer_contact,
-              customer_id,
-              items,
-              payment_status,
-              profit,
-              date,
-              tax_rate,
-              created_at,
-              updated_at,
-              cash_transaction_id,
-              amount_paid,
-              amount_due,
-              location_id,
-              category_id,
-              notes
-            `)
-          .eq('location_id', currentBusiness.id)
-          .order('created_at', { ascending: sortOrder === 'asc' })
-          .limit(pageSize);
+      // If pageSize is specified, load only that many records
+      const salesData = await getSalesAction(currentBusiness.id, sortOrder as any, pageSize);
 
-        if (error) throw error;
+      const formattedSales: Sale[] = salesData ? salesData.map((item: any) => {
+        const dbSale: DbSale = {
+          id: item.id,
+          user_id: item.user_id,
+          location_id: item.location_id,
+          receipt_number: item.receipt_number,
+          customer_name: item.customer_name,
+          customer_address: item.customer_address,
+          customer_contact: item.customer_contact,
+          customer_id: item.customer_id,
+          items: item.items as any,
+          payment_status: item.payment_status,
+          profit: item.profit ? Number(item.profit) : 0,
+          date: item.date,
+          tax_rate: item.tax_rate || 0,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          cash_transaction_id: item.cash_transaction_id,
+          amount_paid: item.amount_paid ? Number(item.amount_paid) : undefined,
+          amount_due: item.amount_due ? Number(item.amount_due) : undefined,
+          category_id: item.category_id,
+          notes: item.notes
+        };
+        return mapDbSaleToSale(dbSale);
+      }) : [];
 
-        // Convert database sales to frontend Sale format
-        const formattedSales: Sale[] = data ? data.map((item: any) => {
-          const dbSale: DbSale = {
-            id: item.id,
-            user_id: item.user_id,
-            location_id: item.location_id,
-            receipt_number: item.receipt_number,
-            customer_name: item.customer_name,
-            customer_address: item.customer_address,
-            customer_contact: item.customer_contact,
-            customer_id: item.customer_id,
-            items: item.items,
-            payment_status: item.payment_status,
-            profit: item.profit,
-            date: item.date,
-            tax_rate: item.tax_rate || 0,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            cash_transaction_id: item.cash_transaction_id,
-            amount_paid: item.amount_paid,
-            amount_due: item.amount_due,
-            category_id: item.category_id,
-            notes: item.notes
-          };
-          return mapDbSaleToSale(dbSale);
-        }) : [];
-
-        return formattedSales;
-      } else {
-        // Load ALL sales using chunked approach to bypass Supabase's 1000 row limit
-        const chunkSize = 1000;
-        let allSales: any[] = [];
-        let start = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data: chunk, error } = await supabase
-            .from('sales' as any)
-            .select(`
-                  id,
-                  user_id,
-                  receipt_number,
-                  customer_name,
-                  customer_address,
-                  customer_contact,
-                  customer_id,
-                  items,
-                  payment_status,
-                  profit,
-                  date,
-                  tax_rate,
-                  created_at,
-                  updated_at,
-                  cash_transaction_id,
-                  amount_paid,
-                  amount_due,
-                  location_id,
-                  category_id,
-                  notes
-                `)
-            .eq('location_id', currentBusiness.id)
-            .order('created_at', { ascending: sortOrder === 'asc' })
-            .range(start, start + chunkSize - 1);
-
-          if (error) throw error;
-
-          if (chunk && chunk.length > 0) {
-            allSales.push(...chunk);
-            start += chunkSize;
-
-            // Check if we've loaded all available records
-            hasMore = chunk.length === chunkSize;
-          } else {
-            hasMore = false;
-          }
-        }
-
-        const data = allSales;
-
-        // Convert database sales to frontend Sale format
-        const formattedSales: Sale[] = data ? data.map((item: any) => {
-          const dbSale: DbSale = {
-            id: item.id,
-            user_id: item.user_id,
-            location_id: item.location_id,
-            receipt_number: item.receipt_number,
-            customer_name: item.customer_name,
-            customer_address: item.customer_address,
-            customer_contact: item.customer_contact,
-            customer_id: item.customer_id,
-            items: item.items,
-            payment_status: item.payment_status,
-            profit: item.profit,
-            date: item.date,
-            tax_rate: item.tax_rate || 0,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            cash_transaction_id: item.cash_transaction_id,
-            amount_paid: item.amount_paid,
-            amount_due: item.amount_due,
-            category_id: item.category_id,
-            notes: item.notes
-          };
-          return mapDbSaleToSale(dbSale);
-        }) : [];
-
-        return formattedSales;
-      }
+      return formattedSales;
 
     } catch (error) {
       console.error('Error loading sales:', error);
@@ -205,35 +93,6 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
 
   // Derived loading state
   const isLoading = isQueryLoading || (isFetching && sales.length === 0);
-
-  // Set up real-time subscription with optimized incremental updates
-  useEffect(() => {
-    if (!userId || !currentBusiness?.id) return;
-
-    const channel = supabase
-      .channel('sales_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sales',
-          filter: `location_id=eq.${currentBusiness.id}`,
-        },
-        (payload) => {
-          // Invalidate cache to trigger refetch or handle optimistic updates via setQueryData if needed
-          // For now, invalidation is safer to ensure consistency
-          queryClient.invalidateQueries({ queryKey: baseQueryKey });
-          clearSoldItemsCache();
-          clearInventoryCaches();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, currentBusiness?.id, baseQueryKey, queryClient]);
 
   const getTopCustomers = useMemo((): TopCustomer[] => {
     // Skip quotes since they're not actual purchases
@@ -302,39 +161,6 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
         throw new Error('Sale not found');
       }
 
-      console.log('Deleting sale:', id, 'with cash transaction:', saleToDelete.cashTransactionId);
-
-      // Delete associated installment payments first (they might reference cash transactions)
-      const { error: installmentError } = await supabase
-        .from('installment_payments' as any)
-        .delete()
-        .eq('sale_id', id);
-
-      if (installmentError) {
-        console.error('Error deleting installment payments:', installmentError);
-        // Continue with sale deletion even if installment deletion fails
-      }
-
-      // If there's an associated cash transaction, delete it
-      if (saleToDelete.cashTransactionId) {
-        console.log('Deleting associated cash transaction:', saleToDelete.cashTransactionId);
-        const { error: cashError } = await (supabase as any)
-          .from('cash_transactions')
-          .delete()
-          .eq('id', saleToDelete.cashTransactionId);
-
-        if (cashError) {
-          console.error('Error deleting cash transaction:', cashError);
-          toast({
-            title: "Warning",
-            description: "Sale deleted but failed to remove associated cash transaction. Please check your cash accounts.",
-            variant: "destructive"
-          });
-        } else {
-          console.log('Successfully deleted cash transaction');
-        }
-      }
-
       // Restore product quantities back to inventory (Only if it wasn't a quote which doesn't deduct stock)
       if (saleToDelete.paymentStatus !== 'Quote' && saleToDelete.items.length > 0) {
         console.log('Restoring product quantities via useInventoryActions...');
@@ -347,18 +173,18 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
             variant: "destructive"
           });
         }
-      } else {
-        console.log('Skipping product restoration (Quote or No items)');
       }
 
-      // If we made it here, proceed to delete the sale.
-      const { error } = await supabase
-        .from('sales' as any)
-        .delete()
-        .eq('id', id)
-        .eq('location_id', currentBusiness?.id);
+      // Proceed to delete the sale via API Action
+      if (!currentBusiness?.id) {
+        throw new Error('Business context missing for deletion');
+      }
 
-      if (error) throw error;
+      const result = await deleteSaleAction(id, currentBusiness.id);
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Update React Query cache
       queryClient.setQueryData(queryKey, (oldData: Sale[] | undefined) => {
@@ -404,9 +230,7 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
 
       toast({
         title: "Sale Deleted",
-        description: saleToDelete.cashTransactionId
-          ? "The sale record and associated cash transaction have been successfully deleted."
-          : "The sale record has been successfully deleted."
+        description: "The sale record and associated data have been successfully deleted."
       });
 
       clearInventoryCaches();
@@ -451,7 +275,6 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
 
   return {
     sales,
-    // Removed setSales to prevent manual manipulation outside of mutations
     isLoading,
     deleteSale,
     addSale,

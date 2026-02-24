@@ -1,0 +1,3 @@
+module.exports=[894333,a=>{"use strict";async function b(a){if(!("serial"in navigator))return{success:!1,message:"Web Serial API not supported."};try{let b=await navigator.serial.getPorts(),c=b.length?b[0]:await navigator.serial.requestPort();c.readable&&c.writable||await c.open({baudRate:9600});let d=c.writable.getWriter(),e=new TextEncoder;return await d.write(e.encode(a+"\n\n\n")),d.releaseLock(),{success:!0,message:"Web print sent successfully."}}catch(a){return{success:!1,message:`Web print failed: ${a?.message||a}`}}}a.s(["printWeb",()=>b])}];
+
+//# sourceMappingURL=src_utils_thermalPrinterWeb_ts_d1bc1622._.js.map

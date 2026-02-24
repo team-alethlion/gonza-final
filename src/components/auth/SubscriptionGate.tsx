@@ -4,7 +4,6 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Rocket, ShieldAlert, CreditCard, ChevronRight } from 'lucide-react';
 
@@ -23,30 +22,19 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) 
     React.useEffect(() => {
         const fetchPaymentData = async () => {
             if (!user) return;
-
-            // 1. Fetch latest payment
-            const { data: latest, error: pError } = await supabase
-                .from('subscription_payments')
-                .select('*')
-                .eq('user_id', user.id)
-                .in('payment_status', ['completed', 'success'])
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            // 2. Fetch total count of successful payments to determine sequence number
-            const { count, error: cError } = await supabase
-                .from('subscription_payments')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .in('payment_status', ['completed', 'success']);
-
-            if (!pError && latest) {
-                setLatestPayment({
-                    ...latest,
-                    business_name: currentBusiness?.name || 'Gonzo System User',
-                    invoice_number: count || 1
-                });
+            try {
+                const res = await fetch(`/api/subscription/latest?userId=${user.id}`);
+                if (res.ok) {
+                    const latest = await res.json();
+                    if (latest?.id) {
+                        setLatestPayment({
+                            ...latest,
+                            business_name: currentBusiness?.name || 'Gonzo System User',
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch payment data:', err);
             }
         };
         fetchPaymentData();
@@ -72,71 +60,35 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) 
 
         setIsInitiatingPayment(true);
         try {
-            // Generating clean UUID without prefix
             const purchaseId = crypto.randomUUID();
-            const locationId = currentBusiness?.id || (user as any).location_id || '00000000-0000-0000-0000-000000000000';
+            const locationId = currentBusiness?.id || '00000000-0000-0000-0000-000000000000';
 
-            console.log('--- [SubscriptionGate] Initiating Payment ---');
-            console.log('Purchase ID:', purchaseId);
-            console.log('Amount:', billingAmount);
-            console.log('Location ID:', locationId);
-
-            // 1. Create tracking record in DB
-            const { error: dbError } = await supabase
-                .from('subscription_payments')
-                .insert({
-                    id: purchaseId,
-                    user_id: user.id,
-                    location_id: locationId,
+            const res = await fetch('/api/initiate-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    purchaseId,
+                    userId: user.id,
+                    locationId,
                     amount: billingAmount,
-                    billing_cycle: billingDuration,
-                    payment_status: 'pending'
-                });
-
-            if (dbError) {
-                console.error('[SubscriptionGate] DB Error:', dbError);
-                throw dbError;
-            }
-
-            // 2. Call edge function to initiate payment
-            console.log('[SubscriptionGate] Calling pesapal-payment edge function...');
-            const { data, error } = await supabase.functions.invoke('pesapal-payment', {
-                body: {
-                    purchaseId: purchaseId,
-                    amount: billingAmount,
-                    phoneNumber: user.user_metadata?.phone || user.phone || '0700000000',
-                    description: `Subscription Renewal - ${billingDuration} Plan`
-                }
+                    billingDuration,
+                    phoneNumber: (user as any).phone || '0700000000',
+                    description: `Subscription Renewal - ${billingDuration} Plan`,
+                }),
             });
 
-            if (error) {
-                console.error('[SubscriptionGate] Function Error:', error);
-                throw error;
+            const data = await res.json();
+
+            if (!res.ok || !data.redirect_url) {
+                throw new Error(data.error || 'Failed to initiate payment');
             }
 
-            console.log('[SubscriptionGate] PesaPal response:', data);
-
-            if (data?.redirect_url) {
-                // 3. Update record with tracking ID from Pesapal
-                await supabase
-                    .from('subscription_payments')
-                    .update({
-                        pesapal_tracking_id: data.order_tracking_id,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', purchaseId);
-
-                setPesapalRedirectUrl(data.redirect_url);
-            }
+            setPesapalRedirectUrl(data.redirect_url);
         } catch (error: any) {
             console.error('Subscription Renewal Error:', error);
-
-            // Extract detailed message if available
-            const errorMsg = error.message || error.error || "Failed to connect to Pesapal.";
-
             toast({
                 title: "Payment Error",
-                description: `${errorMsg}. Please try again later.`,
+                description: `${error.message || 'Unknown error'}. Please try again later.`,
                 variant: "destructive"
             });
         } finally {

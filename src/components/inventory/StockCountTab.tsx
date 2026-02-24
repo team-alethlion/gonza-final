@@ -10,7 +10,6 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useProducts } from '@/hooks/useProducts';
 import { toast } from 'sonner';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Product, mapDbProductToProduct } from '@/types';
 import { cn } from '@/lib/utils';
 import { exportStockCountToCSV, exportStockCountToPDF } from '@/utils/exportStockCount';
@@ -26,6 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Download, FileDown, History as HistoryIcon, Clock, ChevronRight, Info } from 'lucide-react';
 import { useStockHistory } from '@/hooks/useStockHistory';
+import { lookupProductByBarcodeAction } from '@/app/actions/products';
+
 
 // State stored in localStorage: Record<productId, actualStock>
 const STORAGE_KEY = 'stockCountData';
@@ -232,36 +233,12 @@ const StockCountTab = () => {
 
                     console.log(`[StockCount Scanner] Processing: "${scannedBarcode}"`);
 
-                    // Perform direct server-side lookup
-                    const performServerLookup = async (code: string) => {
-                        const lowerCode = code.toLowerCase();
-
-                        let query = supabase
-                            .from('products' as any)
-                            .select('*')
-                            .eq('user_id', userId)
-                            .eq('location_id', currentBusiness?.id);
-
-                        // Exact match or contains (for handling prefixes/suffixes)
-                        query = query.or(`barcode.ilike.%${lowerCode}%,manufacturer_barcode.ilike.%${lowerCode}%,item_number.ilike.%${lowerCode}%`);
-
-                        const { data, error } = await query.limit(5);
-
-                        if (error) {
-                            console.error('[StockCount Scanner] Server lookup error:', error);
-                            return null;
-                        }
-
-                        if (!data || data.length === 0) return null;
-
-                        // Mapping: If multiple matches, prioritize exact match, then manufacturer barcode
-                        const mapped = (data as any[]).map(mapDbProductToProduct);
-                        return mapped.find(p =>
-                            p.barcode?.toLowerCase() === lowerCode ||
-                            p.manufacturerBarcode?.toLowerCase() === lowerCode ||
-                            p.itemNumber?.toLowerCase() === lowerCode
-                        ) || mapped[0];
+                    // Perform direct server-side lookup via Prisma action
+                    const performServerLookup = async (code: string): Promise<Product | null> => {
+                        const result = await lookupProductByBarcodeAction(code, currentBusiness?.id || '');
+                        return result ? mapDbProductToProduct(result) : null;
                     };
+
 
                     const handleScan = async () => {
                         const product = await performServerLookup(scannedBarcode);

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader, AlertCircle, Rocket, MessageSquare, ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
@@ -29,15 +28,18 @@ const PaymentCallback = () => {
 
         setStatus('loading');
 
-        // Using official Supabase invoker to fix DNS resolution issues
-        // This automatically handles the API URL and authorization tokens
-        const { data, error } = await supabase.functions.invoke('verify-pesapal-payment', {
-          body: { orderTrackingId, purchaseId }
+        // Use API route instead of Supabase Edge Function
+        const response = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderTrackingId, purchaseId }),
         });
+        const data = await response.json();
 
-        if (error) {
-          console.error('[PaymentCallback] Function Invocation Error:', error);
-          throw error;
+
+        if (!response.ok) {
+          console.error('[PaymentCallback] HTTP error:', response.status);
+          throw new Error(`HTTP ${response.status}`);
         }
 
         console.log('[PaymentCallback] Backend Response:', data);

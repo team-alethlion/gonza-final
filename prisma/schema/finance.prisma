@@ -17,6 +17,9 @@ model CashAccount {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
   sales Sale[]
 
   createdAt DateTime @default(now())
@@ -51,6 +54,8 @@ model CashTransaction {
 
   installmentPayment InstallmentPayment?
   expenses           Expense[]
+
+  sale Sale?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -140,4 +145,3 @@ model Transaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-

@@ -1,10 +1,10 @@
 import { useProducts } from './useProducts';
-import { SaleItem, Product, mapDbProductToProduct } from '@/types';
+import { SaleItem, Product } from '@/types';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getProductsByIdsAction } from '@/app/actions/products';
 
 export const useInventoryActions = (userId: string | undefined) => {
-    const { updateProductsBulk, products } = useProducts(userId);
+    const { updateProductsBulk } = useProducts(userId);
 
     /**
      * Helper to fetch fresh product data from DB to avoid race conditions/stale data
@@ -12,23 +12,13 @@ export const useInventoryActions = (userId: string | undefined) => {
     const fetchFreshProducts = async (productIds: string[], locationId?: string) => {
         if (!productIds.length) return [];
 
-        let query = supabase
-            .from('products')
-            .select('*')
-            .in('id', productIds);
-
-        if (locationId) {
-            query = query.eq('location_id', locationId);
-        }
-
-        const { data: dbProducts, error } = await query;
-
-        if (error) {
+        try {
+            const result = await getProductsByIdsAction(productIds, locationId);
+            return result as Product[];
+        } catch (error) {
             console.error('Error fetching fresh products:', error);
             throw error;
         }
-
-        return (dbProducts || []).map(mapDbProductToProduct);
     };
 
     /**

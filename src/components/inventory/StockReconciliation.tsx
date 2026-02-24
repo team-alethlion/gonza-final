@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,11 +14,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle, CheckCircle, TrendingDown, TrendingUp, PackagePlus, PackageMinus } from 'lucide-react';
 import { Product } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
+import { getProductReconciliationAction } from '@/app/actions/inventory';
+import { updateProductAction } from '@/app/actions/products';
 
 interface StockReconciliationProps {
   product: Product;
@@ -31,13 +32,14 @@ interface ReconciliationData {
   openingStock: number;
   itemsSold: number;
   stockAdded: number;
-  stockIn: number;
   transferOut: number;
   returnIn: number;
   returnOut: number;
   adjustments: number;
   calculatedClosingStock: number;
   discrepancy: number;
+  openingDate: string | null;
+  excludedSalesQty: number;
   dailyBreakdown: DailyBreakdown[];
 }
 
@@ -46,12 +48,10 @@ interface DailyBreakdown {
   startingStock: number;
   itemsSold: number;
   stockAdded: number;
-  stockIn: number;
   transferOut: number;
   returnIn: number;
   returnOut: number;
   adjustments: number;
-  adjustmentReasons: string[];
   endingStock: number;
 }
 
@@ -72,17 +72,18 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
     openingStock: 0,
     itemsSold: 0,
     stockAdded: 0,
-    stockIn: 0,
     transferOut: 0,
     returnIn: 0,
     returnOut: 0,
     adjustments: 0,
     calculatedClosingStock: 0,
     discrepancy: 0,
+    openingDate: null,
+    excludedSalesQty: 0,
     dailyBreakdown: [],
   });
 
-  // New state for price adjustments
+  // Updated state for price adjustments
   const [adjustedCostPrice, setAdjustedCostPrice] = useState<number>(product.costPrice || 0);
   const [adjustedSellingPrice, setAdjustedSellingPrice] = useState<number>(product.sellingPrice || 0);
 
@@ -92,244 +93,28 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
     setAdjustedSellingPrice(product.sellingPrice || 0);
   }, [product.id, product.costPrice, product.sellingPrice]);
 
-  const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
   useEffect(() => {
     const calculateReconciliation = async () => {
-      if (!user?.id || !currentBusiness?.id) return;
+      if (!currentBusiness?.id) return;
 
-      console.group(`Individual Reconciliation Debug: ${product.name} (${product.itemNumber})`);
       setIsLoading(true);
-
       try {
-        const chunkSize = 1000;
-
-        // Support both UUID and itemNumber as product identifiers
-        // BUT only use valid UUIDs for the stock_history product_id column
-        const historyProductIds = [product.id, product.itemNumber]
-          .filter((id): id is string => !!id && isValidUUID(id));
-
-        // 1. Get Opening Stock from first stock history entry (initial stock)
-        const { data: firstEntry } = await supabase
-          .from('stock_history')
-          .select('new_quantity, created_at, change_reason')
-          .in('product_id', historyProductIds)
-          .eq('location_id', currentBusiness.id)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        const openingStock = firstEntry ? Number(firstEntry.new_quantity) || 0 : 0;
-        const openingDate = firstEntry ? new Date(firstEntry.created_at) : null;
-        console.log('Opening State:', { openingStock, openingDate: openingDate?.toISOString(), reason: firstEntry?.change_reason });
-
-        // 2. Load all sales
-        let allSalesData: any[] = [];
-        let salesStart = 0;
-        let hasSalesMore = true;
-
-        while (hasSalesMore) {
-          const { data: salesChunk, error: salesError } = await supabase
-            .from('sales' as any)
-            .select('items, date, receipt_number')
-            .eq('location_id', currentBusiness.id)
-            .range(salesStart, salesStart + chunkSize - 1)
-            .order('date', { ascending: true });
-
-          if (salesError) throw salesError;
-
-          if (salesChunk && salesChunk.length > 0) {
-            allSalesData.push(...salesChunk);
-            salesStart += chunkSize;
-            hasSalesMore = salesChunk.length === chunkSize;
-          } else {
-            hasSalesMore = false;
-          }
+        const result = await getProductReconciliationAction(currentBusiness.id, product.id);
+        if (result.success && result.data) {
+          setReconciliationData(result.data as ReconciliationData);
+        } else {
+          toast.error(result.error || 'Failed to calculate reconciliation data');
         }
-        console.log(`Total Sales Records found: ${allSalesData.length}`);
-
-        // 3. Load ALL stock history movements in one go
-        let allHistory: any[] = [];
-        let historyStart = 0;
-        let hasHistoryMore = true;
-
-        while (hasHistoryMore) {
-          const { data: chunk, error: historyError } = await supabase
-            .from('stock_history')
-            .select('*')
-            .eq('location_id', currentBusiness.id)
-            .in('product_id', historyProductIds)
-            .order('created_at', { ascending: true })
-            .order('id', { ascending: true })
-            .range(historyStart, historyStart + chunkSize - 1);
-
-          if (historyError) throw historyError;
-
-          if (chunk && chunk.length > 0) {
-            allHistory.push(...chunk);
-            historyStart += chunkSize;
-            hasHistoryMore = chunk.length === chunkSize;
-          } else {
-            hasHistoryMore = false;
-          }
-        }
-        console.log(`Total History Records found: ${allHistory.length}`);
-
-        const movements = allHistory.slice(1);
-
-        // 4. Build daily transactions map
-        const dailyTransactions = new Map<string, {
-          itemsSold: number;
-          stockAdded: number;
-          stockIn: number;
-          transferOut: number;
-          returnIn: number;
-          returnOut: number;
-          adjustments: number;
-          adjustmentReasons: string[];
-        }>();
-
-        let trackedSalesQty = 0;
-
-        // Process sales by date
-        allSalesData.forEach((sale: any) => {
-          const saleDate = new Date(sale.date);
-          const items = Array.isArray(sale.items) ? sale.items : [];
-          const soldQty = items
-            .filter((item: any) =>
-              item.productId === product.id ||
-              (product.itemNumber && item.productId === product.itemNumber)
-            )
-            .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-
-          if (openingDate && saleDate < openingDate) {
-            return;
-          }
-
-          const dateStr = saleDate.toISOString().split('T')[0];
-          if (soldQty > 0) {
-            trackedSalesQty += soldQty;
-            const existing = dailyTransactions.get(dateStr) || { itemsSold: 0, stockAdded: 0, stockIn: 0, transferOut: 0, returnIn: 0, returnOut: 0, adjustments: 0, adjustmentReasons: [] };
-            existing.itemsSold += soldQty;
-            dailyTransactions.set(dateStr, existing);
-          }
-        });
-        console.log('Sales Processing Done:', { trackedSalesQty });
-
-        let histAdded = 0, histIn = 0, histTrans = 0, histRetIn = 0, histRetOut = 0, histAdj = 0;
-
-        // Process movement history
-        movements.forEach((entry: any) => {
-          const date = new Date(entry.created_at).toISOString().split('T')[0];
-          const delta = Number(entry.new_quantity) - Number(entry.previous_quantity);
-          const reason = (entry.change_reason || '').toLowerCase();
-
-          const isSaleRelated = reason.includes('sale') || reason.includes('receipt');
-          const isReturn = reason.includes('return');
-          const isPurchase = reason.includes('purchase') || reason.includes('addition') || reason.includes('initial');
-
-          if (isSaleRelated && !isReturn && !isPurchase) {
-            return;
-          }
-
-          const day = dailyTransactions.get(date) || { itemsSold: 0, stockAdded: 0, stockIn: 0, transferOut: 0, returnIn: 0, returnOut: 0, adjustments: 0, adjustmentReasons: [] };
-
-          if (reason.includes('purchase')) {
-            day.stockAdded += delta;
-            histAdded += delta;
-          } else if (reason.includes('addition') || reason.includes('initial')) {
-            // Carriage or initial setup after first entry
-            day.stockIn += delta;
-            histIn += delta;
-          } else if (reason.includes('transfer out')) {
-            day.transferOut += Math.abs(delta);
-            histTrans += Math.abs(delta);
-          } else if (reason.includes('customer return') || (reason.includes('return') && delta > 0)) {
-            day.returnIn += delta;
-            histRetIn += delta;
-          } else if (reason.includes('return to supplier') || (reason.includes('return') && delta < 0)) {
-            day.returnOut += Math.abs(delta);
-            histRetOut += Math.abs(delta);
-          } else {
-            day.adjustments += delta;
-            histAdj += delta;
-            if (entry.change_reason) {
-              day.adjustmentReasons.push(`${entry.change_reason} (${delta > 0 ? '+' : ''}${delta})`);
-            }
-            console.log(`- Adjustment Record: [${entry.change_reason}] Change: ${delta > 0 ? '+' : ''}${delta}`);
-          }
-
-          dailyTransactions.set(date, day);
-        });
-        console.log('History Processing Done:', { histAdded, histIn, histTrans, histRetIn, histRetOut, histAdj });
-
-        // Sort dates and calculate daily breakdown
-        const sortedDates = Array.from(dailyTransactions.keys()).sort();
-        const dailyBreakdown: DailyBreakdown[] = [];
-        let runningStock = openingStock;
-
-        sortedDates.forEach(date => {
-          const day = dailyTransactions.get(date)!;
-          const startingStock = runningStock;
-          const endingStock = startingStock - day.itemsSold + day.stockAdded + day.stockIn - day.transferOut + day.returnIn - day.returnOut + day.adjustments;
-
-          dailyBreakdown.push({
-            date,
-            startingStock,
-            itemsSold: day.itemsSold,
-            stockAdded: day.stockAdded,
-            stockIn: day.stockIn,
-            transferOut: day.transferOut,
-            returnIn: day.returnIn,
-            returnOut: day.returnOut,
-            adjustments: day.adjustments,
-            adjustmentReasons: day.adjustmentReasons,
-            endingStock,
-          });
-
-          runningStock = endingStock;
-        });
-
-        const calculatedClosingStock = runningStock;
-
-        const { data: productData } = await supabase
-          .from('products')
-          .select('quantity')
-          .eq('id', product.id)
-          .single();
-
-        const currentStock = Number(productData?.quantity) || 0;
-        const discrepancy = currentStock - calculatedClosingStock;
-
-        console.log('Final Totals:', { openingStock, calculatedClosingStock, currentStock, discrepancy });
-        console.groupEnd();
-
-        setReconciliationData({
-          currentStock,
-          openingStock,
-          itemsSold: dailyBreakdown.reduce((sum, d) => sum + d.itemsSold, 0),
-          stockAdded: dailyBreakdown.reduce((sum, d) => sum + d.stockAdded, 0),
-          stockIn: dailyBreakdown.reduce((sum, d) => sum + d.stockIn, 0),
-          transferOut: dailyBreakdown.reduce((sum, d) => sum + d.transferOut, 0),
-          returnIn: dailyBreakdown.reduce((sum, d) => sum + d.returnIn, 0),
-          returnOut: dailyBreakdown.reduce((sum, d) => sum + d.returnOut, 0),
-          adjustments: dailyBreakdown.reduce((sum, d) => sum + d.adjustments, 0),
-          calculatedClosingStock,
-          discrepancy,
-          dailyBreakdown,
-        });
       } catch (error) {
         console.error('Error calculating reconciliation:', error);
-        console.groupEnd();
-        toast.error('Failed to calculate reconciliation data');
+        toast.error('An unexpected error occurred during reconciliation calculation');
       } finally {
         setIsLoading(false);
       }
     };
 
     calculateReconciliation();
-  }, [user?.id, currentBusiness?.id, product.id]);
+  }, [currentBusiness?.id, product.id]);
 
   // Valuation calculations
   const currentCostValue = reconciliationData.currentStock * (product.costPrice || 0);
@@ -347,45 +132,27 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
     if (!user?.id || !currentBusiness?.id) return;
 
     setIsApplying(true);
-
     try {
-      // Update product quantity and prices
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({
-          quantity: reconciliationData.calculatedClosingStock,
-          cost_price: adjustedCostPrice,
-          selling_price: adjustedSellingPrice
-        })
-        .eq('id', product.id)
-        .eq('user_id', user.id);
+      // Use the updated updateProductAction which handles history internally
+      const result = await updateProductAction(product.id, {
+        userId: user.id,
+        quantity: reconciliationData.calculatedClosingStock,
+        costPrice: adjustedCostPrice,
+        sellingPrice: adjustedSellingPrice,
+        customChangeReason: 'Stock Reconciliation'
+      });
 
-      if (updateError) throw updateError;
-
-      // Create a stock history entry for the correction
-      const { error: historyError } = await supabase
-        .from('stock_history')
-        .insert({
-          product_id: product.id,
-          user_id: user.id,
-          location_id: currentBusiness.id,
-          previous_quantity: reconciliationData.currentStock,
-          new_quantity: reconciliationData.calculatedClosingStock,
-          change_reason: 'Stock Reconciliation',
-          reference_id: null,
-          created_at: new Date().toISOString(),
-        });
-
-      if (historyError) throw historyError;
-
-      toast.success(
-        `Stock reconciled successfully! Corrected ${Math.abs(
-          reconciliationData.discrepancy
-        ).toFixed(2)} units.`
-      );
-
-      onReconciled();
-      onClose();
+      if (result) {
+        toast.success(
+          `Stock reconciled successfully! Corrected ${Math.abs(
+            reconciliationData.discrepancy
+          ).toFixed(2)} units.`
+        );
+        onReconciled();
+        onClose();
+      } else {
+        throw new Error('Update failed');
+      }
     } catch (error) {
       console.error('Error reconciling stock:', error);
       toast.error('Failed to reconcile stock. Please try again.');
@@ -514,7 +281,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
             {/* Calculation Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Stock Calculation</CardTitle>
+                <CardTitle className="text-base">Stock Calculation Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -537,20 +304,10 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
                 <div className="flex justify-between items-center text-emerald-600">
                   <span className="text-sm flex items-center gap-1">
                     <PackagePlus className="h-4 w-4" />
-                    Stock Added (Purchase)
+                    Stock Added
                   </span>
                   <span className="font-medium">
                     + {reconciliationData.stockAdded.toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center text-green-600">
-                  <span className="text-sm flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4" />
-                    Stock In (Carriage)
-                  </span>
-                  <span className="font-medium">
-                    + {reconciliationData.stockIn.toFixed(2)}
                   </span>
                 </div>
 
@@ -594,7 +351,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
                   </span>
                 </div>
 
-                <div className="border-t pt-3 flex justify-between items-center font-semibold">
+                <div className="border-t pt-3 flex justify-between items-center font-semibold text-lg">
                   <span>Calculated Closing Stock</span>
                   <span>{reconciliationData.calculatedClosingStock.toFixed(2)}</span>
                 </div>
@@ -607,7 +364,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
                       : 'text-red-600'
                       }`}
                   >
-                    <span className="font-semibold">Discrepancy</span>
+                    <span className="font-semibold">Actual vs Calculated Discrepancy</span>
                     <Badge
                       variant={
                         reconciliationData.discrepancy > 0 ? 'default' : 'destructive'
@@ -661,12 +418,6 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
                                 <span className="font-medium">+{day.stockAdded.toFixed(2)}</span>
                               </div>
                             )}
-                            {day.stockIn > 0 && (
-                              <div className="flex justify-between text-green-600">
-                                <span>Stock In:</span>
-                                <span className="font-medium">+{day.stockIn.toFixed(2)}</span>
-                              </div>
-                            )}
                             {day.transferOut > 0 && (
                               <div className="flex justify-between text-orange-600">
                                 <span>Transfer Out:</span>
@@ -686,16 +437,9 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
                               </div>
                             )}
                             {day.adjustments !== 0 && (
-                              <div className="flex flex-col gap-1 text-amber-600">
-                                <div className="flex justify-between">
-                                  <span>Adjustments:</span>
-                                  <span className="font-medium">{day.adjustments > 0 ? '+' : ''}{day.adjustments.toFixed(2)}</span>
-                                </div>
-                                {day.adjustmentReasons.length > 0 && (
-                                  <div className="text-[10px] pl-2 border-l border-amber-200 text-amber-500 italic">
-                                    {day.adjustmentReasons.join(', ')}
-                                  </div>
-                                )}
+                              <div className="flex justify-between text-amber-600">
+                                <span>Adjustments:</span>
+                                <span className="font-medium">{day.adjustments > 0 ? '+' : ''}{day.adjustments.toFixed(2)}</span>
                               </div>
                             )}
                             <div className="flex justify-between pt-1.5 border-t border-slate-200">
@@ -716,25 +460,25 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
               <Card className="bg-blue-50 border-blue-200">
                 <CardHeader>
                   <CardTitle className="text-base text-blue-900">
-                    Preview Changes
+                    Preview Correction
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-blue-800">Before:</span>
+                    <span className="text-sm text-blue-800">Current (Recorded):</span>
                     <span className="font-medium text-blue-900">
                       {reconciliationData.currentStock.toFixed(2)} units
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-blue-800">After:</span>
+                    <span className="text-sm text-blue-800">Calculated (History):</span>
                     <span className="font-medium text-blue-900">
                       {reconciliationData.calculatedClosingStock.toFixed(2)} units
                     </span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-blue-200">
                     <span className="text-sm font-semibold text-blue-800">
-                      Change:
+                      Correction Amount:
                     </span>
                     <span className="font-semibold text-blue-900">
                       {reconciliationData.discrepancy > 0 ? '+' : ''}
@@ -750,7 +494,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
               <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <p className="text-sm text-green-800">
-                  Stock levels are accurate. No reconciliation needed.
+                  Stock levels are accurate based on transaction history.
                 </p>
               </div>
             )}
@@ -765,7 +509,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
             <>
               {!showPreview ? (
                 <Button onClick={() => setShowPreview(true)}>
-                  Preview Changes
+                  Preview Correction
                 </Button>
               ) : (
                 <Button

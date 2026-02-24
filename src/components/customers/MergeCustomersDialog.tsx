@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Users, TrendingUp } from 'lucide-react';
 import { Customer } from '@/hooks/useCustomers';
-import { supabase } from '@/integrations/supabase/client';
+import { mergeCustomersAction } from '@/app/actions/customers';
 import { toast } from 'sonner';
 
 interface MergeCustomersDialogProps {
@@ -38,39 +38,11 @@ const MergeCustomersDialog: React.FC<MergeCustomersDialogProps> = ({
         throw new Error('Invalid selection');
       }
 
-      // Update all related tables to point to the primary customer
-      
-      // 1. Update sales
-      const { error: salesError } = await supabase
-        .from('sales')
-        .update({ customer_id: primaryCustomerId })
-        .in('customer_id', duplicateIds);
+      // Attempt merge using Server Action
+      const result = await mergeCustomersAction(primaryCustomerId, duplicateIds);
 
-      if (salesError) {
-        console.error('Error updating sales:', salesError);
-        throw salesError;
-      }
-
-      // 2. Update messages (if they exist)
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .update({ customer_id: primaryCustomerId })
-        .in('customer_id', duplicateIds);
-
-      if (messagesError && messagesError.code !== 'PGRST116') { // Ignore "not found" errors
-        console.error('Error updating messages:', messagesError);
-        throw messagesError;
-      }
-
-      // 3. Delete duplicate customers
-      const { error: deleteError } = await supabase
-        .from('customers')
-        .delete()
-        .in('id', duplicateIds);
-
-      if (deleteError) {
-        console.error('Error deleting customers:', deleteError);
-        throw deleteError;
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       toast.success(`Successfully merged ${duplicateIds.length} duplicate customer${duplicateIds.length > 1 ? 's' : ''} into ${primaryCustomer.fullName}`);

@@ -1,8 +1,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useCurrentUser } from './useCurrentUser';
+import { getActivityHistoryAction } from '@/app/actions/activity';
 
 export interface DeletedSale {
     id: string;
@@ -27,21 +27,14 @@ export const useDeletedSales = () => {
 
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('activity_history' as any)
-                .select('*')
-                .eq('location_id', currentBusiness.id)
-                .eq('module', 'SALES')
-                .eq('activity_type', 'DELETE')
-                .order('created_at', { ascending: false });
+            const result = await getActivityHistoryAction(currentBusiness.id, 'SALES', 'DELETE');
 
-            if (error) throw error;
+            if (!result.success) throw new Error(result.error);
 
-            const formatted: DeletedSale[] = (data || []).map((log: any) => {
+            const formatted: DeletedSale[] = (result.data || []).map((log: any) => {
                 const metadata = log.metadata || {};
                 const items = Array.isArray(metadata.items) ? metadata.items : [];
 
-                // Fallback: If totalAmount is missing or 0, calculate it from items
                 let amount = Number(metadata.totalAmount || 0);
                 if (amount === 0 && items.length > 0) {
                     amount = items.reduce((sum: number, item: any) => {
@@ -50,18 +43,17 @@ export const useDeletedSales = () => {
                     }, 0);
                 }
 
-                // Calculate total quantity
                 const totalQuantity = items.reduce((sum: number, item: any) => sum + (Number(item.quantity ?? item.qty ?? 0)), 0);
 
                 return {
                     id: log.id,
                     receiptNumber: metadata.receiptNumber || 'N/A',
                     customerName: metadata.customerName || 'Unknown',
-                    amount: amount,
-                    totalQuantity: totalQuantity,
-                    deletedAt: log.created_at,
-                    deletedBy: log.profile_name || 'Admin',
-                    items: items,
+                    amount,
+                    totalQuantity,
+                    deletedAt: log.createdAt,
+                    deletedBy: log.profileName || 'Admin',
+                    items,
                     fullMetadata: metadata
                 };
             });

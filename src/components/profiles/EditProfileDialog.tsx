@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProfiles, BusinessProfile, BusinessRole } from '@/contexts/ProfileContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { supabase } from '@/integrations/supabase/client';
+import { getRolesAction } from '@/app/actions/profiles';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,11 +42,14 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   }, [open, currentBusiness?.id]);
 
   const loadRoles = async () => {
-    const { data } = await supabase
-      .from('business_roles')
-      .select('*')
-      .eq('business_location_id', currentBusiness.id);
-    if (data) setRoles(data as unknown as BusinessRole[]);
+    try {
+      if (currentBusiness?.id) {
+        const data = await getRolesAction(currentBusiness.id);
+        setRoles(data as unknown as BusinessRole[]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {

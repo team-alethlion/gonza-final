@@ -10,7 +10,7 @@ model Sale {
   agencyId String?
   agency   Agency? @relation(fields: [agencyId], references: [id])
 
-  // Customer Info (denormalized for fast access)
+  // Customer Info (denormalized)
   customerId      String?
   customer        Customer? @relation(fields: [customerId], references: [id])
   customerName    String
@@ -20,27 +20,27 @@ model Sale {
   // Sale Source
   source SaleSource @default(WALK_IN)
 
-  // Line Items
-  items SaleItem[]
+  // Line Items (Stored as JSON for compatibility with legacy Supabase structure)
+  items Json
 
   // Financials
-  subtotal     Decimal      @db.Decimal(10, 2)
-  discount     Decimal      @default(0) @db.Decimal(10, 2)
-  discountType DiscountType @default(AMOUNT)
-  taxRate      Decimal      @default(0) @db.Decimal(5, 2)
-  taxAmount    Decimal      @default(0) @db.Decimal(10, 2)
-  total        Decimal      @db.Decimal(10, 2)
+  subtotal     Decimal @default(0) @db.Decimal(10, 2)
+  discount     Decimal @default(0) @db.Decimal(10, 2)
+  discountType String  @default("AMOUNT") // "AMOUNT", "PERCENT"
+  taxRate      Decimal @default(0) @db.Decimal(5, 2)
+  taxAmount    Decimal @default(0) @db.Decimal(10, 2)
+  total        Decimal @default(0) @db.Decimal(10, 2)
 
   // Payment
   paymentStatus PaymentStatus @default(UNPAID)
   amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
   balance       Decimal       @default(0) @db.Decimal(10, 2)
 
-  // Cash Account (optional)
+  // Cash Account
   cashAccountId String?
   cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id])
 
-  // Multi-tenancy & Tracking
+  // Multi-tenancy
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
   userId   String
@@ -53,84 +53,58 @@ model Sale {
   category   SaleCategory? @relation(fields: [categoryId], references: [id])
 
   installmentPayments InstallmentPayment[]
+  notes               String?
+
+  cashTransactionId String?          @unique
+  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id])
+}
+
+model SalesGoal {
+  id        String   @id @default(cuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  target    Decimal  @db.Decimal(10, 2)
+  current   Decimal  @default(0) @db.Decimal(10, 2)
+  period    String   @default("monthly") // daily, weekly, monthly, yearly
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("active") // active, completed, failed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SaleCategory {
-  id        String  @id @default(cuid())
-  name      String
-  isDefault Boolean @default(false)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  id   String @id @default(cuid())
+  name String @unique
 
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   sales Sale[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([branchId, name])
-}
-
-model SaleItem {
-  id     String @id @default(cuid())
-  saleId String
-  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
-
-  productId String?
-  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-
-  // Item Details (snapshot at sale time)
-  productName  String
-  sku          String?
-  quantity     Int
-  unitCost     Decimal @db.Decimal(10, 2) // Hidden from regular users
-  sellingPrice Decimal @db.Decimal(10, 2)
-  discount     Decimal @default(0) @db.Decimal(10, 2)
-  lineTotal    Decimal @db.Decimal(10, 2)
-
-  createdAt DateTime @default(now())
 }
 
 enum SaleSource {
   WALK_IN
-  PHONE
   ONLINE
-  REFERRAL
-  RETURNING
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
 }
 
 enum PaymentStatus {
-  PAID
   UNPAID
-  QUOTE // Does NOT deduct stock
-  INSTALLMENT
+  PAID
   PARTIAL
-}
-
-enum DiscountType {
-  PERCENTAGE
-  AMOUNT
-}
-
-model SalesGoal {
-  id       String @id @default(cuid())
-  userId   String
-  user     User   @relation(fields: [userId], references: [id])
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-
-  month Int
-  year  Int
-
-  dailyGoal   Float @default(0)
-  weeklyGoal  Float @default(0)
-  monthlyGoal Float @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([branchId, userId, month, year])
+  INSTALLMENT
+  CANCELLED
+  REFUNDED
+  QUOTE
 }

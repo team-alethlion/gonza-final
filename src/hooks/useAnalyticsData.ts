@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sale, AnalyticsData } from '@/types';
-import { 
-  isWithinInterval, 
-  startOfDay, 
-  endOfDay, 
-  startOfWeek, 
-  endOfWeek, 
-  startOfMonth, 
+import {
+  isWithinInterval,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
   endOfMonth,
   startOfYear,
   endOfYear,
@@ -15,8 +15,8 @@ import {
   subMonths,
   isSameDay
 } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { getTotalExpensesAction } from '@/app/actions/analytics';
 
 interface UseAnalyticsDataProps {
   sales: Sale[];
@@ -35,20 +35,20 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
   // Memoize the expensive calculations
   const calculateSaleTotals = useCallback((sale: Sale) => {
     // Calculate total sale price after discounts (same logic as revenue calculation)
-    const totalSalePrice = sale.items && Array.isArray(sale.items) 
+    const totalSalePrice = sale.items && Array.isArray(sale.items)
       ? sale.items.reduce((sum, item) => {
-          const subtotal = item.price * item.quantity;
-          const discountAmount = item.discountType === 'amount' 
-            ? (item.discountAmount || 0)
-            : (subtotal * (item.discountPercentage || 0)) / 100;
-          return sum + (subtotal - discountAmount);
-        }, 0)
+        const subtotal = item.price * item.quantity;
+        const discountAmount = item.discountType === 'amount'
+          ? (item.discountAmount || 0)
+          : (subtotal * (item.discountPercentage || 0)) / 100;
+        return sum + (subtotal - discountAmount);
+      }, 0)
       : 0;
-    
+
     const totalCost = sale.items && Array.isArray(sale.items)
       ? sale.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0)
       : 0;
-      
+
     return { totalSalePrice, totalCost };
   }, []);
 
@@ -58,9 +58,9 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
     if (isNaN(saleDate.getTime())) {
       return false;
     }
-    
+
     if (dateFilter === 'all') return true;
-    
+
     if (dateFilter === 'custom' && isCustomRange) {
       if (dateRange.from && dateRange.to) {
         return isWithinInterval(saleDate, {
@@ -77,10 +77,10 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
       }
       return true;
     }
-    
+
     const today = new Date();
-    
-    switch(dateFilter) {
+
+    switch (dateFilter) {
       case 'today':
         return isWithinInterval(saleDate, {
           start: startOfDay(today),
@@ -131,7 +131,7 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
       const saleDate = new Date(sale.date);
       return matchesDateFilter(saleDate);
     });
-    
+
     return {
       all: filtered,
       nonQuotes: filtered.filter(sale => sale.paymentStatus !== 'Quote')
@@ -144,7 +144,7 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
       const { totalSalePrice, totalCost } = calculateSaleTotals(sale);
       // Calculate profit from actual revenue and cost to handle old sales correctly
       const actualProfit = totalSalePrice - totalCost;
-      
+
       return {
         totalSales: acc.totalSales + totalSalePrice,
         totalProfit: acc.totalProfit + actualProfit,
@@ -192,75 +192,67 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
 
       setIsLoadingExpenses(true);
       try {
-        let query = supabase
-          .from('expenses')
-          .select('amount, date')
-          .eq('location_id', currentBusiness.id);
-        
-        // Apply the same date filtering to expenses as we do to sales
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+
         if (isCustomRange && dateRange.from && dateRange.to) {
-          query = query.gte('date', dateRange.from.toISOString())
-                      .lte('date', dateRange.to.toISOString());
+          startDate = dateRange.from.toISOString();
+          endDate = dateRange.to.toISOString();
         } else if (isSpecificDate && specificDate) {
-          const startOfSpecificDay = startOfDay(specificDate);
-          const endOfSpecificDay = endOfDay(specificDate);
-          query = query.gte('date', startOfSpecificDay.toISOString())
-                      .lte('date', endOfSpecificDay.toISOString());
+          startDate = startOfDay(specificDate).toISOString();
+          endDate = endOfDay(specificDate).toISOString();
         } else if (dateFilter !== 'all') {
           const today = new Date();
-          
           switch (dateFilter) {
             case 'today':
-              query = query.gte('date', startOfDay(today).toISOString())
-                          .lte('date', endOfDay(today).toISOString());
+              startDate = startOfDay(today).toISOString();
+              endDate = endOfDay(today).toISOString();
               break;
             case 'yesterday':
               const yesterday = subDays(today, 1);
-              query = query.gte('date', startOfDay(yesterday).toISOString())
-                          .lte('date', endOfDay(yesterday).toISOString());
+              startDate = startOfDay(yesterday).toISOString();
+              endDate = endOfDay(yesterday).toISOString();
               break;
             case 'this-week':
-              query = query.gte('date', startOfWeek(today, { weekStartsOn: 1 }).toISOString())
-                          .lte('date', endOfWeek(today, { weekStartsOn: 1 }).toISOString());
+              startDate = startOfWeek(today, { weekStartsOn: 1 }).toISOString();
+              endDate = endOfWeek(today, { weekStartsOn: 1 }).toISOString();
               break;
             case 'last-week':
               const lastWeekStart = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1);
-              const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-              query = query.gte('date', lastWeekStart.toISOString())
-                          .lte('date', lastWeekEnd.toISOString());
+              startDate = lastWeekStart.toISOString();
+              endDate = endOfWeek(lastWeekStart, { weekStartsOn: 1 }).toISOString();
               break;
             case 'this-month':
-              query = query.gte('date', startOfMonth(today).toISOString())
-                          .lte('date', endOfMonth(today).toISOString());
+              startDate = startOfMonth(today).toISOString();
+              endDate = endOfMonth(today).toISOString();
               break;
             case 'last-month':
               const lastMonth = subMonths(today, 1);
-              query = query.gte('date', startOfMonth(lastMonth).toISOString())
-                          .lte('date', endOfMonth(lastMonth).toISOString());
+              startDate = startOfMonth(lastMonth).toISOString();
+              endDate = endOfMonth(lastMonth).toISOString();
               break;
             case 'this-year':
-              query = query.gte('date', startOfYear(today).toISOString())
-                          .lte('date', endOfYear(today).toISOString());
+              startDate = startOfYear(today).toISOString();
+              endDate = endOfYear(today).toISOString();
               break;
           }
         }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error('Error fetching expenses:', error);
+
+        const result = await getTotalExpensesAction(currentBusiness.id, startDate, endDate);
+
+        if (!result.success) {
+          console.error('Error fetching expenses:', result.error);
           return;
         }
-        
-        const totalExpenses = data ? data.reduce((sum, expense) => sum + Number(expense.amount), 0) : 0;
-        setExpenses(totalExpenses);
+
+        setExpenses(result.data || 0);
       } catch (error) {
         console.error('Failed to fetch expenses:', error);
       } finally {
         setIsLoadingExpenses(false);
       }
     };
-    
+
     fetchExpenses();
   }, [dateFilter, isCustomRange, isSpecificDate, dateRange.from, dateRange.to, specificDate, currentBusiness]);
 

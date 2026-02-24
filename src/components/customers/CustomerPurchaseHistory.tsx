@@ -12,43 +12,33 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import Link from 'next/link';
 import ReceiptDialog from '@/components/sales/ReceiptDialog';
 
 interface CustomerPurchaseHistoryProps {
   customerId: string;
+  customerNameProp?: string;
 }
 
-const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ customerId }) => {
+const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ customerId, customerNameProp }) => {
   const { user } = useAuth();
   const { settings } = useBusinessSettings();
   const { sales, isLoading } = useSalesData(user?.id, 'desc');
 
   const [customerSales, setCustomerSales] = useState<Sale[]>([]);
   const [localLoading, setLocalLoading] = useState(true);
-  const [customerName, setCustomerName] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>(customerNameProp || '');
 
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
 
-  // Fetch customer name ONCE for fallback
+  // Fallback if not provided, though it normally should be
   useEffect(() => {
-    const loadCustomerName = async () => {
-      const { data } = await supabase
-        .from('customers')
-        .select('full_name')
-        .eq('id', customerId)
-        .single();
-
-      setCustomerName(data?.full_name || '');
-    };
-
-    loadCustomerName();
-  }, [customerId]);
+    if (customerNameProp) {
+      setCustomerName(customerNameProp);
+    }
+  }, [customerNameProp]);
 
   useEffect(() => {
     if (!sales || sales.length === 0 || !customerName) {
@@ -156,7 +146,7 @@ const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ custo
 
                 <TableCell>
                   <Link
-                    to={`/sales?receipt=${sale.receiptNumber}`}
+                    href={`/sales?receipt=${sale.receiptNumber}`}
                     className="text-blue-600 hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >

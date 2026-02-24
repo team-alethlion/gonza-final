@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
@@ -7,15 +7,15 @@ import { useSalesData } from '@/hooks/useSalesData';
 import { useSaleProductSelection } from '@/hooks/useSaleProductSelection';
 import { Sale } from '@/types';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { generateThermalReceipt } from '@/utils/generateThermalReceipt';
 import { print } from '@/utils/thermalPrinterPlug';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { getCustomerByNameAction, updateSaleCustomerAction, deleteSaleAction } from '@/app/actions/sales';
 
 export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { toast: uiToast } = useToast();
   const { customers, createCustomer } = useCustomers();
@@ -50,19 +50,15 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
 
       // If no customerId provided, check if customer already exists by name
       if (!customerId) {
-        const { data: existingCustomers } = await (supabase as any)
-          .from('customers')
-          .select('id, full_name')
-          .eq('location_id', currentBusiness?.id)
-          .ilike('full_name', sale.customerName.trim());
+        const existingCustomer = await getCustomerByNameAction(
+          currentBusiness?.id || '',
+          sale.customerName.trim()
+        );
 
-        // Use the existing customer ID if found
-        if (existingCustomers && existingCustomers.length > 0) {
-          customerId = (existingCustomers[0] as any).id;
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
         } else {
-          // Only add if the customer doesn't exist
           try {
-            // Add customer to database with the selected category
             const newCustomer = await createCustomer({
               fullName: sale.customerName,
               phoneNumber: sale.customerContact || null,
@@ -75,7 +71,6 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
               tags: null,
               socialMedia: null
             });
-
             if (newCustomer) {
               customerId = newCustomer.id;
               toast.success(`Added ${sale.customerName} to your customers list`);
@@ -86,15 +81,9 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
         }
       }
 
-      // If we have a valid customerId that was NOT already saved with the sale in DB, update the sale with it
-      // Note: mapSaleToDbSale now includes customer_id, so for NEW sales it's already there if selected.
-      // This update is a safeguard or for cases where name was typed but matched an existing record during this check.
       if (customerId && sale.id) {
         try {
-          await (supabase as any)
-            .from('sales')
-            .update({ customer_id: customerId })
-            .eq('id', sale.id);
+          await updateSaleCustomerAction(sale.id, customerId);
         } catch (error) {
           console.error('Error associating sale with customer:', error);
         }
@@ -117,10 +106,9 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
 
       // ROLLBACK STRATEGY
       if (!editSale) {
-        // If it was a new sale, delete it
-        const { error: deleteError } = await (supabase as any).from('sales').delete().eq('id', sale.id);
-        if (deleteError) {
-          console.error('CRITICAL: Failed to rollback sale after inventory failure:', deleteError);
+        const rollbackSuccess = await deleteSaleAction(sale.id, currentBusiness?.id || '');
+        if (!rollbackSuccess) {
+          console.error('CRITICAL: Failed to rollback sale after inventory failure');
           uiToast({
             title: "Critical Error",
             description: "Inventory failed to update, and we could not cancel the sale. Please contact support.",
@@ -225,7 +213,7 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
       // If thermal auto-print is enabled, trigger it
       if (thermalPrintAfterSave) {
         try {
-          const thermalData = generateThermalReceipt(sale, settings);
+          const thermalData = await generateThermalReceipt(sale, settings);
           await print(thermalData, settings.defaultPrinterName);
         } catch (printErr) {
           console.error('Auto-print failed:', printErr);
@@ -238,10 +226,10 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
       if (!editSale && onSaveSuccess) {
         onSaveSuccess();
       } else {
-        navigate('/sales');
+        router.push('/sales');
       }
     }
-  }, [user?.id, createCustomer, editSale, uiToast, navigate, logActivity, addSale, updateSale, onSaveSuccess]);
+  }, [user?.id, createCustomer, editSale, uiToast, router, logActivity, addSale, updateSale, onSaveSuccess]);
 
   const handleReceiptClose = useCallback(() => {
     setIsReceiptOpen(false);
@@ -250,9 +238,9 @@ export const useNewSaleActions = (editSale?: Sale, onSaveSuccess?: () => void) =
     if (!editSale && onSaveSuccess) {
       onSaveSuccess();
     } else {
-      navigate('/sales');
+      router.push('/sales');
     }
-  }, [navigate, editSale, onSaveSuccess]);
+  }, [router, editSale, onSaveSuccess]);
 
   const handleAddCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user?.id) return false;

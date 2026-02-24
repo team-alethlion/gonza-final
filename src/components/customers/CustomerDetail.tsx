@@ -28,10 +28,9 @@ import { canSendSMS, getBirthdayMessage, openSMSApp, openWhatsApp, formatMessage
 import { useToast } from '@/hooks/use-toast';
 import PaymentReminderNotice from './PaymentReminderNotice';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { supabase } from '@/integrations/supabase/client';
-import { generateReceiptNumber } from '@/utils/generateReceiptNumber';
-import { mapSaleToDbSale, Sale } from '@/types';
 import { useInstallmentPayments } from '@/hooks/useInstallmentPayments';
+import { createReceiptAction } from '@/app/actions/sales';
+import { generateReceiptNumber } from '@/utils/generateReceiptNumber';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -69,7 +68,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
   });
 
   // Helper to get paid amount for a sale
-  const getPaidAmount = (sale) => {
+  const getPaidAmount = (sale: any) => {
     // Normalize payment status for case-insensitive match
     const status = (sale.paymentStatus || '').toString().toUpperCase();
     // Use Sale.amountPaid if present, else fallback to amount_paid, paid, paymentAmount
@@ -79,23 +78,23 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
     if (typeof sale.paymentAmount === 'number') return sale.paymentAmount;
     // If installment sale, sum payments from sale.installments if present
     if (status === 'INSTALLMENT SALE' && Array.isArray(sale.installments)) {
-      return sale.installments.reduce((sum, inst) => sum + (inst.amountPaid || 0), 0);
+      return sale.installments.reduce((sum: number, inst: any) => sum + (inst.amountPaid || 0), 0);
     }
     // If paymentStatus is Paid, assume full amount paid
     if (status === 'PAID') {
-      return sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      return sale.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
     }
     return 0;
   };
 
   // Helper to get due amount for a sale
-  const getDueAmount = (sale, amount, paid) => {
+  const getDueAmount = (sale: any, amount: number, paid: number) => {
     if (typeof sale.amountDue === 'number') return sale.amountDue;
     if (typeof sale.amount_due === 'number') return sale.amount_due;
     // For installment sale, due = amount - sum of installment payments
     const status = (sale.paymentStatus || '').toString().toUpperCase();
     if (status === 'INSTALLMENT SALE' && Array.isArray(sale.installments)) {
-      const paidInstallments = sale.installments.reduce((sum, inst) => sum + (inst.amountPaid || 0), 0);
+      const paidInstallments = sale.installments.reduce((sum: number, inst: any) => sum + (inst.amountPaid || 0), 0);
       return amount - paidInstallments;
     }
     // Fallback: amount - paid
@@ -118,13 +117,13 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
       allCustomerSales.forEach(sale => {
         const saleDate = new Date(sale.date);
         if (saleDate < start) {
-          openingBalance += sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          openingBalance += sale.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
           openingBalance -= getPaidAmount(sale);
         }
       });
     }
 
-    const ledgerEntries = [];
+    const ledgerEntries: any[] = [];
     allCustomerSales.forEach(sale => {
       // Add sale
       const status = (sale.paymentStatus || '').toString().toUpperCase();
@@ -220,13 +219,13 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
       allCustomerSales.forEach(sale => {
         const saleDate = new Date(sale.date);
         if (saleDate < start) {
-          openingBalance += sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          openingBalance += sale.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
           openingBalance -= getPaidAmount(sale);
         }
       });
     }
 
-    const ledgerEntries = [];
+    const ledgerEntries: any[] = [];
     allCustomerSales.forEach(sale => {
       const status = (sale.paymentStatus || '').toString().toUpperCase();
       let label = 'Receipt #';
@@ -697,7 +696,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
           <TabsTrigger value="statement">Statement</TabsTrigger>
         </TabsList>
         <TabsContent value="purchases">
-          <CustomerPurchaseHistory customerId={customer.id} />
+          <CustomerPurchaseHistory customerId={customer.id} customerNameProp={customer.fullName} />
         </TabsContent>
         <TabsContent value="notes">
           <CustomerNotes
@@ -775,7 +774,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                       allCustomerSales.forEach(sale => {
                         const saleDate = new Date(sale.date);
                         if (saleDate < startValue) {
-                          const amount = sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                          const amount = sale.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
                           openingBalance += amount;
                           openingBalance -= getPaidAmount(sale);
                         }
@@ -1016,12 +1015,10 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
             try {
               const receiptNumber = await generateReceiptNumber(currentBusiness?.id || '');
 
-              const saleDbData = {
-                user_id: user?.id,
-                location_id: currentBusiness?.id,
-                receipt_number: `ADJ-${receiptNumber}`,
-                customer_name: customer.fullName,
-                customer_id: customer.id,
+              const saleData = {
+                receiptNumber: `ADJ-${receiptNumber}`,
+                customerName: customer.fullName,
+                customerId: customer.id,
                 date: date.toISOString().split('T')[0],
                 items: [{
                   description: description || 'Manual Charge',
@@ -1029,16 +1026,19 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                   price: amount,
                   cost: 0
                 }],
-                payment_status: 'NOT PAID',
-                amount_paid: 0,
-                amount_due: amount,
+                paymentStatus: 'NOT PAID',
+                amountPaid: 0,
+                amountDue: amount,
                 profit: amount,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                cashAccountId: undefined,
+                paymentDetails: undefined,
+                installmentPlan: undefined
               };
 
-              const { error } = await supabase.from('sales' as any).insert(saleDbData);
-              if (error) throw error;
+              // Use server action to create receipt
+              const result = await createReceiptAction(saleData, currentBusiness?.id || '', user?.id || '');
+
+              if (!result.success) throw new Error(result.error);
 
               toast({ title: "Success", description: "Manual charge added successfully." });
               setManualChargeOpen(false);
@@ -1108,12 +1108,10 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
             try {
               const receiptNumber = await generateReceiptNumber(currentBusiness?.id || '');
 
-              const saleDbData = {
-                user_id: user?.id,
-                location_id: currentBusiness?.id,
-                receipt_number: `PAY-${receiptNumber}`,
-                customer_name: customer.fullName,
-                customer_id: customer.id,
+              const saleData = {
+                receiptNumber: `PAY-${receiptNumber}`,
+                customerName: customer.fullName,
+                customerId: customer.id,
                 date: date.toISOString().split('T')[0],
                 items: [{
                   description: description || 'Account Payment',
@@ -1121,16 +1119,19 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                   price: 0,
                   cost: 0
                 }],
-                payment_status: 'PAID',
-                amount_paid: amount,
-                amount_due: 0,
+                paymentStatus: 'PAID',
+                amountPaid: amount,
+                amountDue: 0,
                 profit: 0,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                cashAccountId: undefined, // Add logic here if payment is bound to an account later
+                paymentDetails: undefined,
+                installmentPlan: undefined
               };
 
-              const { error } = await supabase.from('sales' as any).insert(saleDbData);
-              if (error) throw error;
+              // Use server action to create receipt
+              const result = await createReceiptAction(saleData, currentBusiness?.id || '', user?.id || '');
+
+              if (!result.success) throw new Error(result.error);
 
               toast({ title: "Success", description: "Manual payment recorded successfully." });
               setManualPaymentOpen(false);

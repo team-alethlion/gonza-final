@@ -18,8 +18,8 @@ export interface ReceiptData {
 
   // Customer info
   customerName: string;
-  customerAddress: string;
-  customerContact: string;
+  customerAddress?: string;
+  customerContact?: string;
 
   // Items
   items: Array<{

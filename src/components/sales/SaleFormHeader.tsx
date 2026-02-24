@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
@@ -42,10 +42,10 @@ const SaleFormHeader: React.FC<SaleFormHeaderProps> = ({
   onCategoryChange,
   onClearForm,
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleBackClick = () => {
-    navigate('/sales');
+    router.push('/sales');
   };
 
   return (
@@ -62,7 +62,7 @@ const SaleFormHeader: React.FC<SaleFormHeaderProps> = ({
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            
+
             <div>
               <CardTitle>{isEditing ? 'Edit Sale' : 'New Sale'}</CardTitle>
               <CardDescription>Enter the sale details below</CardDescription>
@@ -87,7 +87,7 @@ const SaleFormHeader: React.FC<SaleFormHeaderProps> = ({
           selectedDate={selectedDate}
           onDateChange={onDateChange}
         />
-        
+
         <CustomerInformation
           customerName={customerName}
           customerAddress={customerAddress}
