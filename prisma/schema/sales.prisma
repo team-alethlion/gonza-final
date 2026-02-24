@@ -1,0 +1,136 @@
+// =========================
+// 💰 SALES MODULE
+// =========================
+
+model Sale {
+  id         String   @id @default(cuid())
+  saleNumber String   @unique // Auto-generated: "SAL-2024-001"
+  date       DateTime @default(now())
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  // Customer Info (denormalized for fast access)
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  customerName    String
+  customerPhone   String?
+  customerAddress String?
+
+  // Sale Source
+  source SaleSource @default(WALK_IN)
+
+  // Line Items
+  items SaleItem[]
+
+  // Financials
+  subtotal     Decimal      @db.Decimal(10, 2)
+  discount     Decimal      @default(0) @db.Decimal(10, 2)
+  discountType DiscountType @default(AMOUNT)
+  taxRate      Decimal      @default(0) @db.Decimal(5, 2)
+  taxAmount    Decimal      @default(0) @db.Decimal(10, 2)
+  total        Decimal      @db.Decimal(10, 2)
+
+  // Payment
+  paymentStatus PaymentStatus @default(UNPAID)
+  amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
+  balance       Decimal       @default(0) @db.Decimal(10, 2)
+
+  // Cash Account (optional)
+  cashAccountId String?
+  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id])
+
+  // Multi-tenancy & Tracking
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  userId   String
+  user     User   @relation("SalesCreated", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String?
+  category   SaleCategory? @relation(fields: [categoryId], references: [id])
+
+  installmentPayments InstallmentPayment[]
+}
+
+model SaleCategory {
+  id        String  @id @default(cuid())
+  name      String
+  isDefault Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  sales Sale[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, name])
+}
+
+model SaleItem {
+  id     String @id @default(cuid())
+  saleId String
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  // Item Details (snapshot at sale time)
+  productName  String
+  sku          String?
+  quantity     Int
+  unitCost     Decimal @db.Decimal(10, 2) // Hidden from regular users
+  sellingPrice Decimal @db.Decimal(10, 2)
+  discount     Decimal @default(0) @db.Decimal(10, 2)
+  lineTotal    Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+}
+
+enum SaleSource {
+  WALK_IN
+  PHONE
+  ONLINE
+  REFERRAL
+  RETURNING
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  QUOTE // Does NOT deduct stock
+  INSTALLMENT
+  PARTIAL
+}
+
+enum DiscountType {
+  PERCENTAGE
+  AMOUNT
+}
+
+model SalesGoal {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  month Int
+  year  Int
+
+  dailyGoal   Float @default(0)
+  weeklyGoal  Float @default(0)
+  monthlyGoal Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, userId, month, year])
+}

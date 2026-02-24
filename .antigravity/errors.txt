@@ -1,0 +1,7 @@
+DialogContent requires a DialogTitle for the component to be accessible for screen reader users
+--> src/shared/ui/dialog.tsx
+
+the notification button (bell icon) is not working on click nothing happens
+
+settings should show current subscription and expirey details including data and time if available
+fix ProductSuggestionsPanel

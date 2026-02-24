@@ -1,0 +1,277 @@
+// =========================
+// 🏢 ORGANIZATION / CORE MODULE
+// =========================
+
+model Branch {
+  id             String     @id @default(cuid())
+  name           String     @unique
+  location       String
+  phone          String?
+  email          String?
+  type           BranchType @default(SUB)
+  accessPassword String? // Nullable if we want to allow open branches
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  adminId      String
+  admin        User          @relation("AdminBranches", fields: [adminId], references: [id])
+  users        User[]        @relation("BranchUsers")
+  products     Product[]
+  customers    Customer[]
+  sales        Sale[]
+  expenses     Expense[]
+  cashAccounts CashAccount[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  fromTransfers      StockTransfer[]    @relation("FromBranch")
+  toTransfers        StockTransfer[]    @relation("ToBranch")
+  requisitions       Requisition[]
+  tasks              Task[]
+  taskCategories     TaskCategory[]
+  customerCategories CustomerCategory[]
+  expenseCategories  ExpenseCategory[]
+  saleCategories     SaleCategory[]
+  activityHistory    ActivityHistory[]
+  cashTransactions   CashTransaction[]
+  salesGoals         SalesGoal[]
+  settings           BranchSettings?
+  roles              Role[]
+  stockAudits        StockAudit[]
+  notifications      Notification[]
+
+  carriageInwards CarriageInward[]
+
+  systemNotifications SystemNotification[]
+}
+
+enum BranchType {
+  MAIN
+  SUB
+}
+
+model BranchSettings {
+  id       String @id @default(cuid())
+  branchId String @unique
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  // Branding
+  logo            String?
+  signatureImage  String?
+  enableSignature Boolean @default(false)
+
+  // Business Info
+  businessName String?
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+
+  // Preferences
+  currency        String  @default("UGX")
+  needsOnboarding Boolean @default(true)
+  metadata        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =========================
+// 🗓️ TASKS MODULE
+// =========================
+
+model TaskCategory {
+  id   String @id @default(cuid())
+  name String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, name])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+
+  priority TaskPriority @default(NORMAL)
+  status   TaskStatus   @default(TODO)
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  // Category
+  categoryId String?
+  category   TaskCategory? @relation(fields: [categoryId], references: [id])
+
+  // Completion
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  // Reminders
+  reminderEnabled Boolean   @default(false)
+  reminderTime    DateTime?
+
+  // Recurrence
+  isRecurring       Boolean         @default(false)
+  recurrenceType    RecurrenceType?
+  recurrenceEndDate DateTime?
+  recurrenceCount   Int             @default(0)
+
+  // Hierarchy
+  parentTaskId String?
+
+  assignedToId String?
+  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum RecurrenceType {
+  daily
+  weekly
+  monthly
+}
+
+// =========================
+// 📝 ACTIVITY HISTORY
+// =========================
+
+model ActivityHistory {
+  id         String @id @default(cuid())
+  userId     String @map("user_id")
+  user       User   @relation(fields: [userId], references: [id])
+  locationId String @map("location_id")
+  branch     Branch @relation(fields: [locationId], references: [id])
+
+  activityType ActivityType   @map("activity_type")
+  module       ActivityModule
+
+  entityType  String  @map("entity_type")
+  entityId    String? @map("entity_id")
+  entityName  String  @map("entity_name")
+  description String
+  metadata    Json?
+
+  profileId   String? @map("profile_id")
+  profileName String? @map("profile_name")
+
+  agencyId String? @map("agency_id")
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("activity_history")
+}
+
+enum ActivityType {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum ActivityModule {
+  SALES
+  INVENTORY
+  EXPENSES
+  FINANCE
+  CUSTOMERS
+  TASKS
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  title     String
+  message   String
+  type      String // "TRANSFER", "ALERT", "INFO", "SYSTEM_MSG"
+  priority  String @default("LOW") // "LOW", "MEDIUM", "HIGH"
+  actionUrl String? // Optional URL to redirect to when clicked
+
+  read      Boolean @default(false)
+  persisted Boolean @default(false) // If true, won't be auto-deleted by cron
+
+  // Link to Branch context
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  // Link to Agency context
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  // Link to specific User
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Link to specific Role (e.g., alert all "Managers")
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  referenceId   String? // e.g. StockTransfer ID
+  referenceType String? // e.g. "StockTransfer", "Audit"
+
+  expiresAt DateTime? // Optional expiration date for auto-cleanup
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model SystemNotification {
+  id        String @id @default(cuid())
+  title     String
+  message   String
+  type      String // "ERROR", "MAINTENANCE", "SECURITY", "INFO"
+  priority  String @default("LOW") // "LOW", "MEDIUM", "HIGH"
+  actionUrl String? // Route back to the error or context
+
+  read      Boolean @default(false)
+  persisted Boolean @default(false)
+
+  // Contextual data (stored as strings/IDs to avoid hard relations for system logs, or hard relations if preferred. We'll use hard relations for consistency but optional)
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  referenceId   String?
+  referenceType String?
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

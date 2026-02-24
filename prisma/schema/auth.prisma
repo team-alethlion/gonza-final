@@ -1,0 +1,237 @@
+// =========================
+// 🔐 AUTHENTICATION MODULE
+// =========================
+
+model Agency {
+  id                 String    @id @default(cuid())
+  name               String
+  subscriptionStatus String    @default("trial") // "trial", "active", "expired", "blocked"
+  trialEndDate       DateTime?
+  subscriptionExpiry DateTime?
+  isUnlimitedUsage   Boolean   @default(false)
+
+  // Package Management
+  packageId String?
+  package   Package? @relation(fields: [packageId], references: [id])
+
+  users          User[]
+  branches       Branch[]
+  auditLogs      AuditLog[]
+  categories     Category[]
+  suppliers      Supplier[]
+  products       Product[]
+  customers      Customer[]
+  sales          Sale[]
+  expenses       Expense[]
+  cashAccounts   CashAccount[]
+  stockTransfers StockTransfer[]
+  requisitions   Requisition[]
+  tasks          Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activityHistories   ActivityHistory[]
+  systemNotifications SystemNotification[]
+
+  notifications Notification[]
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String // ID of the Super Admin
+  actor     User     @relation("AuditLogActor", fields: [actorId], references: [id])
+  targetId  String? // ID of the Agency or User being modified
+  agencyId  String?
+  agency    Agency?  @relation(fields: [agencyId], references: [id])
+  action    String // "IMPERSONATION_START", "PASSWORD_RESET", "TRIAL_EXTENSION"
+  metadata  Json? // Store old_value vs new_value or IP address
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String?
+  password              String? // Null for OAuth-only users
+  emailVerified         DateTime? // Changed from Boolean to DateTime for NextAuth
+  passwordResetRequired Boolean?  @default(false)
+  status                String?   @default("active") // "active", "suspended", "expired"
+  image                 String? // Profile picture URL
+  roleId                String
+  role                  Role      @relation(fields: [roleId], references: [id])
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  auditLogs AuditLog[] @relation("AuditLogActor")
+
+  branchId          String?
+  branch            Branch?            @relation("BranchUsers", fields: [branchId], references: [id])
+  ownedBranches     Branch[]           @relation("AdminBranches")
+  refreshTokens     RefreshToken[]
+  accounts          Account[] // OAuth accounts (Google, etc.)
+  sessions          Session[] // Added for NextAuth
+  messages          Message[]
+  campaigns         Campaign[]
+  templates         MessageTemplate[]
+  whatsappSession   WhatsAppSession?
+  transactions      Transaction[]
+  products          Product[]
+  customers         Customer[]         @relation("CustomerOwner")
+  favoriteCustomers FavoriteCustomer[]
+  sales             Sale[]             @relation("SalesCreated")
+  expenses          Expense[]
+  credits           Int                @default(0)
+  createdAt         DateTime           @default(now())
+
+  updatedAt                 DateTime         @updatedAt
+  productHistory            ProductHistory[]
+  defaultThankYouTemplateId String?
+
+  stockTransfers StockTransfer[]
+  requisitions   Requisition[]
+
+  assignedTasks      Task[]             @relation("TaskAssignee")
+  createdTasks       Task[]             @relation("TaskCreator")
+  taskCategories     TaskCategory[]
+  customerCategories CustomerCategory[]
+  expenseCategories  ExpenseCategory[]
+  saleCategories     SaleCategory[]
+  activityHistory    ActivityHistory[]
+
+  cashTransactions CashTransaction[]
+  receivedPayments InstallmentPayment[] @relation("PaymentReceiver")
+  salesGoals       SalesGoal[]
+
+  isActive      Boolean        @default(true)
+  pin           String? // 4-digit security PIN for switching profiles
+  notifications Notification[]
+
+  carriageInwards     CarriageInward[]
+  deletionRequests    DeletionRequest[]
+  systemNotifications SystemNotification[]
+}
+
+model DeletionRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String   @default("pending") // "pending", "processing", "completed", "cancelled"
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String // Added for NextAuth
+  provider          String // "google", "github", etc.
+  providerAccountId String // OAuth provider's user ID
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String // Removed @unique to allow same role name in different branches
+  description String?
+  permissions Permission[]
+  users       User[]
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, name])
+  notifications Notification[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique // "users:view", etc.
+  description String?
+  roles       Role[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Package {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  
+  // Pricing
+  monthlyPrice Float   @default(0)
+  yearlyPrice  Float   @default(0)
+  
+  // Quotas
+  maxUsers       Int     @default(5)
+  unlimitedUsers Boolean @default(false)
+  
+  maxSalesPerMonth Int     @default(100)
+  unlimitedSales   Boolean @default(false)
+  
+  maxProducts       Int     @default(50)
+  unlimitedProducts Boolean @default(false)
+  
+  maxCustomers       Int     @default(100)
+  unlimitedCustomers Boolean @default(false)
+
+  hasFreeTrial Boolean @default(false)
+  trialDays    Int     @default(14)
+  features     Json?
+  isDefault    Boolean @default(false)
+  isActive     Boolean @default(true)
+
+  agencies Agency[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
