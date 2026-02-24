@@ -928,7 +928,7 @@ __turbopack_context__.s([
     "generateReceiptNumber",
     ()=>generateReceiptNumber
 ]);
-var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2f$inventory$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/app/actions/inventory.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2f$data$3a$4bd0b6__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$text$2f$javascript$3e$__ = __turbopack_context__.i("[project]/src/app/actions/data:4bd0b6 [app-client] (ecmascript) <text/javascript>");
 ;
 const generateReceiptNumber = async (locationId)=>{
     try {
@@ -936,7 +936,7 @@ const generateReceiptNumber = async (locationId)=>{
             console.error('Location ID is required for receipt number generation');
             return '000001';
         }
-        const result = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2f$inventory$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getNextReceiptNumberAction"])(locationId);
+        const result = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2f$data$3a$4bd0b6__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$text$2f$javascript$3e$__["getNextReceiptNumberAction"])(locationId);
         if (result.success && result.data) {
             return result.data;
         }
