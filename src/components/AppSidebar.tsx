@@ -1,5 +1,4 @@
-
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useState } from 'react';
 import {
   Sidebar,
@@ -67,7 +66,7 @@ const AppSidebar = () => {
           {canManageSettings && (
             <SidebarMenuItem>
               <SidebarMenuButton className="w-full justify-start hover:bg-white/10 text-primary-foreground" asChild tooltip="Manage Businesses">
-                <Link to="/business-management">
+                <Link href="/business-management">
                   <Building2 className="mr-2 h-4 w-4" />
                   <span className="group-data-[collapsible=icon]:hidden truncate">Manage Businesses</span>
                 </Link>
@@ -79,4 +78,5 @@ const AppSidebar = () => {
     </Sidebar>
   );
 };
+
 export default AppSidebar;

@@ -666,7 +666,7 @@ const Products = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/inventory')}
+              onClick={() => router.push('/inventory')}
               className="shrink-0 h-8 w-8"
               title="Back to inventory"
             >
@@ -685,7 +685,7 @@ const Products = () => {
             <div className="space-y-2">
               <div className="flex gap-2">
                 {canCreate && (
-                  <Button onClick={() => navigate('/inventory/new')} className="flex-1 gap-2 h-9">
+                  <Button onClick={() => router.push('/inventory/new')} className="flex-1 gap-2 h-9">
                     <Plus size={16} /> Add Product
                   </Button>
                 )}

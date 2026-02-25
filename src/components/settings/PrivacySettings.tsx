@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -36,10 +36,10 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion
             <p className="text-sm text-gray-500">Review our privacy policy</p>
           </div>
           <Button variant="outline" asChild>
-            <Link to="/privacy-policy">View Policy</Link>
+            <Link href="/privacy-policy">View Policy</Link>
           </Button>
         </div>
-        
+
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-medium">Delete My Data</h3>
@@ -71,7 +71,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion
             </DialogContent>
           </Dialog>
         </div>
-        
+
         <p className="text-xs text-muted-foreground">
           You can request deletion of your account and associated data at any time.
         </p>

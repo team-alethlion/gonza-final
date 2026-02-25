@@ -1,4 +1,3 @@
-
 import { LogOut, Settings, User, ChevronDown, Check, Building2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { BusinessSelector } from '@/components/business/BusinessSelector';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
@@ -51,28 +50,28 @@ const UserMenu = () => {
             </div>
           </div>
           <DropdownMenuSeparator />
-          
+
           {/* Business selector in user menu */}
           <div className="p-2">
             <BusinessSelector variant="desktop" />
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link to="/business-management" className="flex items-center bg-blue-50 text-blue-700 font-medium">
+            <Link href="/business-management" className="flex items-center bg-blue-50 text-blue-700 font-medium">
               <Building2 className="mr-2 h-4 w-4" />
               <span>Manage Businesses</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          
+
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link to="/settings" className="flex items-center">
+              <Link href="/settings" className="flex items-center">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={triggerUpdate}
               disabled={isUpdating}
               className="flex items-center bg-orange-50 text-orange-700 font-medium hover:bg-orange-100"

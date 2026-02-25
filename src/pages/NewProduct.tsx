@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import ProductForm from '@/components/inventory/ProductForm';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useProducts } from '@/hooks/useProducts';
@@ -18,11 +19,15 @@ import { AlertCircle } from 'lucide-react';
 const NewProduct = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const searchParams = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { products, isLoading: productsLoading, createProduct, updateProduct, loadProducts, refetch } = useProducts(user?.id, 10000); // Load all products
   const { categories, isLoading: categoriesLoading } = useCategories(user?.id);
   const [product, setProduct] = useState<Product | undefined>(undefined);
+  // Check for duplicate data from navigation state or search params
+  const duplicateId = searchParams.get('duplicateId');
+  const [duplicateData, setDuplicateData] = useState<any>(location.state?.duplicateData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,8 +39,9 @@ const NewProduct = () => {
   const duplicateData = location.state?.duplicateData;
 
   const loadProductData = async () => {
-    if (id) {
-      // If refreshing, set state 
+    const targetId = id || duplicateId;
+    if (targetId) {
+      // If refreshing or duplicating, set state 
       setIsRefreshing(true);
 
       // Clear any previous error
@@ -45,25 +51,44 @@ const NewProduct = () => {
       const { data: refetchedData } = await refetch();
       const fetchedProducts = refetchedData?.products || [];
 
-      const foundProduct = fetchedProducts.find(p => p.id === id);
+      const foundProduct = fetchedProducts.find(p => p.id === targetId);
 
       if (foundProduct) {
-        setProduct(foundProduct);
-        setDataLoaded(true);
+        if (id) {
+          setProduct(foundProduct);
+          setDataLoaded(true);
+        } else {
+          // Duplicating
+          setDuplicateData({
+            name: `${foundProduct.name} (Copy)`,
+            description: foundProduct.description,
+            category: foundProduct.category,
+            supplier: foundProduct.supplier,
+            costPrice: foundProduct.costPrice,
+            sellingPrice: foundProduct.sellingPrice,
+            imageUrl: foundProduct.imageUrl,
+            createdAt: foundProduct.createdAt,
+            minimumStock: foundProduct.minimumStock
+          });
+          setDataLoaded(true);
+        }
       } else {
         setLoadError('Product not found. It may have been deleted or you may not have permission to view it.');
         toast.error('Product not found');
       }
 
       setIsRefreshing(false);
-    } else if (duplicateData) {
-      // For duplicate mode, set the data as loaded
-      setDataLoaded(true);
     } else {
       // For new product mode
       setDataLoaded(true);
     }
   };
+
+  useEffect(() => {
+    if (duplicateId && !duplicateData && products.length > 0 && !dataLoaded) {
+      loadProductData();
+    }
+  }, [duplicateId, products.length, dataLoaded]);
 
   useEffect(() => {
     // Only load if we have an ID, haven't loaded yet, and products are available
@@ -82,9 +107,11 @@ const NewProduct = () => {
       }
     } else if (!id) {
       // New product or duplicate mode
-      setDataLoaded(true);
+      if (!duplicateId || duplicateData) {
+        setDataLoaded(true);
+      }
     }
-  }, [id, products.length, dataLoaded]); // Use products.length instead of products array
+  }, [id, products.length, dataLoaded, duplicateId, duplicateData]); // Use products.length instead of products array
 
   const handleRefresh = async () => {
     toast.info('Refreshing product data...');

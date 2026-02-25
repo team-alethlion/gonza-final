@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Plus, Package, ShoppingCart, Users, DollarSign, CreditCard } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,11 +12,16 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const FloatingActionButton = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useIsMobile();
 
-  const handleNavigation = (path: string, state?: any) => {
-    navigate(path, { state });
+  const handleNavigation = (path: string, queryParams?: Record<string, string>) => {
+    let url = path;
+    if (queryParams) {
+      const params = new URLSearchParams(queryParams);
+      url += `?${params.toString()}`;
+    }
+    router.push(url);
     setIsOpen(false);
   };
 

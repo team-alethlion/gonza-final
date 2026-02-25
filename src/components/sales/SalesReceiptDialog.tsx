@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Sale } from '@/types';
 import ReceiptDialog from './ReceiptDialog';

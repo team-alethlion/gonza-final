@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Product } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileProductCard from './MobileProductCard';
@@ -25,9 +24,9 @@ interface InventoryTableProps {
 export type SortField = 'name' | 'category' | 'quantity' | 'sellingPrice' | 'costPrice' | 'itemNumber';
 type SortOrder = 'asc' | 'desc';
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ 
-  products, 
-  isLoading, 
+const InventoryTable: React.FC<InventoryTableProps> = ({
+  products,
+  isLoading,
   showAllFields = true,
   enableBulkActions = false,
   selectedProductIds = new Set(),
@@ -39,9 +38,9 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   onUpdateProduct,
   categories = []
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useIsMobile();
-  
+
   // Internal sorting state (fallback if no external sorting is provided)
   const [internalSortField, setInternalSortField] = React.useState<SortField>('name');
   const [internalSortOrder, setInternalSortOrder] = React.useState<SortOrder>('asc');
@@ -51,11 +50,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const sortOrder = externalSortOrder || internalSortOrder;
 
   const handleEdit = (id: string) => {
-    navigate(`/inventory/edit/${id}`);
+    router.push(`/inventory/edit/${id}`);
   };
 
   const handleView = (id: string) => {
-    navigate(`/inventory/${id}`);
+    router.push(`/inventory/${id}`);
   };
 
   const handleSort = (field: SortField) => {
@@ -76,7 +75,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const sortedProducts = React.useMemo(() => {
     return [...products].sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortField) {
         case 'name':
           comparison = a.name.localeCompare(b.name);
@@ -97,7 +96,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
           comparison = a.itemNumber.localeCompare(b.itemNumber);
           break;
       }
-      
+
       return sortOrder === 'asc' ? comparison : -comparison;
     });
   }, [products, sortField, sortOrder]);
@@ -141,11 +140,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             </div>
           </div>
         )}
-        
+
         {/* Product Cards */}
         <div className="divide-y">
           {sortedProducts.map((product) => (
-            <MobileProductCard 
+            <MobileProductCard
               key={product.id}
               product={product}
               onView={handleView}

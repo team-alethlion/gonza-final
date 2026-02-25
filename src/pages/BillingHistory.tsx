@@ -15,9 +15,9 @@ import {
     Building2,
     ChevronRight,
     FileText,
-    TrendingUp
+    History as HistoryIcon
 } from 'lucide-react';
-import { format, addMonths, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -32,7 +32,7 @@ interface SubscriptionPayment {
     payment_status: string | null;
 }
 
-export default function BillingHistory() {
+const BillingHistory = () => {
     const { user } = useAuth();
     const { currentBusiness } = useBusiness();
     const [isInitiatingPayment, setIsInitiatingPayment] = React.useState(false);
@@ -89,9 +89,7 @@ export default function BillingHistory() {
 
         setIsInitiatingPayment(true);
         try {
-            const purchaseId = crypto.randomUUID();
             const locationId = currentBusiness?.id || (user as any).location_id || '00000000-0000-0000-0000-000000000000';
-
             const phone = user.user_metadata?.phone || user.phone || '0700000000';
 
             const result = await initiateSubscriptionPaymentAction(
@@ -111,7 +109,6 @@ export default function BillingHistory() {
             }
         } catch (error: any) {
             console.error('Subscription Renewal Error:', error);
-
             const errorMsg = error.message || error.error || "Failed to connect to Pesapal.";
             alert(`Payment Error: ${errorMsg}. Please try again later.`);
         } finally {
@@ -122,18 +119,17 @@ export default function BillingHistory() {
     const handleDownloadUpcomingInvoice = async () => {
         if (!nextBillingDate || !billingAmount) return;
 
-        // Create a mock payment object for the upcoming renewal
         const upcomingPayment = {
             id: `PRO-FORMA-${format(new Date(), 'yyyyMMdd')}`,
-            created_at: new Date().toISOString(), // Today's date for creation
-            due_date: nextBillingDate, // Renewal date as due date
+            created_at: new Date().toISOString(),
+            due_date: nextBillingDate,
             amount: billingAmount,
             billing_cycle: billingDuration || 'Monthly',
             payment_status: 'pending',
             user_id: user?.id,
             isProForma: true,
             business_name: currentBusiness?.name || 'Gonzo System User',
-            invoice_number: (payments?.length || 0) + 1 // Next in sequence
+            invoice_number: (payments?.length || 0) + 1
         };
 
         await generateSubscriptionInvoice(upcomingPayment, 'invoice');
@@ -178,13 +174,9 @@ export default function BillingHistory() {
                             title="Pesapal Payment"
                         />
                     </div>
-                    <p className="mt-4 text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-medium opacity-60">
-                        Do not close this window until the payment is complete
-                    </p>
                 </div>
             )}
 
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Billing & Subscription</h1>
@@ -220,7 +212,6 @@ export default function BillingHistory() {
                 </div>
             </div>
 
-            {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white border border-border/40 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow group">
                     <div className="flex items-center gap-3 mb-4">
@@ -266,16 +257,12 @@ export default function BillingHistory() {
                 </div>
             </div>
 
-            {/* History Table */}
             <div className="bg-white border border-border/40 rounded-2xl overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-border/40 bg-muted/5 flex items-center justify-between">
                     <h3 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
                         <HistoryIcon className="w-4 h-4 text-muted-foreground" />
                         Payment History
                     </h3>
-                    <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 tracking-tighter uppercase">
-                        Finalized Payments
-                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -329,7 +316,6 @@ export default function BillingHistory() {
                                                 <button
                                                     onClick={() => handleDownloadInvoice(payment, 'invoice')}
                                                     className="p-2 hover:bg-primary/5 rounded-lg text-primary transition-colors inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest"
-                                                    title="Download Invoice"
                                                 >
                                                     <FileText className="w-3.5 h-3.5" />
                                                     <span className="hidden sm:inline">Invoice</span>
@@ -337,7 +323,6 @@ export default function BillingHistory() {
                                                 <button
                                                     onClick={() => handleDownloadInvoice(payment, 'receipt')}
                                                     className="p-2 hover:bg-emerald-50 rounded-lg text-emerald-600 transition-colors inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest"
-                                                    title="Download Receipt"
                                                 >
                                                     <Download className="w-3.5 h-3.5" />
                                                     <span className="hidden sm:inline">Receipt</span>
@@ -362,52 +347,8 @@ export default function BillingHistory() {
                     </table>
                 </div>
             </div>
-
-            {/* Footer Support */}
-            <div className="bg-blue-600 rounded-2xl p-8 lg:p-10 text-white relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-700" />
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                    <div className="max-w-md text-center md:text-left">
-                        <h3 className="text-xl font-bold mb-2">Need a custom plan or help?</h3>
-                        <p className="text-blue-100 text-sm">Our team is here to help you scale your business with the right tools and support.</p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                        <a
-                            href="mailto:support@gonzasystems.com"
-                            className="px-6 py-3 bg-white text-blue-600 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-blue-50 transition-colors shadow-lg"
-                        >
-                            Contact Support
-                        </a>
-                        <a
-                            href="tel:+256758519696"
-                            className="px-6 py-3 bg-blue-500 text-white border border-blue-400 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-blue-400 transition-colors"
-                        >
-                            Call +256 758519696
-                        </a>
-                    </div>
-                </div>
-            </div>
         </div>
     );
-}
+};
 
-function HistoryIcon({ className }: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-            <path d="M12 7v5l4 2" />
-        </svg>
-    );
-}
+export default BillingHistory;

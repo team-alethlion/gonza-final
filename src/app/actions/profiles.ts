@@ -6,9 +6,17 @@ import { revalidatePath } from 'next/cache';
 // Profiles Server Actions (Using the User model from Prisma Auth map)
 export async function getProfilesAction(branchId: string) {
     try {
+        const branch = await db.branch.findUnique({
+            where: { id: branchId },
+            select: { adminId: true }
+        });
+
         const users = await db.user.findMany({
             where: {
-                branchId: branchId
+                OR: [
+                    { branchId: branchId },
+                    { id: branch?.adminId }
+                ]
             },
             include: {
                 role: {

@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarMenuButton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '../ui/sidebar';
-import { Link } from 'react-router-dom';
 import { BusinessPasswordDialog } from './BusinessPasswordDialog';
 import { useBusinessPassword } from '@/hooks/useBusinessPassword';
 
@@ -20,9 +19,9 @@ interface BusinessSelectorProps {
   onItemClick?: () => void;
 }
 
-export const BusinessSelector: React.FC<BusinessSelectorProps> = ({ 
+export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
   variant = 'desktop',
-  onItemClick 
+  onItemClick
 }) => {
   const { currentBusiness, businessLocations, switchBusiness } = useBusiness();
   const { verifyBusinessPassword } = useBusinessPassword();
@@ -102,7 +101,7 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
             </SidebarMenuSub>
           </CollapsibleContent>
         </Collapsible>
-        
+
         {passwordPromptData && (
           <BusinessPasswordDialog
             open={showPasswordDialog}
@@ -122,17 +121,16 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
         <div className="px-6 py-4 border-b">
           <div className="text-sm text-gray-500 mb-2">Current Business</div>
           <div className="font-medium break-words">{currentBusiness?.name || 'Loading...'}</div>
-          
+
           <div className="mt-3 space-y-1">
             {businessLocations.map((business) => (
               <button
                 key={business.id}
                 onClick={() => handleBusinessSwitch(business.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors touch-manipulation ${
-                  currentBusiness?.id === business.id
+                className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors touch-manipulation ${currentBusiness?.id === business.id
                     ? 'bg-blue-50 text-blue-600'
                     : 'hover:bg-gray-50 active:bg-gray-100'
-                }`}
+                  }`}
                 type="button"
               >
                 <span className="flex items-center gap-2 min-w-0 flex-1">
@@ -149,7 +147,7 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
             ))}
           </div>
         </div>
-        
+
         {passwordPromptData && (
           <BusinessPasswordDialog
             open={showPasswordDialog}
@@ -178,7 +176,7 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
             </div>
           </Button>
         </DropdownMenuTrigger>
-        
+
         <DropdownMenuContent align="start" className="w-64">
           {businessLocations.map((business) => (
             <DropdownMenuItem
@@ -200,7 +198,7 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      
+
       {passwordPromptData && (
         <BusinessPasswordDialog
           open={showPasswordDialog}

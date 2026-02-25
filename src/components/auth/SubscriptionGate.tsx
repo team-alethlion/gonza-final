@@ -6,6 +6,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/hooks/use-toast';
 import { Rocket, ShieldAlert, CreditCard, ChevronRight } from 'lucide-react';
+import { getSubscriptionPaymentsAction, initiateSubscriptionPaymentAction } from '@/app/actions/billing';
 
 interface SubscriptionGateProps {
     children: React.ReactNode;
@@ -23,15 +24,14 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) 
         const fetchPaymentData = async () => {
             if (!user) return;
             try {
-                const res = await fetch(`/api/subscription/latest?userId=${user.id}`);
-                if (res.ok) {
-                    const latest = await res.json();
-                    if (latest?.id) {
-                        setLatestPayment({
-                            ...latest,
-                            business_name: currentBusiness?.name || 'Gonzo System User',
-                        });
-                    }
+                const payments = await getSubscriptionPaymentsAction(user.id);
+                const latest = payments && payments.length > 0 ? payments[0] : null;
+
+                if (latest?.id) {
+                    setLatestPayment({
+                        ...latest,
+                        business_name: currentBusiness?.name || 'Gonzo System User',
+                    });
                 }
             } catch (err) {
                 console.error('Failed to fetch payment data:', err);
@@ -60,30 +60,22 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) 
 
         setIsInitiatingPayment(true);
         try {
-            const purchaseId = crypto.randomUUID();
             const locationId = currentBusiness?.id || '00000000-0000-0000-0000-000000000000';
+            const phone = (user as any).phone || '0700000000';
 
-            const res = await fetch('/api/initiate-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    purchaseId,
-                    userId: user.id,
-                    locationId,
-                    amount: billingAmount,
-                    billingDuration,
-                    phoneNumber: (user as any).phone || '0700000000',
-                    description: `Subscription Renewal - ${billingDuration} Plan`,
-                }),
-            });
+            const result = await initiateSubscriptionPaymentAction(
+                user.id,
+                locationId,
+                billingAmount,
+                billingDuration,
+                phone
+            );
 
-            const data = await res.json();
-
-            if (!res.ok || !data.redirect_url) {
-                throw new Error(data.error || 'Failed to initiate payment');
+            if (!result.success || !result.redirect_url) {
+                throw new Error(result.error || 'Failed to initiate payment');
             }
 
-            setPesapalRedirectUrl(data.redirect_url);
+            setPesapalRedirectUrl(result.redirect_url);
         } catch (error: any) {
             console.error('Subscription Renewal Error:', error);
             toast({

@@ -51,6 +51,7 @@ const DeletePersonalData = lazy(() => import("@/pages/DeletePersonalData"));
 const Help = lazy(() => import("@/pages/Help"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
+const BillingHistory = lazy(() => import("@/pages/BillingHistory"));
 
 // Create a new QueryClient with defaultOptions that include retry configuration
 const queryClient = new QueryClient({
@@ -185,6 +186,7 @@ const AuthenticatedApp = () => {
               {/* Tasks route */}
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/billing" element={<BillingHistory />} />
               {/* Help route */}
               <Route path="/help" element={<Help />} />
               <Route path="*" element={<NotFound />} />

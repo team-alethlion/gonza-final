@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, Building2, RefreshCw } from 'lucide-react';
@@ -9,7 +8,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import NavLinks from './NavLinks';
 import MobileLogoutButton from './MobileLogoutButton';
 import { BusinessSelector } from '@/components/business/BusinessSelector';
@@ -66,7 +65,7 @@ const MobileMenuButton = () => {
             {/* Manage Businesses Button */}
             <div className="px-6 pb-4 border-b">
               <Link
-                to="/business-management"
+                href="/business-management"
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-md text-sm font-medium hover:bg-blue-100 transition-colors"
               >

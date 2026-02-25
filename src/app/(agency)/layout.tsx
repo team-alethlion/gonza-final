@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import "@/app/globals.css";
+import "@/app/(agency)/globals.css";
 
 import { Providers } from "@/components/Providers";
+import AgencyLayout from "@/components/AgencyLayout";
 
 export const metadata: Metadata = {
   title: "Gonza Systems",
@@ -22,7 +23,9 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          {children}
+          <AgencyLayout>
+            {children}
+          </AgencyLayout>
         </Providers>
         <Toaster />
         <Sonner />

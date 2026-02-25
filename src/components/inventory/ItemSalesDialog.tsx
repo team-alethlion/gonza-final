@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +34,7 @@ const ItemSalesDialog: React.FC<ItemSalesDialogProps> = ({
   dateRange,
   specificDate
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { hasPermission } = useProfiles();
   const { canViewSellingPrice } = useFinancialVisibility();
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -85,7 +84,8 @@ const ItemSalesDialog: React.FC<ItemSalesDialogProps> = ({
   const relevantSales = getFilteredSales();
 
   const handleEditSale = (sale: Sale) => {
-    navigate('/new-sale', { state: { editSale: sale } });
+    // In Next.js App Router, we use search parameters instead of location state
+    router.push(`/new-sale?editId=${sale.id}`);
     onOpenChange(false); // Close the dialog
   };
 

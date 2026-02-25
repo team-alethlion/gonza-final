@@ -27,11 +27,22 @@ export const useDeletedSales = () => {
 
         setIsLoading(true);
         try {
-            const result = await getActivityHistoryAction(currentBusiness.id, 'SALES', 'DELETE');
+            // Fetch deleted sales logs (all users if needed, using custom filters)
+            const result = await getActivityHistoryAction(
+                currentBusiness.id,
+                'ALL', // Fetch deletions from all users
+                1,     // Page 1
+                100,   // Batch size
+                {
+                    module: 'SALES',
+                    activityType: 'DELETE'
+                }
+            );
 
-            if (!result.success) throw new Error(result.error);
+            if (!result.success) throw new Error(result.error || 'Failed to fetch deleted sales');
 
-            const formatted: DeletedSale[] = (result.data || []).map((log: any) => {
+            const resultData = result.data as any;
+            const formatted: DeletedSale[] = (resultData.activities || []).map((log: any) => {
                 const metadata = log.metadata || {};
                 const items = Array.isArray(metadata.items) ? metadata.items : [];
 

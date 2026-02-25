@@ -1,9 +1,10 @@
+"use client";
 
 import React from 'react';
 import { Sale } from '@/types';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { 
-  Drawer, 
+import {
+  Drawer,
   DrawerContent,
   DrawerClose,
   DrawerTrigger
@@ -21,9 +22,9 @@ interface ReceiptDialogProps {
   includePaymentInfo?: boolean;
 }
 
-const ReceiptDialog: React.FC<ReceiptDialogProps> = ({ 
-  isOpen, 
-  sale, 
+const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
+  isOpen,
+  sale,
   currency,
   onOpenChange,
   includePaymentInfo = true

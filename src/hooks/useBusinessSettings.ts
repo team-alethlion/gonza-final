@@ -115,6 +115,8 @@ export const useBusinessSettings = () => {
     }
   };
 
+  const { user: authUser } = useAuth();
+
   const updateSettings = async (newSettings: Partial<BusinessSettings>) => {
     if (!currentBusiness) {
       console.error('No business selected for updating settings');
@@ -127,7 +129,10 @@ export const useBusinessSettings = () => {
     }
 
     try {
-      const userData = { user: { id: '00000000-0000-0000-0000-000000000000' } }; // Mocked user id for now
+      if (!authUser?.id) {
+        console.error('No authenticated user found for updating settings');
+        return false;
+      }
 
       // Prepare the metadata object with payment info
       const metadata = {
@@ -149,7 +154,7 @@ export const useBusinessSettings = () => {
         metadata: metadata
       };
 
-      const response = await upsertBusinessSettingsAction(currentBusiness.id, userData.user.id, updateData);
+      const response = await upsertBusinessSettingsAction(currentBusiness.id, authUser.id, updateData);
 
       if (!response.success) {
         console.error('Supabase error updating business settings:', response.error);
@@ -208,3 +213,4 @@ export const useBusinessSettings = () => {
     loadSettings
   };
 };
+

@@ -59,12 +59,19 @@ export async function getActivityHistoryAction(
     filters?: ActivityFilters
 ) {
     try {
-        const skip = (page - 1) * pageSize;
+        // Ensure inputs are numbers and have sane defaults
+        const actualPage = Math.max(1, Number(page) || 1);
+        const actualPageSize = Math.max(1, Number(pageSize) || 20);
+        const skip = (actualPage - 1) * actualPageSize;
 
         const where: any = {
-            locationId,
-            userId
+            locationId
         };
+
+        // Only filter by userId if it's provided and not a special 'ALL' string
+        if (userId && userId !== 'ALL') {
+            where.userId = userId;
+        }
 
         if (filters) {
             if (filters.activityType && filters.activityType !== 'ALL') {
@@ -96,7 +103,7 @@ export async function getActivityHistoryAction(
             db.activityHistory.findMany({
                 where,
                 skip,
-                take: pageSize,
+                take: actualPageSize,
                 orderBy: {
                     createdAt: 'desc'
                 }

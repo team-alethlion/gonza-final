@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, ListFilter, Search, Truck, FileDown, FileUp, Scale } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -18,7 +18,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
   onDownloadTemplate,
   onCSVUpload
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const { hasPermission } = useProfiles();
 
@@ -39,7 +39,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
           <div className="space-y-3">
             <div className="flex gap-2">
               {hasPermission('inventory', 'create') && (
-                <Button onClick={() => navigate('/inventory/new')} className="flex-1 gap-2 min-h-[44px]">
+                <Button onClick={() => router.push('/inventory/new')} className="flex-1 gap-2 min-h-[44px]">
                   <Plus size={16} /> Add Product
                 </Button>
               )}
@@ -54,11 +54,11 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => navigate('/products')} variant="outline" className="gap-1 text-xs min-h-[40px]">
+              <Button onClick={() => router.push('/products')} variant="outline" className="gap-1 text-xs min-h-[40px]">
                 <ListFilter size={14} /> Products
               </Button>
               {hasPermission('inventory', 'view') && (
-                <Button onClick={() => navigate('/inventory/carriage-inwards')} variant="outline" className="gap-1 text-xs min-h-[40px]">
+                <Button onClick={() => router.push('/inventory/carriage-inwards')} variant="outline" className="gap-1 text-xs min-h-[40px]">
                   <Truck size={14} /> Carriage
                 </Button>
               )}
@@ -110,20 +110,20 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
               </>
             )}
             {hasPermission('inventory', 'view') && (
-              <Button onClick={() => navigate('/inventory/carriage-inwards')} variant="outline" className="gap-2">
+              <Button onClick={() => router.push('/inventory/carriage-inwards')} variant="outline" className="gap-2">
                 <Truck size={16} /> Carriage Inwards
               </Button>
             )}
             {hasPermission('inventory', 'stock_adjustment') && (
-              <Button onClick={() => navigate('/inventory/reconcile')} variant="outline" className="gap-2" title="Reconcile stock discrepancies">
+              <Button onClick={() => router.push('/inventory/reconcile')} variant="outline" className="gap-2" title="Reconcile stock discrepancies">
                 <Scale size={16} /> Reconcile
               </Button>
             )}
-            <Button onClick={() => navigate('/products')} variant="outline" className="gap-2">
+            <Button onClick={() => router.push('/products')} variant="outline" className="gap-2">
               <ListFilter size={16} /> All Products
             </Button>
             {hasPermission('inventory', 'create') && (
-              <Button onClick={() => navigate('/inventory/new')} className="gap-2">
+              <Button onClick={() => router.push('/inventory/new')} className="gap-2">
                 <Plus size={16} /> Add Product
               </Button>
             )}
@@ -133,5 +133,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
     </div>
   );
 };
+
+export default InventoryHeader;
 
 export default InventoryHeader;
