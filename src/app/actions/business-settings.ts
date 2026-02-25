@@ -92,32 +92,45 @@ export async function getAccountStatusAction(userId: string) {
         const user = await db.user.findUnique({
             where: { id: userId },
             select: {
-                isFrozen: true,
+                status: true,
+                isActive: true,
                 createdAt: true,
-                subscriptions: {
-                    where: { status: 'active' },
-                    orderBy: { endDate: 'desc' },
-                    take: 1
-                },
-                branches: {
-                    select: { id: true }
+                agency: {
+                    select: {
+                        subscriptionStatus: true,
+                        subscriptionExpiry: true,
+                        package: true
+                    }
                 }
             }
         });
 
         if (!user) return null;
 
-        const activeSub = user.subscriptions[0];
+        const isFrozen = user.status === 'suspended' || user.status === 'expired' || !user.isActive;
+        const agency = user.agency;
         const now = new Date();
-        const daysRemaining = activeSub ? Math.ceil((activeSub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+        let daysRemaining = 30;
+        let billingAmount = 50000;
+        let nextBillingDate = '';
+
+        if (agency && agency.subscriptionExpiry) {
+            daysRemaining = Math.max(0, Math.ceil((agency.subscriptionExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+            nextBillingDate = agency.subscriptionExpiry.toISOString();
+        }
+
+        if (agency && agency.package) {
+            billingAmount = agency.package.monthlyPrice || 50000;
+        }
 
         return {
-            is_frozen: user.isFrozen,
+            is_frozen: isFrozen,
             location_limit: 1, // Traditional limit or from subscription
-            billing_amount: activeSub ? Number(activeSub.amount) : 50000,
+            billing_amount: billingAmount,
             billing_duration: 'Monthly',
-            days_remaining: Math.max(0, daysRemaining),
-            next_billing_date: activeSub?.endDate.toISOString() || ''
+            days_remaining: daysRemaining,
+            next_billing_date: nextBillingDate
         };
     } catch (error) {
         console.error('Error fetching account status:', error);

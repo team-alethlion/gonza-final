@@ -1,9 +1,0 @@
-(globalThis.TURBOPACK_CHUNK_LISTS || (globalThis.TURBOPACK_CHUNK_LISTS = [])).push({
-    script: typeof document === "object" ? document.currentScript : undefined,
-    chunks: [
-  "static/chunks/node_modules_db32fb7e._.js",
-  "static/chunks/node_modules_99f701e9._.js",
-  "static/chunks/src_utils_generateReceiptVectorPDF_ts_33532899._.js"
-],
-    source: "dynamic"
-});

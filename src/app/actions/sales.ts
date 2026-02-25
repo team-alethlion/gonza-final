@@ -213,7 +213,6 @@ export async function createSalesCategoryAction(businessId: string, userId: stri
                 branchId: businessId,
                 userId,
                 name,
-                is_default: isDefault
             }
         });
 
