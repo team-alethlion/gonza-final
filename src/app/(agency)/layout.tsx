@@ -23,9 +23,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <AgencyLayout>
-            {children}
-          </AgencyLayout>
+          {children}
         </Providers>
         <Toaster />
         <Sonner />
