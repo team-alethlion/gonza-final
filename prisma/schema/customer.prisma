@@ -1,0 +1,112 @@
+// =========================
+// 👥 CUSTOMER MODULE
+// =========================
+
+model Customer {
+  id      String  @id @default(cuid())
+  name    String
+  phone   String? // Non-unique, duplicates allowed
+  email   String?
+  address String?
+  city    String?
+  notes   String?
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  birthday    DateTime?
+  gender      String?
+  categoryId  String?
+  category    CustomerCategory? @relation(fields: [categoryId], references: [id])
+  tags        String[]
+  socialMedia Json?
+
+  // New fields matching reference implementation
+  avatar   String?
+  source   String? @default("System")
+  timezone String? @default("UTC")
+  language String? @default("English")
+  assignee String? // Could be a relation later, string for now matches reference types
+
+  // Multi-tenancy
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  adminId  String // Owner isolation
+  admin    User    @relation("CustomerOwner", fields: [adminId], references: [id])
+
+  sales   Sale[]
+  tickets Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favoritedBy FavoriteCustomer[]
+}
+
+model FavoriteCustomer {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, customerId])
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  type        TicketType     @default(Question)
+  priority    TicketPriority @default(Medium)
+  status      TicketStatus   @default(Open)
+
+  assignedTo String?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TicketType {
+  Question
+  Bug
+  Feature
+}
+
+enum TicketPriority {
+  High
+  Medium
+  Low
+}
+
+enum TicketStatus {
+  Open
+  Closed
+  Pending
+}
+
+model CustomerCategory {
+  id        String  @id @default(cuid())
+  name      String
+  isDefault Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  customers Customer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, name])
+}

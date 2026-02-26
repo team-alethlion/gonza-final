@@ -1,0 +1,268 @@
+// =========================
+// 📦 PRODUCT INVENTORY
+// =========================
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([branchId, name])
+}
+
+model Supplier {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([agencyId, name])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String?  @unique
+  description  String?
+  sellingPrice Float    @default(0) // renamed from price
+  costPrice    Float    @default(0)
+  initialStock Int      @default(0)
+  minStock     Int      @default(0)
+  stock        Int      @default(0) // current stock
+  barcode      String?
+  sku          String?
+  image        String? // R2 URL
+  overheadCost Float    @default(0)
+  tags         String[]
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  history   ProductHistory[]
+
+  // relations
+  stockAuditItems StockAuditItem[]
+
+  @@unique([branchId, sku])
+  @@unique([branchId, barcode])
+  @@unique([branchId, slug])
+}
+
+model StockAudit {
+  id            String    @id @default(cuid())
+  auditNumber   String?   @unique // "AUD-2024-001"
+  location      String? // Optional specific location within branch
+  status        String    @default("In Progress") // "In Progress", "Completed", "Cancelled"
+  dateStarted   DateTime  @default(now())
+  dateCompleted DateTime?
+
+  items         StockAuditItem[]
+  totalVariance Int              @default(0)
+
+  performedBy String?
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockAuditItem {
+  id      String     @id @default(cuid())
+  auditId String
+  audit   StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  productName String
+  sku         String?
+
+  expectedQty Int
+  countedQty  Int
+  variance    Int
+  status      String // "Matched", "Missing", "Surplus", "Pending"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductHistory {
+  id             String             @id @default(cuid())
+  productId      String
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type           ProductHistoryType
+  quantityChange Int                @default(0)
+  oldStock       Int
+  newStock       Int
+  oldPrice       Float?
+  newPrice       Float?
+  oldCost        Float?
+  newCost        Float?
+  referenceId    String? // saleId, orderId, etc.
+  referenceType  String? // "SALE", "ORDER", etc.
+  reason         String?
+  userId         String
+  user           User               @relation(fields: [userId], references: [id])
+  createdAt      DateTime           @default(now())
+}
+
+enum ProductHistoryType {
+  SALE
+  RETURN_IN
+  RESTOCK
+  ADJUSTMENT
+  PRICE_CHANGE
+  COST_CHANGE
+  CREATED
+  STOCK_TAKE
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+model StockTransfer {
+  id             String   @id @default(cuid())
+  transferNumber String   @unique // "TRF-2024-001"
+  date           DateTime @default(now())
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  fromBranchId String
+  fromBranch   Branch @relation("FromBranch", fields: [fromBranchId], references: [id])
+
+  toBranchId String
+  toBranch   Branch @relation("ToBranch", fields: [toBranchId], references: [id])
+
+  status TransferStatus      @default(COMPLETED)
+  items  StockTransferItem[]
+
+  transferCost Float @default(0)
+
+  notes  String?
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockTransferItem {
+  id         String        @id @default(cuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  productId   String
+  productName String
+  sku         String?
+  quantity    Int
+
+  createdAt DateTime @default(now())
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model Requisition {
+  id                String   @id @default(cuid())
+  requisitionNumber String   @unique // "REQ-2024-001"
+  date              DateTime @default(now())
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  status   RequisitionStatus @default(PENDING)
+  priority String            @default("NORMAL") // "LOW", "NORMAL", "HIGH", "URGENT"
+
+  items RequisitionItem[]
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RequisitionItem {
+  id            String      @id @default(cuid())
+  requisitionId String
+  requisition   Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+
+  productName String
+  sku         String?
+  quantity    Int
+
+  createdAt DateTime @default(now())
+}
+
+enum RequisitionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+  CANCELLED
+}
+
+model CarriageInward {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  supplierName String
+  details      String?
+  amount       Float
+  date         DateTime @default(now())
+
+  // Optional link to cash account if paid immediately
+  cashAccountId String?
+  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

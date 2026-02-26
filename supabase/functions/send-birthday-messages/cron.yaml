@@ -1,0 +1,11 @@
+# This configures the cron schedule for the birthday messages
+# Place this file in the same directory as index.ts
+
+schedule: '0 6 * * *'  # Run every day at 6:00 AM UTC (9:00 AM EAT)
+# You can change this to any time you want
+# Format: minute hour day month day-of-week
+# Examples:
+# '0 6 * * *'   - 6:00 AM daily
+# '0 8 * * *'   - 8:00 AM daily
+# '30 7 * * *'  - 7:30 AM daily
+# '0 0 * * *'   - Midnight daily
