@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Sale } from '@/types';
 import { formatNumber } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   Tooltip,
   TooltipContent,
@@ -20,7 +20,7 @@ interface RecentSalesTableProps {
 
 const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ recentSales, currency }) => {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
+  const router = useRouter();
   const {
     canViewCostPrice,
     canViewProfit,
@@ -29,11 +29,7 @@ const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ recentSales, curren
   } = useFinancialVisibility();
 
   const handleSaleClick = (sale: Sale) => {
-    navigate('/new-sale', {
-      state: {
-        editSale: sale
-      }
-    });
+    router.push(`/new-sale?editSaleId=${sale.id}`);
   };
 
   if (recentSales.length === 0) {

@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
 export const useDashboardActions = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -43,8 +43,8 @@ export const useDashboardActions = () => {
   }, [toast]);
 
   const handleQuickCreate = useCallback((paymentStatus: 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale') => {
-    navigate('/new-sale', { state: { defaultPaymentStatus: paymentStatus } });
-  }, [navigate]);
+    router.push(`/new-sale?defaultPaymentStatus=${paymentStatus}`);
+  }, [router]);
 
   return {
     isRefreshing,

@@ -25,7 +25,8 @@ import { format } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { toast } from 'sonner';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -67,7 +68,7 @@ interface UserSummary {
 
 export default function Dashboard() {
     const { user, signOut } = useAuth();
-    const navigate = useNavigate();
+    const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'provisioning'>('all');
     const [confirmModal, setConfirmModal] = useState<{
@@ -453,7 +454,7 @@ export default function Dashboard() {
                                             <tr
                                                 key={u.user_id}
                                                 className="linear-table-row group/row cursor-pointer"
-                                                onClick={() => navigate(`/records/${u.user_id}`)}
+                                                onClick={() => router.push(`/records/${u.user_id}`)}
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
@@ -533,7 +534,7 @@ export default function Dashboard() {
                                                     <div className="flex items-center justify-end gap-1">
                                                         {detailId && (
                                                             <Link
-                                                                to={`/records/${detailId}/edit`}
+                                                                href={`/records/${detailId}/edit`}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 className="p-1.5 hover:bg-primary/5 rounded text-muted-foreground hover:text-primary transition-all active:scale-90"
                                                                 title="Edit Record"

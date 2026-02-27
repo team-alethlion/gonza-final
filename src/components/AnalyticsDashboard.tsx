@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { Sale, BusinessSettings, Product } from '@/types';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessPassword } from '@/hooks/useBusinessPassword';

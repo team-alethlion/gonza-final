@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { Building2, ArrowLeft, CalendarClock, CreditCard, Edit3 } from 'lucide-react';
@@ -35,8 +35,9 @@ interface UserSummary {
 }
 
 export default function ShowRecord() {
-    const { id } = useParams();
-    const navigate = useNavigate();
+    const params = useParams();
+    const id = params?.id as string;
+    const router = useRouter();
 
     const { data: user, isLoading } = useQuery<UserSummary>({
         queryKey: ['admin-user-detail', id],
@@ -72,7 +73,7 @@ export default function ShowRecord() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-[#fafafa]">
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">User Not Found</p>
-                <button onClick={() => navigate(-1)} className="mt-4 text-xs font-bold text-primary hover:underline">Go Back</button>
+                <button onClick={() => router.back()} className="mt-4 text-xs font-bold text-primary hover:underline">Go Back</button>
             </div>
         );
     }
@@ -82,7 +83,7 @@ export default function ShowRecord() {
             <header className="h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/records')}
+                        onClick={() => router.push('/records')}
                         className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
                     >
                         <ArrowLeft className="w-4 h-4" />
@@ -91,7 +92,7 @@ export default function ShowRecord() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => navigate(`/records/${id}/edit`)}
+                        onClick={() => router.push(`/records/${id}/edit`)}
                         className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/5 rounded transition-colors"
                     >
                         <Edit3 className="w-3.5 h-3.5" />

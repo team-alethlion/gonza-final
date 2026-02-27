@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, Lock, User, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
     const { signIn, user } = useAuth();
-    const navigate = useNavigate();
+    const router = useRouter();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -16,9 +16,9 @@ export default function Login() {
     // Redirect if already authenticated
     useEffect(() => {
         if (user) {
-            navigate('/', { replace: true });
+            router.replace('/');
         }
-    }, [user, navigate]);
+    }, [user, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,7 +27,7 @@ export default function Login() {
         try {
             await signIn(username, password);
             toast.success('Access granted. Welcome to the Console.');
-            navigate('/', { replace: true });
+            router.replace('/');
         } catch (error: any) {
             toast.error(error.message || 'Authentication failed');
         } finally {

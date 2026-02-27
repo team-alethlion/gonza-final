@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from 'react';
 import { useState, useContext, createContext, useEffect } from 'react';
 import { toast } from 'sonner';

@@ -11,6 +11,7 @@
     "rebuild": "powershell -Command \"if (Test-Path dist) { Remove-Item -Recurse -Force dist }; if (Test-Path android\\app\\build) { Remove-Item -Recurse -Force android\\app\\build }; if (Test-Path android\\build) { Remove-Item -Recurse -Force android\\build }; npm run build; npx cap copy; npx cap sync; cd android; ./gradlew clean assembleDebug; $apk = Get-ChildItem -Path app\\build\\outputs\\apk\\debug\\GonzaSystems-v*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1; adb uninstall com.gonza.salestracker; adb install $apk.FullName; cd ..\""
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
     "@capacitor/android": "^7.4.4",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
@@ -62,6 +63,7 @@
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.462.0",
     "next": "^16.1.6",
+    "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.3.0",
     "node-thermal-printer": "^4.5.0",
     "pg": "^8.18.0",

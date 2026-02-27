@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getProfilesAction, createProfileAction, updateProfileAction, deleteProfileAction } from '@/app/actions/profiles';
 import { useBusiness } from './BusinessContext';

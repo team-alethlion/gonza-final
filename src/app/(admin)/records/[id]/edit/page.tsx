@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Trash2, Loader2, Save, X, Calendar } from 'lucide-react';
@@ -58,8 +58,9 @@ interface OnboardingRecord {
 }
 
 export default function EditRecord() {
-    const { id } = useParams();
-    const navigate = useNavigate();
+    const params = useParams();
+    const id = params?.id as string;
+    const router = useRouter();
     const queryClient = useQueryClient();
     const [isDeleting, setIsDeleting] = useState(false);
     const [formData, setFormData] = useState<Partial<OnboardingRecord & { location_limit?: number; is_frozen?: boolean }>>({});
@@ -178,7 +179,7 @@ export default function EditRecord() {
             queryClient.invalidateQueries({ queryKey: ['admin-user-detail', id] });
             queryClient.invalidateQueries({ queryKey: ['admin-location-onboarding', firstLoc?.id] });
             toast.success('Record and limits updated successfully');
-            navigate(`/records/${id}`);
+            router.push(`/records/${id}`);
         },
         onError: (error: any) => {
             toast.error(error.message || 'Failed to save record');
@@ -205,7 +206,7 @@ export default function EditRecord() {
             if (error) throw error;
 
             toast.success('Account deleted successfully');
-            navigate('/records');
+            router.push('/records');
         } catch (err: any) {
             toast.error(err.message || 'Deletion failed');
         } finally {
@@ -232,7 +233,7 @@ export default function EditRecord() {
             <header className="h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate(`/records/${id}`)}
+                        onClick={() => router.push(`/records/${id}`)}
                         className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
                     >
                         <ArrowLeft className="w-4 h-4" />
@@ -241,7 +242,7 @@ export default function EditRecord() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => navigate(`/records/${id}`)}
+                        onClick={() => router.push(`/records/${id}`)}
                         className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-muted rounded transition-colors"
                     >
                         <X className="w-3.5 h-3.5" />
@@ -448,7 +449,7 @@ export default function EditRecord() {
                             <div className="flex gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => navigate(`/records/${id}`)}
+                                    onClick={() => router.push(`/records/${id}`)}
                                     className="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-muted rounded transition-colors"
                                 >
                                     Cancel

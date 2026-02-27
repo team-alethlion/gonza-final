@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+"use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,55 +35,87 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(1, "Password is required"),
-});
+const signUpSchema = z
+  .object({
+    email: z.string().email("Please enter a valid email"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type SignUpFormData = z.infer<typeof signUpSchema>;
 
-const Login = () => {
+const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [resetEmailLoading, setResetEmailLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, signInWithGoogle, resetPassword, user } = useAuth();
-  const navigate = useNavigate();
+  const { signUp, signInWithGoogle } = useAuth();
+  const router = useRouter();
 
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<SignUpFormData>({
+    resolver: zodResolver(signUpSchema),
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
-  // Redirect if user is already authenticated
-  useEffect(() => {
-    // Don't redirect if this is a password recovery flow
-    const isRecovery = window.location.hash.includes("type=recovery");
-
-    if (user && !isRecovery) {
-      console.log("User already authenticated, redirecting to dashboard");
-      navigate("/", { replace: true });
-    }
-  }, [user, navigate]);
-
-  const handleSubmit = async (data: LoginFormData) => {
+  const handleSubmit = async (data: SignUpFormData) => {
     setLoading(true);
+    setSignupError(null);
 
     try {
-      await signIn(data.email, data.password);
-      // The AuthProvider will handle the success message and navigation
-    } catch (error: any) {
-      console.error("Email/password sign in error:", error);
-      if (error.message.includes("Invalid login credentials")) {
-        toast.error("Invalid email or password. Please try again.");
-      } else {
-        toast.error(`Login failed: ${error?.message || "Unknown error"}`);
+      console.log("Starting signup process with data:", {
+        email: data.email,
+      });
+
+      // Sign up with empty metadata for now, business info collected during onboarding
+      const { error, user } = await signUp(data.email, data.password, {
+        data: {
+          onboarding_started: true,
+        },
+      });
+
+      if (error) {
+        console.error("Signup error details:", error);
+
+        if (error.message.includes("already registered")) {
+          toast.error(
+            "This email is already registered. Please sign in instead.",
+          );
+          setSignupError(
+            "This email is already registered. Please sign in instead.",
+          );
+        } else {
+          toast.error(`Signup failed: ${error.message}`);
+          setSignupError(error.message);
+        }
+
+        setLoading(false);
+        return;
       }
+
+      // Successful signup
+      console.log("Account created successfully:", user);
+      toast.success("Registration successful!");
+
+      // If email confirmation is required, Supabase won't sign them in automatically.
+      // If not required, we can go straight to onboarding.
+      // Based on previous logs, most users are redirected to login for verification.
+      // However, the user requested "after that should redirect to the onboarding page".
+      // We'll try to navigate to onboarding, which is protected by RequiredSetupGate.
+      router.push("/onboarding");
+    } catch (error: any) {
+      console.error("Error during signup:", error);
+      toast.error(`Failed to sign up: ${error?.message || "Unknown error"}`);
+      setSignupError(error?.message || "Unknown error occurred during signup");
     } finally {
       setLoading(false);
     }
@@ -89,41 +123,15 @@ const Login = () => {
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    toast.loading("Redirecting to Google...");
-
     try {
       await signInWithGoogle();
-      // Don't set loading to false here - the page will redirect
+      // No need for success toast here as the page will redirect
     } catch (error: any) {
       console.error("Google sign-in error:", error);
-      toast.dismiss();
       toast.error(
         `Google sign-in failed: ${error?.message || "Unknown error"}`,
       );
       setGoogleLoading(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    const email = form.getValues("email");
-
-    if (!email) {
-      toast.error("Please enter your email address first");
-      return;
-    }
-
-    setResetEmailLoading(true);
-    try {
-      await resetPassword(email);
-      setResetEmailSent(true);
-      toast.success("Password reset email sent! Check your inbox.");
-    } catch (error: any) {
-      console.error("Password reset error:", error);
-      toast.error(
-        `Failed to send reset email: ${error?.message || "Unknown error"}`,
-      );
-    } finally {
-      setResetEmailLoading(false);
     }
   };
 
@@ -143,13 +151,20 @@ const Login = () => {
       <Card className="w-full max-w-md border-primary/10 shadow-lg bg-white/90">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center text-primary">
-            Welcome Back
+            Create Account
           </CardTitle>
           <CardDescription className="text-center">
-            Sign in to your account to continue
+            Sign up for a new account
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
+          {signupError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{signupError}</AlertDescription>
+            </Alert>
+          )}
+
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(handleSubmit)}
@@ -194,9 +209,9 @@ const Login = () => {
                           className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                           onClick={() => setShowPassword(!showPassword)}>
                           {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <EyeOff className="h-4 w-4 text-gray-500" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-4 w-4 text-gray-500" />
                           )}
                         </Button>
                       </div>
@@ -206,7 +221,26 @@ const Login = () => {
                 )}
               />
 
-              <div className="flex items-center justify-between">
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        className="border-input focus:border-primary"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex items-start">
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
@@ -221,21 +255,20 @@ const Login = () => {
                     <DialogHeader>
                       <DialogTitle>Need Help?</DialogTitle>
                       <DialogDescription>
-                        If you need assistance with logging in or have any other
-                        questions, please contact our support team.
+                        If you need assistance with creating an account or have
+                        any other questions, please contact our support team.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                      <p>Common issues:</p>
+                      <p>Registration guide:</p>
                       <ul className="list-disc pl-5 space-y-2">
                         <li>
-                          Forgot your password? Use the "Forgot password?" link.
+                          Ensure your email is correct for account verification.
                         </li>
-                        <li>New user? Click on "Create Account" to sign up.</li>
                         <li>
-                          Having trouble with Google Sign-in? Make sure you have
-                          a valid Google account.
+                          Your password must be at least 6 characters long.
                         </li>
+                        <li>Passwords must match exactly.</li>
                       </ul>
                       <div className="p-4 border rounded-md mt-4">
                         <h3 className="font-medium mb-2">Contact Support</h3>
@@ -259,26 +292,13 @@ const Login = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
-
-                <Button
-                  type="button"
-                  variant="link"
-                  className="text-sm text-primary p-0 h-auto"
-                  onClick={handleResetPassword}
-                  disabled={resetEmailLoading}>
-                  {resetEmailLoading
-                    ? "Sending..."
-                    : resetEmailSent
-                    ? "Email sent!"
-                    : "Forgot password?"}
-                </Button>
               </div>
 
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? "Creating account..." : "Create Account"}
               </Button>
             </form>
           </Form>
@@ -295,24 +315,21 @@ const Login = () => {
             variant="outline"
             className="w-full flex items-center justify-center gap-2 border-gray-300 hover:bg-gray-50"
             onClick={handleGoogleSignIn}
-            disabled={googleLoading || loading}>
+            disabled={googleLoading}>
             <img
               src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
               alt="Google"
               className="w-5 h-5"
             />
-            {googleLoading
-              ? "Connecting with Google..."
-              : "Sign in with Google"}
+            {googleLoading ? "Connecting..." : "Sign in with Google"}
           </Button>
 
           <Button
             type="button"
             variant="outline"
             className="w-full border-primary/20 hover:bg-primary/5 mt-4"
-            onClick={() => navigate("/signup")}
-            disabled={loading || googleLoading}>
-            Create Account
+            onClick={() => router.push("/login")}>
+            Already have an account? Sign In
           </Button>
         </CardContent>
       </Card>
@@ -320,4 +337,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignUp;
