@@ -30,11 +30,9 @@ interface StockSummaryData {
   itemsSold: number;
   stockIn: number;
   transferOut: number;
-  returnIn: number;
-  returnOut: number;
-  returnOut: number;
-  adjustmentsIn: number;
-  adjustmentsOut: number;
+      returnIn: number;
+      returnOut: number;
+      adjustmentsIn: number;  adjustmentsOut: number;
   closingStock: number;
   category?: string;
   revaluation: number;
@@ -236,11 +234,9 @@ const StockSummaryTable: React.FC<StockSummaryTableProps> = ({
       itemsSold: acc.itemsSold + item.itemsSold,
       stockIn: acc.stockIn + item.stockIn,
       transferOut: acc.transferOut + item.transferOut,
-      returnIn: acc.returnIn + item.returnIn,
-      returnOut: acc.returnOut + item.returnOut,
-      returnOut: acc.returnOut + item.returnOut,
-      adjustmentsIn: acc.adjustmentsIn + (item.adjustmentsIn || 0),
-      adjustmentsOut: acc.adjustmentsOut + (item.adjustmentsOut || 0),
+              returnIn: acc.returnIn + item.returnIn,
+              returnOut: acc.returnOut + item.returnOut,
+              adjustmentsIn: acc.adjustmentsIn + (item.adjustmentsIn || 0),      adjustmentsOut: acc.adjustmentsOut + (item.adjustmentsOut || 0),
       closingStock: acc.closingStock + item.closingStock
     }), {
       openingStock: 0,

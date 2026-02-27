@@ -35,9 +35,6 @@ const NewProduct = () => {
   const { settings } = useBusinessSettings();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
 
-  // Check for duplicate data from navigation state
-  const duplicateData = location.state?.duplicateData;
-
   const loadProductData = async () => {
     const targetId = id || duplicateId;
     if (targetId) {

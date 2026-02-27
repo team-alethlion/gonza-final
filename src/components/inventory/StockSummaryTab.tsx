@@ -24,11 +24,9 @@ interface StockSummaryData {
   itemsSold: number;
   stockIn: number;
   transferOut: number;
-  returnIn: number;
-  returnOut: number;
-  returnOut: number;
-  adjustmentsIn: number;
-  adjustmentsOut: number;
+      returnIn: number;
+      returnOut: number;
+      adjustmentsIn: number;  adjustmentsOut: number;
   closingStock: number;
   category?: string;
   revaluation: number;
