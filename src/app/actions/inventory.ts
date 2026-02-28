@@ -94,6 +94,33 @@ export async function updateStockHistoryDatesByReferenceAction(referenceId: stri
     }
 }
 
+export async function updateStockHistoryDatesAction(entryIds: string[], newDate: string) {
+    try {
+        await db.productHistory.updateMany({
+            where: { id: { in: entryIds } },
+            data: { createdAt: new Date(newDate) }
+        });
+        revalidatePath('/inventory');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error updating stock history dates:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getActivityByEntityIdsAction(entityIds: string[]) {
+    try {
+        const history = await db.activityHistory.findMany({
+            where: { entityId: { in: entityIds } },
+            select: { entityId: true, entityName: true }
+        });
+        return { success: true, data: history };
+    } catch (error: any) {
+        console.error('Error fetching activity history:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function repairStockChainsAction(locationId: string) {
     return repairAllStockChainsAction(locationId);
 }
@@ -481,6 +508,50 @@ export async function deleteRequisitionAction(id: string, userId: string) {
         return { success: true };
     } catch (error: any) {
         console.error('Error deleting requisition:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateStockHistoryEntryAction(id: string, branchId: string, updates: any) {
+    try {
+        const result = await db.productHistory.update({
+            where: { id, locationId: branchId },
+            data: {
+                newStock: updates.newQuantity,
+                changeReason: updates.changeReason,
+                createdAt: updates.createdAt ? new Date(updates.createdAt) : undefined
+            }
+        });
+        revalidatePath('/inventory');
+        return { success: true, data: result };
+    } catch (error: any) {
+        console.error('Error updating stock history entry:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteStockHistoryEntryAction(id: string, branchId: string) {
+    try {
+        await db.productHistory.delete({
+            where: { id, locationId: branchId }
+        });
+        revalidatePath('/inventory');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting stock history entry:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteMultipleStockHistoryEntriesAction(ids: string[], branchId: string) {
+    try {
+        await db.productHistory.deleteMany({
+            where: { id: { in: ids }, locationId: branchId }
+        });
+        revalidatePath('/inventory');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting multiple stock history entries:', error);
         return { success: false, error: error.message };
     }
 }

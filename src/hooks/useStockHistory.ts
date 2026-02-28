@@ -9,7 +9,10 @@ import {
   deleteStockHistoryEntriesByReferenceAction,
   updateStockHistoryDatesByReferenceAction,
   repairStockChainsAction,
-  getStockRepairsPreviewAction
+  getStockRepairsPreviewAction,
+  updateStockHistoryEntryAction,
+  deleteStockHistoryEntryAction,
+  deleteMultipleStockHistoryEntriesAction
 } from '@/app/actions/inventory';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -132,6 +135,49 @@ export const useStockHistory = (userId: string | undefined, productId?: string) 
     }
   };
 
+  const deleteMultipleStockHistoryEntries = async (entryIds: string[]) => {
+    try {
+      if (!currentBusiness) return false;
+      const result = await deleteMultipleStockHistoryEntriesAction(entryIds, currentBusiness.id);
+      if (!result.success) throw new Error(result.error);
+      await loadStockHistory();
+      return true;
+    } catch (error) {
+      console.error('Error deleting multiple stock history entries:', error);
+      return false;
+    }
+  }
+
+  const updateStockHistoryEntry = async (entryId: string, newQuantity: number, changeReason: string, createdAt?: Date) => {
+    try {
+      if (!currentBusiness) return false;
+      const result = await updateStockHistoryEntryAction(entryId, currentBusiness.id, {
+        newQuantity,
+        changeReason,
+        createdAt: createdAt?.toISOString()
+      });
+      if (!result.success) throw new Error(result.error);
+      await loadStockHistory();
+      return true;
+    } catch (error) {
+      console.error('Error updating stock history entry:', error);
+      return false;
+    }
+  }
+
+  const deleteStockHistoryEntry = async (entryId: string) => {
+    try {
+      if (!currentBusiness) return false;
+      const result = await deleteStockHistoryEntryAction(entryId, currentBusiness.id);
+      if (!result.success) throw new Error(result.error);
+      await loadStockHistory();
+      return true;
+    } catch (error) {
+      console.error('Error deleting stock history entry:', error);
+      return false;
+    }
+  }
+
   const recalculateStockChain = async (targetProductId: string) => {
     try {
       if (!currentBusiness) return false;
@@ -188,11 +234,16 @@ export const useStockHistory = (userId: string | undefined, productId?: string) 
     stockHistory,
     isLoading,
     createStockHistoryEntry,
+    updateStockHistoryEntry,
+    deleteStockHistoryEntry,
+    deleteMultipleStockHistoryEntries,
     deleteMultipleStockHistoryEntriesByReference,
     recalculateStockChain,
+    recalculateProductStock: recalculateStockChain,
     updateStockHistoryDatesBySaleId,
     repairAllStockChains,
     previewStockChainRepairs,
-    refreshHistory: loadStockHistory
+    refreshHistory: loadStockHistory,
+    loadStockHistory
   };
 };
