@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -21,9 +23,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { sendDeletionRequest } from "@/utils/emailService";
+import { requestDataDeletionAction } from "@/app/actions/user";
 
 // Define form schema
 const formSchema = z.object({
@@ -55,17 +57,19 @@ const DeletePersonalData = () => {
     setIsSubmitting(true);
 
     try {
-      // Send the deletion request email
-      await sendDeletionRequest({
+      // Send the deletion request via server action
+      const result = await requestDataDeletionAction({
         name: data.name,
         email: data.email,
         reason: data.reason,
       });
 
+      if (!result.success) throw new Error(result.error);
+
       toast({
         title: "Deletion request submitted",
         description:
-          "We've received your request and will contact you shortly.",
+          "We've received your request. An administrator will review it and process your data deletion manually within 30 days.",
       });
 
       // Reset the form
@@ -87,7 +91,7 @@ const DeletePersonalData = () => {
     <div className="container mx-auto max-w-2xl py-8">
       <div className="flex items-center mb-6">
         <Button variant="ghost" asChild className="mr-2">
-          <Link to="/privacy-policy">← Back to Privacy Policy</Link>
+          <Link href="/privacy-policy">← Back to Privacy Policy</Link>
         </Button>
       </div>
 
