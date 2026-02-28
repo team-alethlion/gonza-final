@@ -58,11 +58,11 @@ export const useOnboarding = () => {
         refetch: refetchGlobal,
     } = useQuery({
         queryKey: ['globalAccountStatus', user?.id],
-        queryFn: async (): Promise<{ is_frozen: boolean, location_limit: number, billing_amount: number, billing_duration: string, days_remaining: number, next_billing_date: string } | null> => {
+        queryFn: async (): Promise<{ is_frozen: boolean, location_limit: number, billing_amount: number, billing_duration: string, days_remaining: number, next_billing_date: string, package_id: string | null } | null> => {
             if (!user?.id) return null;
 
             const data = await getAccountStatusAction(user.id);
-            return data;
+            return data as any;
         },
         enabled: !!user?.id,
         staleTime: 10 * 1000,
@@ -117,6 +117,7 @@ export const useOnboarding = () => {
         billingDuration: globalStatus?.billing_duration || 'Monthly',
         daysRemaining: globalStatus?.days_remaining || 0,
         nextBillingDate: globalStatus?.next_billing_date,
+        packageId: globalStatus?.package_id,
         saveOnboarding,
         refetch,
     };

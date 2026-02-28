@@ -96,7 +96,6 @@ const BillingHistory = () => {
             const result = await initiateSubscriptionPaymentAction(
                 user.id,
                 locationId,
-                billingAmount,
                 billingDuration || 'monthly',
                 phone
             );

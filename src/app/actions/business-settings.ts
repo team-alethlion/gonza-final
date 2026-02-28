@@ -98,8 +98,10 @@ export async function getAccountStatusAction(userId: string) {
                 createdAt: true,
                 agency: {
                     select: {
+                        id: true,
                         subscriptionStatus: true,
                         subscriptionExpiry: true,
+                        packageId: true,
                         package: true
                     }
                 }
@@ -115,6 +117,8 @@ export async function getAccountStatusAction(userId: string) {
         let daysRemaining = 30;
         let billingAmount = 50000;
         let nextBillingDate = '';
+        let packageId = agency?.packageId || null;
+        let billingDuration = 'Monthly';
 
         if (agency && agency.subscriptionExpiry) {
             daysRemaining = Math.max(0, Math.ceil((agency.subscriptionExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
@@ -122,20 +126,21 @@ export async function getAccountStatusAction(userId: string) {
         }
 
         if (agency && agency.package) {
-            billingAmount = agency.package.monthlyPrice || 50000;
+            billingAmount = Number(agency.package.monthlyPrice) || 50000;
         }
 
         return {
             is_frozen: isFrozen,
             location_limit: 1, // Traditional limit or from subscription
             billing_amount: billingAmount,
-            billing_duration: 'Monthly',
+            billing_duration: billingDuration,
             days_remaining: daysRemaining,
-            next_billing_date: nextBillingDate
+            next_billing_date: nextBillingDate,
+            package_id: packageId
         };
     } catch (error) {
         console.error('Error fetching account status:', error);
-        return { is_frozen: false, location_limit: 1, billing_amount: 50000, billing_duration: 'Monthly', days_remaining: 30, next_billing_date: '' };
+        return { is_frozen: false, location_limit: 1, billing_amount: 50000, billing_duration: 'Monthly', days_remaining: 30, next_billing_date: '', package_id: null };
     }
 }
 

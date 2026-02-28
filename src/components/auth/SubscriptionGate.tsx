@@ -1,3 +1,4 @@
+"use client";
 
 import React, { useState } from 'react';
 import { useOnboarding } from '@/hooks/useOnboarding';
@@ -66,7 +67,6 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) 
             const result = await initiateSubscriptionPaymentAction(
                 user.id,
                 locationId,
-                billingAmount,
                 billingDuration,
                 phone
             );
