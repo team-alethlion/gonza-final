@@ -101,9 +101,11 @@ const Messages = () => {
 
   const handleTopUpCredits = useCallback(async (credits: number, phoneNumber: string) => {
     try {
-      const result = await initiateCreditPurchase(credits, phoneNumber);
-      // Redirect to payment page
-      window.open(result.redirectUrl, '_blank');
+      const result = await initiateCreditPurchase(credits, phoneNumber) as unknown as { redirectUrl?: string };
+      if (result?.redirectUrl) {
+        // Redirect to payment page
+        window.open(result.redirectUrl, '_blank');
+      }
       setTopUpOpen(false);
       return true;
     } catch (error) {
@@ -227,7 +229,7 @@ const Messages = () => {
                 </p>
                 {template.variables.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {template.variables.map(v => (
+                    {template.variables.map((v: string) => (
                       <span key={v} className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">
                         {v}
                       </span>

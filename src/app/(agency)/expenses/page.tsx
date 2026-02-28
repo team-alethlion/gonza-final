@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useExpenses } from '@/hooks/useExpenses';

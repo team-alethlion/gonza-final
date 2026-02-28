@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from './useCurrentUser';
-import { ActivityFilters as FilterTypes } from '@/pages/History';
+import { ActivityFilters as FilterTypes } from '@/app/(agency)/history/page';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getActivityHistoryAction, ActivityFilters } from '@/app/actions/activity';
 

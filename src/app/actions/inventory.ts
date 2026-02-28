@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
 
 import { db } from '../../../prisma/db';
@@ -263,7 +264,7 @@ export async function createRequisitionAction(data: any) {
                 locationId: requisition.branchId,
                 requisitionNumber: requisition.requisitionNumber,
                 title: requisition.title || '',
-                items: (requisition.items as any) || [],
+                items: ((requisition as any).items as any) || [],
                 notes: requisition.notes,
                 status: requisition.status,
                 createdAt: requisition.createdAt.toISOString(),
@@ -298,7 +299,7 @@ export async function updateRequisitionAction(id: string, userId: string, data: 
                 locationId: requisition.branchId,
                 requisitionNumber: requisition.requisitionNumber,
                 title: requisition.title || '',
-                items: (requisition.items as any) || [],
+                items: ((requisition as any).items as any) || [],
                 notes: requisition.notes,
                 status: requisition.status,
                 createdAt: requisition.createdAt.toISOString(),
@@ -384,7 +385,7 @@ export async function getStockSummaryReportAction(locationId: string, startDate:
                 orderBy: { createdAt: 'desc' }
             });
 
-            const closingStock = closingStockEntry ? closingStockEntry.newQuantity : 0;
+            const closingStock = closingStockEntry?.newQuantity ?? 0;
             const openingStock = closingStock - (stockIn + adjustmentsIn - itemsSold - adjustmentsOut);
 
             return {

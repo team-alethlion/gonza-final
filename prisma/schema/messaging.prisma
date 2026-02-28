@@ -5,10 +5,20 @@
 model Message {
   id         String    @id @default(cuid())
   content    String
-  recipient  String
-  channel    String // "sms", "whatsapp", "both"
+  recipient  String?
+  phoneNumber String?
+  channel    String?   @default("sms") // "sms", "whatsapp", "both"
   status     String    @default("pending") // "sent", "failed", "delivered"
   mediaUrl   String?
+  locationId String?
+  profileId  String?
+  customerId String?
+  templateId String?
+  metadata   Json?
+  errorMessage String?
+  sentAt     DateTime?
+  deliveredAt DateTime?
+  smsCreditsUsed Int   @default(0)
   userId     String
   user       User      @relation(fields: [userId], references: [id])
   campaignId String?
@@ -30,6 +40,10 @@ model MessageTemplate {
   id        String   @id @default(cuid())
   name      String
   content   String
+  locationId String?
+  category  String?
+  variables Json?
+  isDefault Boolean  @default(false)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())

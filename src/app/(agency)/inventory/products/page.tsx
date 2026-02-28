@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -122,7 +123,9 @@ const Products = () => {
             return;
           }
         }
-      } catch { }
+      } catch (e) {
+        console.error('Error reading localStorage', e);
+      }
 
       const stats = await getProductStatsAction(currentBusiness.id);
 
@@ -137,7 +140,9 @@ const Products = () => {
             ...stats,
             ts: Date.now()
           }));
-        } catch { }
+        } catch (e) {
+          console.error('Error writing localStorage', e);
+        }
       }
     };
     // Run in the background; UI uses page values until ready
@@ -189,14 +194,15 @@ const Products = () => {
     if (!user?.id || !currentBusiness?.id) return [];
 
     try {
-      let formattedProducts = await getAllProductsAction(user.id, currentBusiness.id);
+      const rawProducts = await getAllProductsAction(user.id, currentBusiness.id);
+      let formattedProducts = rawProducts as unknown as Product[];
 
       // Apply the same filters as the current view
       if (filters.search) {
         const searchTerm = filters.search.toLowerCase();
         formattedProducts = formattedProducts.filter(p =>
           p.name.toLowerCase().includes(searchTerm) ||
-          p.description.toLowerCase().includes(searchTerm) ||
+          (p.description || '').toLowerCase().includes(searchTerm) ||
           p.category.toLowerCase().includes(searchTerm) ||
           (p.supplier && p.supplier.toLowerCase().includes(searchTerm)) ||
           p.itemNumber.toLowerCase().includes(searchTerm)

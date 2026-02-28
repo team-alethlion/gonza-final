@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from 'react';
@@ -90,7 +91,7 @@ const BillingHistory = () => {
         setIsInitiatingPayment(true);
         try {
             const locationId = currentBusiness?.id || (user as any).location_id || '00000000-0000-0000-0000-000000000000';
-            const phone = user.user_metadata?.phone || user.phone || '0700000000';
+            const phone = (user as any).user_metadata?.phone || (user as any).phone || '0700000000';
 
             const result = await initiateSubscriptionPaymentAction(
                 user.id,

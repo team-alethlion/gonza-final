@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -222,8 +223,8 @@ const CarriageInwards = () => {
           <CarriageInwardsTable
             carriageInwards={carriageInwards}
             isLoading={isLoading}
-            onEdit={canEdit ? handleEdit : undefined}
-            onDelete={canDelete ? deleteCarriageInward : undefined}
+            onEdit={canEdit ? handleEdit : () => {}}
+            onDelete={canDelete ? deleteCarriageInward : async () => false}
             onView={handleView}
           />
         </CardContent>

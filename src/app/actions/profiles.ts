@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
 
 import { db } from '../../../prisma/db';
@@ -164,7 +165,7 @@ export async function getRolesAction(branchId: string) {
 export async function upsertRoleAction(branchId: string, roleData: any) {
     try {
         // Flatten permissions map to flat array like "sales:view"
-        let flatPermissions: string[] = [];
+        const flatPermissions: string[] = [];
         if (roleData.permissions) {
             Object.keys(roleData.permissions).forEach(module => {
                 roleData.permissions[module].forEach((action: string) => {

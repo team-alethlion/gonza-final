@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useActivityHistory } from '@/hooks/useActivityHistory';

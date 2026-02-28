@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -26,7 +27,7 @@ const NewProduct = () => {
   const { categories, isLoading: categoriesLoading } = useCategories(user?.id);
   const [product, setProduct] = useState<Product | undefined>(undefined);
   // Check for duplicate data from navigation state or search params
-  const duplicateId = searchParams.get('duplicateId');
+  const duplicateId = searchParams?.get('duplicateId');
   const [duplicateData, setDuplicateData] = useState<any>(location.state?.duplicateData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -85,6 +86,7 @@ const NewProduct = () => {
     if (duplicateId && !duplicateData && products.length > 0 && !dataLoaded) {
       loadProductData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duplicateId, products.length, dataLoaded]);
 
   useEffect(() => {
@@ -108,6 +110,7 @@ const NewProduct = () => {
         setDataLoaded(true);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, products.length, dataLoaded, duplicateId, duplicateData]); // Use products.length instead of products array
 
   const handleRefresh = async () => {

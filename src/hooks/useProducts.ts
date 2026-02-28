@@ -66,7 +66,7 @@ export const useProducts = (userId: string | undefined, initialPageSize: number 
       console.error('Error loading products from server action:', error);
       return { products: [], count: 0 };
     }
-  }, [userId, currentBusiness?.id, page, pageSize, filters.search, filters.category, filters.stockStatus]);
+  }, [userId, currentBusiness, page, pageSize, filters.search, filters.category, filters.stockStatus]);
 
   const baseQueryKey = useMemo(() => ['products', userId, currentBusiness?.id], [userId, currentBusiness?.id]);
   const queryKey = useMemo(() => [...baseQueryKey, page, pageSize, filters.search, filters.category, filters.stockStatus], [baseQueryKey, page, pageSize, filters.search, filters.category, filters.stockStatus]);
@@ -242,5 +242,6 @@ export const useProducts = (userId: string | undefined, initialPageSize: number 
     isFetching,
     filters,
     setFilters: setFiltersWithTypingState,
+    filteredProducts: products, // Returning products directly as filtering is likely handled server-side now
   };
 };

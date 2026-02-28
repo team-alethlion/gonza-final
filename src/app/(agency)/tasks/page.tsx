@@ -25,26 +25,22 @@ const Tasks = () => {
   const canEdit = hasPermission('tasks', 'edit');
   const canDelete = hasPermission('tasks', 'delete');
 
-  // Use error boundaries for hooks
-  let tasksData;
-  let categoriesData;
+  // Hooks must be called unconditionally at the top level
+  const tasksData = useTasks();
+  const categoriesData = useTaskCategories();
 
-  try {
-    tasksData = useTasks();
-  } catch (error) {
-    console.error('Error in useTasks:', error);
-    tasksData = { tasks: [], isLoading: false, createTask: async () => null, updateTask: async () => false, deleteTask: async () => false, toggleTaskCompletion: async () => false, bulkUpdateTasks: async () => false };
-  }
+  // If hooks fail or don't return data as expected, provide fallbacks
+  const tasks = tasksData?.tasks || [];
+  const isLoading = tasksData?.isLoading || false;
+  const createTask = tasksData?.createTask || (async () => null);
+  const updateTask = tasksData?.updateTask || (async () => false);
+  const deleteTask = tasksData?.deleteTask || (async () => false);
+  const toggleTaskCompletion = tasksData?.toggleTaskCompletion || (async () => false);
+  const bulkUpdateTasks = tasksData?.bulkUpdateTasks || (async () => false);
 
-  try {
-    categoriesData = useTaskCategories();
-  } catch (error) {
-    console.error('Error in useTaskCategories:', error);
-    categoriesData = { categories: [], createDefaultCategories: async () => { } };
-  }
-
-  const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTaskCompletion, bulkUpdateTasks } = tasksData;
-  const { categories, createDefaultCategories } = categoriesData;
+  const categories = categoriesData?.categories || [];
+  const fallbackCreateCategories = React.useCallback(async () => {}, []);
+  const createDefaultCategories = categoriesData?.createDefaultCategories || fallbackCreateCategories;
 
   const taskPageLogic = useTaskPageLogic({
     tasks,

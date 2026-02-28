@@ -52,10 +52,12 @@ model Product {
   minStock     Int      @default(0)
   stock        Int      @default(0) // current stock
   barcode      String?
-  sku          String?
-  image        String? // R2 URL
-  overheadCost Float    @default(0)
-  tags         String[]
+  sku                 String?
+  image               String? // R2 URL
+  imageUrl            String?
+  manufacturerBarcode String?
+  overheadCost        Float    @default(0)
+  tags                String[]
 
   agencyId String?
   agency   Agency? @relation(fields: [agencyId], references: [id])
@@ -132,6 +134,9 @@ model ProductHistory {
   quantityChange Int                @default(0)
   oldStock       Int
   newStock       Int
+  newQuantity    Int?
+  changeReason   String?
+  locationId     String?
   oldPrice       Float?
   newPrice       Float?
   oldCost        Float?
@@ -207,6 +212,8 @@ model Requisition {
   id                String   @id @default(cuid())
   requisitionNumber String   @unique // "REQ-2024-001"
   date              DateTime @default(now())
+  title             String?
+  locationId        String?
 
   agencyId String?
   agency   Agency? @relation(fields: [agencyId], references: [id])

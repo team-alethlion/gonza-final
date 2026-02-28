@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Search, RefreshCw } from 'lucide-react';
-import { ActivityFilters, ActivityType, ModuleType } from '@/pages/History';
+import { ActivityFilters, ActivityType, ModuleType } from '@/app/(agency)/history/page';
 
 interface HistoryFiltersProps {
   filters: ActivityFilters;

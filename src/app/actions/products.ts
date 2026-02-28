@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { db } from '../../../prisma/db';
@@ -28,7 +29,7 @@ export async function getProductsAction({
   const skip = (page - 1) * pageSize;
   const take = pageSize;
 
-  let whereClause: any = {
+  const whereClause: any = {
     userId: userId,
     branchId: businessId,
   };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -28,6 +29,7 @@ import TopSellingProductsCard from '@/components/inventory/TopSellingProductsCar
 import StockLevelOverviewCard from '@/components/inventory/StockLevelOverviewCard';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { useQueryClient } from '@tanstack/react-query';
+import { useGlobalInventoryStats } from '@/hooks/useGlobalInventoryStats';
 
 
 

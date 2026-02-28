@@ -16,12 +16,12 @@ const ProductDetail = () => {
   const { user } = useAuth();
   const { products, isLoading, loadProducts, refetch } = useProducts(user?.id, 10000); // Load all products
   const [product, setProduct] = useState<Product | null>(null);
-  const { stockHistory, isLoading: isLoadingHistory, loadStockHistory, updateStockHistoryEntry, deleteStockHistoryEntry, recalculateProductStock } = useStockHistory(user?.id, id);
+  const { stockHistory, isLoading: isLoadingHistory, refreshHistory: loadStockHistory, recalculateStockChain: recalculateProductStock, createStockHistoryEntry } = useStockHistory(user?.id, id);
   const { clearAllLocationCaches } = useStockSummaryData({ from: undefined, to: undefined });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadProductData = async () => {
+  const loadProductData = React.useCallback(async () => {
     if (id) {
       setIsRefreshing(true);
       const { data: refetchedData } = await refetch();
@@ -37,45 +37,32 @@ const ProductDetail = () => {
 
       setIsRefreshing(false);
     }
-  };
+  }, [id, refetch, navigate]);
 
   // Handle stock update callback - refresh both product and stock history
-  const handleStockUpdate = async () => {
+  const handleStockUpdate = React.useCallback(async () => {
     await loadProductData();
     if (id && loadStockHistory) {
       await loadStockHistory();
     }
     setRefreshKey(prev => prev + 1);
-  };
+  }, [loadProductData, id, loadStockHistory]);
 
   // Stock history handlers
   const handleEditStockHistory = async (entryId: string, newQuantity: number, newReason: string, newDate?: Date) => {
-    const success = await updateStockHistoryEntry(entryId, newQuantity, newReason, newDate);
-    if (success) {
-      // Clear stock summary cache to ensure data consistency
-      clearAllLocationCaches();
-      // updateStockHistoryEntry already recalculates the entire stock chain
-      // Just refresh the UI data
-      await Promise.all([
-        loadStockHistory(),
-        loadProductData()
-      ]);
-    }
-    return success;
+    // Single entry update is not fully supported in the hook yet.
+    // We would need a dedicated action for this. For now, returning false.
+    console.warn("Edit stock history entry is not yet implemented in the backend.");
+    toast.error("Editing history entries is not yet supported.");
+    return false;
   };
 
   const handleDeleteStockHistory = async (entryId: string) => {
-    const success = await deleteStockHistoryEntry(entryId);
-    if (success) {
-      // Clear stock summary cache to ensure data consistency
-      clearAllLocationCaches();
-      await Promise.all([
-        recalculateProductStock(product!.id),
-        loadStockHistory(),
-        loadProductData()
-      ]);
-    }
-    return success;
+    // Single entry delete is not directly supported without reference id in the hook.
+    // For now, warning the user.
+    console.warn("Delete stock history entry is not yet implemented in the backend.");
+    toast.error("Deleting history entries directly is not yet supported.");
+    return false;
   };
 
   useEffect(() => {
