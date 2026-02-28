@@ -53,7 +53,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const locationLimit = 3;
 
 
+  const getStorageKey = () => user ? `selected_business_${user.id}` : null;
+
   const loadBusinessLocations = async () => {
+    console.log('BusinessContext: loadBusinessLocations starting, user:', user?.id);
     if (!user) {
       setIsLoading(false);
       setError(null);
@@ -67,6 +70,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setError(null);
 
       const data = await getBusinessLocationsAction(user.id);
+      console.log('BusinessContext: getBusinessLocationsAction result:', data?.length, 'locations found');
 
       if (!data) {
         throw new Error('Failed to load locations');
@@ -77,7 +81,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Always try to set a current business if we have locations
       if (data && data.length > 0) {
         // First check localStorage for saved business
-        const savedBusinessId = localStorage.getItem('currentBusinessId');
+        const storageKey = getStorageKey();
+        const savedBusinessId = storageKey ? localStorage.getItem(storageKey) : null;
         let businessToSet = (data as any[]).find(b => b.id === savedBusinessId);
 
         // If no saved business or saved business not found, use default or first
@@ -86,13 +91,20 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         if (businessToSet) {
+          console.log('BusinessContext: Setting current business to:', businessToSet.name);
           setCurrentBusiness(businessToSet);
-          localStorage.setItem('currentBusinessId', businessToSet.id);
+          if (storageKey) {
+            localStorage.setItem(storageKey, businessToSet.id);
+          }
         }
       } else {
+        console.log('BusinessContext: No locations found');
         // No business locations found, clear current business
         setCurrentBusiness(null);
-        localStorage.removeItem('currentBusinessId');
+        const storageKey = getStorageKey();
+        if (storageKey) {
+          localStorage.removeItem(storageKey);
+        }
       }
     } catch (error) {
       console.error('Error loading business locations:', error);
@@ -117,7 +129,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onPasswordPrompt(businessId, business.name, () => {
           // This callback is called after successful password verification
           setCurrentBusiness(business);
-          localStorage.setItem('currentBusinessId', business.id);
+          const storageKey = getStorageKey();
+          if (storageKey) {
+            localStorage.setItem(storageKey, business.id);
+          }
         });
         return;
       } else {
@@ -128,7 +143,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // No password protection or already verified
     setCurrentBusiness(business);
-    localStorage.setItem('currentBusinessId', business.id);
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      localStorage.setItem(storageKey, business.id);
+    }
   };
 
   const createBusiness = async (name: string): Promise<BusinessLocation | null> => {
@@ -172,7 +190,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // If this is the first business or it's set as default, make it current
         if (businessLocations.length === 0 || newBusiness.is_default) {
           setCurrentBusiness(newBusiness);
-          localStorage.setItem('currentBusinessId', newBusiness.id);
+          const storageKey = getStorageKey();
+          if (storageKey) {
+            localStorage.setItem(storageKey, newBusiness.id);
+          }
         }
 
         return newBusiness;
@@ -240,10 +261,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const nextBusiness = defaultBusiness || remaining[0] || null;
 
         setCurrentBusiness(nextBusiness);
-        if (nextBusiness) {
-          localStorage.setItem('currentBusinessId', nextBusiness.id);
-        } else {
-          localStorage.removeItem('currentBusinessId');
+        const storageKey = getStorageKey();
+        if (storageKey) {
+          if (nextBusiness) {
+            localStorage.setItem(storageKey, nextBusiness.id);
+          } else {
+            localStorage.removeItem(storageKey);
+          }
         }
       }
 
@@ -282,7 +306,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setBusinessLocations([]);
       setIsLoading(false);
       setError(null);
-      localStorage.removeItem('currentBusinessId');
+      // We don't remove user-specific keys here as they will be ignored next time
     }
   }, [user?.id]);
 

@@ -2,9 +2,9 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
 import { Building2, ArrowLeft, CalendarClock, CreditCard, Edit3 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { getPlatformUserDetail } from "@/app/actions/admin";
 
 interface LocationRecord {
     id: string;
@@ -42,21 +42,11 @@ export default function ShowRecord() {
     const { data: user, isLoading } = useQuery<UserSummary>({
         queryKey: ['admin-user-detail', id],
         queryFn: async () => {
-            const savedSession = localStorage.getItem('platform_admin_session');
-            if (!savedSession) throw new Error('Not authenticated');
-            const { username, password } = JSON.parse(atob(savedSession));
-
-            const { data, error } = await supabase.rpc('get_platform_user_summary', {
-                p_username: username,
-                p_password: password
-            });
-
-            if (error) throw error;
-            const users = data as any[];
-            const foundUser = users.find(u => u.user_id === id);
-
-            if (!foundUser) throw new Error('User not found');
-            return foundUser as UserSummary;
+            const result = await getPlatformUserDetail(id);
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+            return result.data as UserSummary;
         }
     });
 
@@ -83,7 +73,7 @@ export default function ShowRecord() {
             <header className="h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => router.push('/records')}
+                        onClick={() => router.push('/')}
                         className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
                     >
                         <ArrowLeft className="w-4 h-4" />

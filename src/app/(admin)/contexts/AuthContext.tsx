@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { verifyPlatformAdmin } from '@/app/actions/admin';
 
 interface AuthContextType {
     user: { username: string } | null;
@@ -37,14 +37,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signIn = async (username: string, password: string) => {
         setLoading(true);
         try {
-            const { data: isValid, error } = await supabase.rpc('verify_platform_admin', {
+            const result = await verifyPlatformAdmin({
                 p_username: username,
                 p_password: password
             });
 
-            if (error) throw error;
+            if (!result.success) {
+                throw new Error(result.error || 'Verification failed');
+            }
 
-            if (isValid) {
+            if (result.data) {
                 const sessionData = { username, password };
                 localStorage.setItem('platform_admin_session', btoa(JSON.stringify(sessionData)));
                 setUser({ username });

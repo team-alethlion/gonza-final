@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalyticsData } from '@/types';

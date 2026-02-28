@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getActivityByEntityIdsAction, updateStockHistoryDatesAction } from '@/app/actions/inventory';
@@ -10,7 +11,7 @@ import { useStockHistory } from '@/hooks/useStockHistory';
 import { useProducts } from '@/hooks/useProducts';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useStockSummaryData } from '@/hooks/useStockSummaryData';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { getDateRangeFromFilter } from '@/utils/dateFilters';
 import StockHistoryDateFilter from './StockHistoryDateFilter';
@@ -35,7 +36,7 @@ import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
 
 const StockInputHistory = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { stockHistory, isLoading, updateStockHistoryEntry, deleteStockHistoryEntry, deleteMultipleStockHistoryEntries, recalculateProductStock, loadStockHistory } = useStockHistory(user?.id);
   const { products, loadProducts } = useProducts(user?.id, 10000);
   const { settings } = useBusinessSettings();
@@ -374,7 +375,7 @@ const StockInputHistory = () => {
   };
 
   const handleProductClick = (productId: string) => {
-    navigate(`/inventory/${productId}`);
+    router.push(`/inventory/${productId}`);
   };
 
   const handleEditStockHistory = async (entryId: string, newQuantity: number, newReason: string, newDate?: Date) => {

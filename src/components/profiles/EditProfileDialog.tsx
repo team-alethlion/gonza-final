@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             />
           </div>
 
-          {profile.role.toLowerCase() !== 'owner' && profile.business_role?.name !== 'Owner' && (
+          {profile.role.toLowerCase() !== 'admin' && profile.role.toLowerCase() !== 'owner' && profile.business_role?.name !== 'Admin' && profile.business_role?.name !== 'Owner' && (
             <div className="space-y-2">
               <Label htmlFor="edit_role">Role</Label>
               <Select
@@ -178,7 +179,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                     ))
                   ) : (
                     <>
-                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
                     </>

@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { CreditCard, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,7 +16,7 @@ const TopUpCreditsDialog = ({ open, onClose, onTopUp }: TopUpCreditsDialogProps)
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const creditCost = Number(import.meta.env.VITE_SMS_CREDIT_COST || 100);
+  const creditCost = Number(process.env.NEXT_PUBLIC_SMS_CREDIT_COST || 100);
   const totalCost = credits * creditCost;
 
   // Debug: Dialog opened / closed

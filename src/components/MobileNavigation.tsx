@@ -1,17 +1,25 @@
-import React from 'react';
+"use client"
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Receipt, DollarSign, Package, Users, Wallet } from 'lucide-react';
 
 const MobileNavigation = () => {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/' && pathname === '/') return true;
     if (path !== '/' && pathname?.startsWith(path)) return true;
     return false;
   };
+
+  if (!mounted) return null;
 
   // Static mobile navigation items - removed Tasks
   return (

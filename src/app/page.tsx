@@ -1,33 +1,60 @@
 import { auth } from "@/auth";
 
 // Import the specific Index views from your Route Groups
-// Note: We name them specifically here to avoid "Index" vs "Index" conflicts
 import AdminDashboard from "./(admin)/view";
 import AgencyDashboard from "./(agency)/view";
 import PublicLandingPage from "./(public)/view";
 
+// Import Layouts to wrap the views since they are all at "/"
+import AgencyLayoutWrapper from "./(agency)/layout";
+import AdminLayoutWrapper from "./(admin)/layout";
+import PublicLayoutWrapper from "./(public)/layout";
+
 export default async function RootPage() {
   const session = await auth();
 
+  console.log("RootPage: Session data:", JSON.stringify({
+    user: session?.user ? {
+      email: session.user.email,
+      role: (session.user as any).role,
+      id: session.user.id
+    } : null
+  }, null, 2));
+
   // 1. Handle Unauthenticated users
   if (!session || !session.user) {
-    return <PublicLandingPage />;
+    console.log("RootPage: No session found, rendering landing page");
+    return (
+      <PublicLayoutWrapper>
+        <PublicLandingPage />
+      </PublicLayoutWrapper>
+    );
   }
 
   // 2. Role-Based Switching
-  // This renders the correct "Index" without changing the URL from "/"
-  const role = (session.user as any).role;
+  const role = ((session.user as any).role || "").toLowerCase();
+  console.log("RootPage: Detected role:", role);
 
   switch (role) {
     case "superadmin":
-    case "Admin": // Adding "Admin" as I saw it in actions/auth.ts
-      return <AdminDashboard />;
+      return (
+        <AdminLayoutWrapper>
+          <AdminDashboard />
+        </AdminLayoutWrapper>
+      );
     case "admin":
-    case "agency":
     case "manager":
-      return <AgencyDashboard />;
+    case "agency": // Keeping for compatibility during transition
+      return (
+        <AgencyLayoutWrapper>
+          <AgencyDashboard />
+        </AgencyLayoutWrapper>
+      );
     default:
-      // Fallback for authenticated users with no specific role
-      return <PublicLandingPage />;
+      return (
+        <PublicLayoutWrapper>
+          <PublicLandingPage />
+        </PublicLayoutWrapper>
+      );
   }
 }

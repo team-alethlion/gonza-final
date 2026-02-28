@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import {
   BarChart3,
   Users,
@@ -302,7 +302,7 @@ const Nav = () => {
           height: 64,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Link to="/" className="flex items-center">
+          <Link href="/" className="flex items-center">
             <img
               src="/lovable-uploads/logo sys white-01.png"
               alt="Gonza Logo"
@@ -311,11 +311,11 @@ const Nav = () => {
           </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link to="/login" className="lp-btn-ghost" style={{ fontSize: 13 }}>
+          <Link href="/login" className="lp-btn-ghost" style={{ fontSize: 13 }}>
             Log In
           </Link>
           <Link
-            to="/signup"
+            href="/signup"
             className="lp-btn-primary"
             style={{ fontSize: 13, padding: "9px 18px" }}>
             Get Started <ArrowRight size={14} />
@@ -453,10 +453,10 @@ const Hero = () => (
           animationDelay: "0.44s",
           opacity: 0,
         }}>
-        <Link to="/signup" className="lp-btn-primary">
+        <Link href="/signup" className="lp-btn-primary">
           Start for Free <ArrowRight size={15} />
         </Link>
-        <Link to="/login" className="lp-btn-outline">
+        <Link href="/login" className="lp-btn-outline">
           Sign In
         </Link>
       </div>
@@ -851,7 +851,7 @@ const AppShowcase = () => {
               </li>
             ))}
           </ul>
-          <Link to="/signup" className="lp-btn-primary">
+          <Link href="/signup" className="lp-btn-primary">
             Try it free <ArrowRight size={15} />
           </Link>
         </div>
@@ -1232,7 +1232,7 @@ const WhySection = () => {
               </li>
             ))}
           </ul>
-          <Link to="/signup" className="lp-btn-primary">
+          <Link href="/signup" className="lp-btn-primary">
             Start your free trial <ArrowRight size={15} />
           </Link>
         </div>
@@ -1520,7 +1520,7 @@ const CTA = () => {
               flexWrap: "wrap",
             }}>
             <Link
-              to="/signup"
+              href="/signup"
               className="lp-btn-primary"
               style={{ fontSize: 15, padding: "14px 28px" }}>
               Sign Up for Free <ArrowRight size={16} />
@@ -1558,7 +1558,7 @@ const Footer = () => (
           alignItems: "center",
         }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Link to="/" className="flex items-center">
+          <Link href="/" className="flex items-center">
             <img
               src="/lovable-uploads/logo sys white-01.png"
               alt="Gonza Logo"
@@ -1577,7 +1577,7 @@ const Footer = () => (
             alignItems: "center",
           }}>
           <Link
-            to="/privacy-policy"
+            href="/privacy-policy"
             style={{
               fontSize: 13,
               color: B.textMuted,
@@ -1614,7 +1614,7 @@ const Footer = () => (
             <Phone size={13} /> 0758 519 696
           </a>
           <Link
-            to="/login"
+            href="/login"
             style={{
               fontSize: 13,
               color: B.textMuted,

@@ -1,3 +1,5 @@
+"use client"
+
 import React from 'react';
 import { useProfiles, BusinessProfile } from '@/contexts/ProfileContext';
 import { User, LogOut } from 'lucide-react';

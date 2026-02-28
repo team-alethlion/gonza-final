@@ -1,5 +1,6 @@
+"use client";
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Sale } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
@@ -17,13 +18,15 @@ import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 const NewSale = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
   const { user } = useAuth();
   const { settings } = useBusinessSettings();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
-  const editSale = location.state?.editSale as Sale | undefined;
+  
+  // Note: editSale is normally passed via query params or state in Next.js
+  // For now, setting to undefined as location.state is not available in next/navigation
+  const editSale = undefined; 
 
   // Use a key to force re-mounting of the form component to clear all state
   const [formKey, setFormKey] = React.useState(0);
@@ -79,7 +82,7 @@ const NewSale = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/sales')} variant="outline">
+          <Button onClick={() => router.push('/sales')} variant="outline">
             Back to Sales
           </Button>
         </div>

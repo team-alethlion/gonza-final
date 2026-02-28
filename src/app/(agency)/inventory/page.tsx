@@ -1,3 +1,5 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -5,7 +7,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useProducts } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import InventoryStats from '@/components/inventory/InventoryStats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductSuggestionsPanel from '@/components/inventory/ProductSuggestionsPanel';
@@ -40,7 +42,7 @@ const Inventory = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { hasPermission } = useProfiles();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const {
     products,
@@ -141,7 +143,7 @@ const Inventory = () => {
   const handleProductSelect = (product: Product) => {
     // Update live search too so the input stays in sync if it re-renders
     setLiveSearch(product.name);
-    navigate(`/inventory/${product.id}`);
+    router.push(`/inventory/${product.id}`);
     closePanel();
   };
 

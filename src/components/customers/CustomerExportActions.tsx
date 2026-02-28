@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, FileText } from 'lucide-react';
@@ -12,7 +13,6 @@ interface CustomerExportActionsProps {
   businessName: string;
   businessLogo?: string;
   getCategoryName: (categoryId: string | null) => string;
-  getCustomerLifetimePurchases?: (customerName: string) => { total: number; count: number };
 }
 
 const CustomerExportActions: React.FC<CustomerExportActionsProps> = ({
@@ -20,14 +20,13 @@ const CustomerExportActions: React.FC<CustomerExportActionsProps> = ({
   currency,
   businessName,
   businessLogo,
-  getCategoryName,
-  getCustomerLifetimePurchases
+  getCategoryName
 }) => {
   const { toast } = useToast();
 
   const handleCSVExport = () => {
     try {
-      exportCustomersToCSV(customers, currency, getCategoryName, getCustomerLifetimePurchases);
+      exportCustomersToCSV(customers, currency, getCategoryName);
       toast({
         title: "Success",
         description: `Exported ${customers.length} customers to CSV`
@@ -44,7 +43,7 @@ const CustomerExportActions: React.FC<CustomerExportActionsProps> = ({
 
   const handlePDFExport = () => {
     try {
-      exportCustomersToPDF(customers, getCategoryName, currency, businessName, businessLogo, getCustomerLifetimePurchases);
+      exportCustomersToPDF(customers, getCategoryName, currency, businessName, businessLogo);
       toast({
         title: "Success",
         description: `Exported ${customers.length} customers to PDF`

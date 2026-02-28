@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useBusiness } from '@/contexts/BusinessContext';
 import {
   getInstallmentPaymentsAction,
   createInstallmentPaymentAction,
@@ -27,11 +28,13 @@ export const useInstallmentPayments = (saleId?: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { currentBusiness } = useBusiness();
 
   const fetchPayments = useCallback(async (targetSaleId: string) => {
     try {
+      if (!currentBusiness) return;
       setIsLoading(true);
-      const result = await getInstallmentPaymentsAction(targetSaleId);
+      const result = await getInstallmentPaymentsAction(targetSaleId, currentBusiness.id);
 
       if (!result.success || !result.data) throw new Error(result.error);
 
@@ -100,7 +103,8 @@ export const useInstallmentPayments = (saleId?: string) => {
     paymentDate?: Date;
   }) => {
     try {
-      const result = await updateInstallmentPaymentAction(paymentId, {
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await updateInstallmentPaymentAction(paymentId, currentBusiness.id, {
         ...updates,
         paymentDate: updates.paymentDate?.toISOString()
       });
@@ -133,7 +137,8 @@ export const useInstallmentPayments = (saleId?: string) => {
 
   const deletePayment = async (paymentId: string) => {
     try {
-      const result = await deleteInstallmentPaymentAction(paymentId);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await deleteInstallmentPaymentAction(paymentId, currentBusiness.id);
       if (!result.success) throw new Error(result.error);
 
       setPayments(prev => prev.filter(p => p.id !== paymentId));
@@ -154,9 +159,9 @@ export const useInstallmentPayments = (saleId?: string) => {
   };
 
   const linkPaymentToCashAccount = async (paymentId: string, accountId: string, locationId: string) => {
-    if (!user) return;
+    if (!user || !currentBusiness) return;
     try {
-      const result = await linkInstallmentToCashAction(paymentId, accountId, locationId, user.id);
+      const result = await linkInstallmentToCashAction(paymentId, currentBusiness.id, accountId, locationId, user.id);
       if (!result.success || !result.data) throw new Error(result.error);
 
       setPayments(prev => prev.map(p =>
@@ -181,7 +186,8 @@ export const useInstallmentPayments = (saleId?: string) => {
 
   const unlinkPaymentFromCashAccount = async (paymentId: string) => {
     try {
-      const result = await unlinkInstallmentFromCashAction(paymentId);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await unlinkInstallmentFromCashAction(paymentId, currentBusiness.id);
       if (!result.success) throw new Error(result.error);
 
       setPayments(prev => prev.map(p =>

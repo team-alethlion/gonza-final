@@ -3,10 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Trash2, Loader2, Save, X, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInDays, addDays, startOfDay } from 'date-fns';
+import { 
+    getPlatformUserDetail, 
+    getPlatformOnboardingData, 
+    updatePlatformOnboardingData, 
+    updateUserAccountStatus,
+    deletePlatformUserAccount
+} from "@/app/actions/admin";
 
 interface LocationRecord {
     id: string;
@@ -46,7 +52,7 @@ interface OnboardingRecord {
     business_logo?: string;
     nature_of_business?: string;
     business_size?: string;
-    billing_duration?: 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Yearly';
+    billing_duration?: 'trial' | 'active' | 'expired' | 'blocked';
     billing_amount?: number;
     days_remaining?: number;
     next_billing_date?: string;
@@ -69,21 +75,9 @@ export default function EditRecord() {
     const { data: user, isLoading: isUserLoading } = useQuery<UserSummary>({
         queryKey: ['admin-user-detail', id],
         queryFn: async () => {
-            const savedSession = localStorage.getItem('platform_admin_session');
-            if (!savedSession) throw new Error('Not authenticated');
-            const { username, password } = JSON.parse(atob(savedSession));
-
-            const { data, error } = await supabase.rpc('get_platform_user_summary', {
-                p_username: username,
-                p_password: password
-            });
-
-            if (error) throw error;
-            const users = data as any[];
-            const foundUser = users.find(u => u.user_id === id);
-
-            if (!foundUser) throw new Error('User not found');
-            return foundUser as UserSummary;
+            const result = await getPlatformUserDetail(id);
+            if (!result.success) throw new Error(result.error);
+            return result.data as UserSummary;
         }
     });
 
@@ -92,17 +86,10 @@ export default function EditRecord() {
         queryKey: ['admin-location-onboarding', firstLoc?.id],
         enabled: !!firstLoc?.id,
         queryFn: async () => {
-            const savedSession = localStorage.getItem('platform_admin_session');
-            if (!savedSession) throw new Error('Not authenticated');
-            const { username, password } = JSON.parse(atob(savedSession));
-
-            const { data, error } = await supabase.rpc('get_platform_onboarding_data', {
-                p_username: username,
-                p_password: password
-            });
-
-            if (error) throw error;
-            const records = data as any[];
+            const result = await getPlatformOnboardingData();
+            if (!result.success) throw new Error(result.error);
+            
+            const records = result.data as any[];
             const foundRecord = records.find(r => r.location_id === firstLoc?.id);
 
             return foundRecord || {
@@ -118,7 +105,6 @@ export default function EditRecord() {
         }
     });
 
-    // Only initialize form data once to prevent overrides during editing
     useEffect(() => {
         if (record && user && !hasInitializedRef.current) {
             setFormData({
@@ -136,15 +122,9 @@ export default function EditRecord() {
 
     const updateMutation = useMutation({
         mutationFn: async (updatedData: Partial<OnboardingRecord & { location_limit?: number; is_frozen?: boolean }>) => {
-            const savedSession = localStorage.getItem('platform_admin_session');
-            if (!savedSession) throw new Error('Not authenticated');
-            const { username, password } = JSON.parse(atob(savedSession));
-
             const { location_limit, is_frozen, ...onboardingData } = updatedData;
 
-            const { error: onboardingError } = await supabase.rpc('update_platform_onboarding_data', {
-                p_username: username,
-                p_password: password,
+            const result = await updatePlatformOnboardingData({
                 p_location_id: record?.location_id,
                 p_user_id: user?.user_id,
                 p_business_name: onboardingData.business_name ?? null,
@@ -160,18 +140,16 @@ export default function EditRecord() {
                 p_completed: onboardingData.completed ?? null,
             });
 
-            if (onboardingError) throw onboardingError;
+            if (!result.success) throw new Error(result.error);
 
             if (location_limit !== undefined || is_frozen !== undefined) {
-                const { error: statusError } = await supabase.rpc('update_user_account_status', {
-                    p_username: username,
-                    p_password: password,
+                const statusResult = await updateUserAccountStatus({
                     p_user_id: user?.user_id,
                     p_is_frozen: is_frozen ?? user?.is_frozen ?? false,
                     p_location_limit: location_limit ?? user?.location_limit ?? 3
                 });
 
-                if (statusError) throw statusError;
+                if (!statusResult.success) throw new Error(statusResult.error);
             }
         },
         onSuccess: () => {
@@ -193,17 +171,8 @@ export default function EditRecord() {
 
         setIsDeleting(true);
         try {
-            const savedSession = localStorage.getItem('platform_admin_session');
-            if (!savedSession) throw new Error('Not authenticated');
-            const { username, password } = JSON.parse(atob(savedSession));
-
-            const { error } = await supabase.rpc('delete_platform_user_account', {
-                p_username: username,
-                p_password: password,
-                p_user_id: id
-            });
-
-            if (error) throw error;
+            const result = await deletePlatformUserAccount(id);
+            if (!result.success) throw new Error(result.error);
 
             toast.success('Account deleted successfully');
             router.push('/records');
@@ -386,11 +355,10 @@ export default function EditRecord() {
                                         className="linear-input h-10 border-border/40 focus:border-primary/40 bg-white px-2 cursor-pointer w-full"
                                     >
                                         <option value="">Select Cycle</option>
-                                        <option value="Daily">Daily</option>
-                                        <option value="Weekly">Weekly</option>
-                                        <option value="Monthly">Monthly</option>
-                                        <option value="Quarterly">Quarterly</option>
-                                        <option value="Yearly">Yearly</option>
+                                        <option value="trial">Trial</option>
+                                        <option value="active">Active</option>
+                                        <option value="expired">Expired</option>
+                                        <option value="blocked">Blocked</option>
                                     </select>
                                 </div>
                             </div>

@@ -1,8 +1,9 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import ProductForm from '@/components/inventory/ProductForm';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useProducts } from '@/hooks/useProducts';
@@ -18,17 +19,19 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const NewProduct = () => {
-  const { id } = useParams<{ id: string }>();
-  const location = useLocation();
+  const params = useParams();
+  const id = params?.id as string;
   const searchParams = useSearchParams();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { products, isLoading: productsLoading, createProduct, updateProduct, loadProducts, refetch } = useProducts(user?.id, 10000); // Load all products
   const { categories, isLoading: categoriesLoading } = useCategories(user?.id);
   const [product, setProduct] = useState<Product | undefined>(undefined);
-  // Check for duplicate data from navigation state or search params
+  
+  // Check for duplicate data from search params (Next.js doesn't have route state like React Router)
   const duplicateId = searchParams?.get('duplicateId');
-  const [duplicateData, setDuplicateData] = useState<any>(location.state?.duplicateData);
+  const [duplicateData, setDuplicateData] = useState<any>(null);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -144,7 +147,7 @@ const NewProduct = () => {
 
         if (result) {
           toast.success('Product updated successfully');
-          navigate(`/inventory/${id}`);
+          router.push(`/inventory/${id}`);
         } else {
           toast.error('Failed to update product');
         }
@@ -198,7 +201,7 @@ const NewProduct = () => {
             }
           }
 
-          navigate(`/inventory/${newProduct.id}`);
+          router.push(`/inventory/${newProduct.id}`);
         } else {
           toast.error('Failed to create product');
         }
@@ -249,7 +252,7 @@ const NewProduct = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/inventory')} variant="outline">
+          <Button onClick={() => router.push('/inventory')} variant="outline">
             Back to Inventory
           </Button>
         </div>
@@ -265,7 +268,7 @@ const NewProduct = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/inventory')}
+            onClick={() => router.push('/inventory')}
             className="flex items-center gap-1"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Inventory
@@ -287,7 +290,7 @@ const NewProduct = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/inventory')}
+          onClick={() => router.push('/inventory')}
           className="flex items-center gap-1"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Inventory
@@ -314,7 +317,7 @@ const NewProduct = () => {
           <p className="text-red-600">{loadError}</p>
           <Button
             className="mt-4"
-            onClick={() => navigate('/inventory')}
+            onClick={() => router.push('/inventory')}
           >
             Return to Inventory
           </Button>

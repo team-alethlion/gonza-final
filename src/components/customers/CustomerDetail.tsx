@@ -1,3 +1,4 @@
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { Customer } from '@/types';
@@ -6,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Edit2, Mail, MapPin, Phone, Trash2, Receipt, CreditCard, FileText, MessageSquare, Cake } from 'lucide-react';
+import { 
+  Calendar, Edit2, Mail, MapPin, Phone, Trash2, Receipt, CreditCard, 
+  FileText, MessageSquare, Cake, Loader2, Plus, Download, Printer 
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -22,13 +26,13 @@ import { useSalesData } from '@/hooks/useSalesData';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { formatNumber } from '@/lib/utils';
-import { Loader2, Plus, Download, Printer } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { canSendSMS, getBirthdayMessage, openSMSApp, openWhatsApp, formatMessageForSMS } from '@/utils/smsUtils';
 import { useToast } from '@/hooks/use-toast';
 import PaymentReminderNotice from './PaymentReminderNotice';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useInstallmentPayments } from '@/hooks/useInstallmentPayments';
+import { useCustomerLifetimeStats } from '@/hooks/useCustomerLifetimeStats';
 import { createReceiptAction } from '@/app/actions/sales';
 import { generateReceiptNumber } from '@/utils/generateReceiptNumber';
 
@@ -311,26 +315,28 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
   const [noticeDialogOpen, setNoticeDialogOpen] = useState(false);
   const [smsDialogOpen, setSMSDialogOpen] = useState(false);
   const { user } = useAuth();
-  const { sales, isLoading, getCustomerLifetimePurchases, deleteSale, refetch } = useSalesData(user?.id);
+  
+  // Only load recent sales for the purchase history list, not for lifetime totals
+  const { sales, isLoading, deleteSale, refetch } = useSalesData(user?.id, 'desc', 50);
+  
+  const { data: lifetimeStats, isLoading: isLoadingLifetimeStats } = useCustomerLifetimeStats(customer.fullName);
+  
   const { currentBusiness } = useBusiness();
   const { settings } = useBusinessSettings();
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
-  const [lifetimePurchases, setLifetimePurchases] = useState<{ total: number, count: number } | null>(null);
   const [creditSales, setCreditSales] = useState<{ total: number, count: number } | null>(null);
-  const [isLoadingLifetime, setIsLoadingLifetime] = useState(true);
+  const [isLoadingCredit, setIsLoadingCredit] = useState(true);
 
   useEffect(() => {
-    const calculatePurchaseData = () => {
-      setIsLoadingLifetime(true);
+    const calculateCreditData = () => {
+      setIsLoadingCredit(true);
       try {
         if (customer && !isLoading) {
-          // Calculate lifetime purchases (excluding quotes)
-          const purchaseData = getCustomerLifetimePurchases(customer.fullName);
-          setLifetimePurchases(purchaseData);
-
-          // Calculate credit sales (unpaid sales only)
+          // Calculate credit sales (unpaid sales only) from the loaded chunk of sales
+          // Note: If customer has > 50 sales, this might be incomplete. 
+          // Ideally we need a server-side action for total credit balance too.
           const customerSales = sales.filter(sale =>
             sale.customerName.toLowerCase() === customer.fullName.toLowerCase()
           );
@@ -339,29 +345,25 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
             sale.paymentStatus === "NOT PAID"
           );
 
-          const creditTotal = unpaidSales.reduce((sum, sale) =>
-            sum + sale.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
-          );
+          const creditTotal = unpaidSales.reduce((sum, sale) => sum + sale.total, 0);
 
           setCreditSales({
             total: creditTotal,
             count: unpaidSales.length
           });
         } else {
-          setLifetimePurchases({ total: 0, count: 0 });
           setCreditSales({ total: 0, count: 0 });
         }
       } catch (error) {
-        console.error("Error calculating purchase data:", error);
-        setLifetimePurchases({ total: 0, count: 0 });
+        console.error("Error calculating credit data:", error);
         setCreditSales({ total: 0, count: 0 });
       } finally {
-        setIsLoadingLifetime(false);
+        setIsLoadingCredit(false);
       }
     };
 
-    calculatePurchaseData();
-  }, [customer, sales, isLoading, getCustomerLifetimePurchases]);
+    calculateCreditData();
+  }, [customer, sales, isLoading]);
 
   const formatCurrency = (value: number) => {
     return `${settings.currency} ${formatNumber(value)}`;
@@ -637,7 +639,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               {/* Lifetime Purchases Section - Updated with credit sales */}
               <div>
                 <h3 className="font-medium text-gray-500 mb-2">Purchase Summary</h3>
-                {isLoadingLifetime ? (
+                {isLoadingLifetimeStats ? (
                   <div className="flex items-center">
                     <Loader2 className="h-4 w-4 mr-2 animate-spin text-gray-500" />
                     <span>Loading purchase data...</span>
@@ -647,7 +649,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                     <div className="flex items-center gap-2">
                       <Receipt className="h-4 w-4 text-gray-400" />
                       <span>
-                        <strong>Lifetime Purchases:</strong> {lifetimePurchases?.count || 0} orders totaling {formatCurrency(lifetimePurchases?.total || 0)}
+                        <strong>Lifetime Purchases:</strong> {lifetimeStats?.count || 0} orders totaling {formatCurrency(lifetimeStats?.total || 0)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

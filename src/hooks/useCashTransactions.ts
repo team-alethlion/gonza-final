@@ -19,11 +19,15 @@ import {
   createBulkCashTransactionsAction
 } from '@/app/actions/finance';
 
-export const useCashTransactions = (accountId?: string) => {
+export const useCashTransactions = (accountId?: string, initialPageSize: number = 50) => {
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [totalCount, setTotalCount] = useState(0);
 
   const loadTransactions = useCallback(async (): Promise<CashTransaction[]> => {
     try {
@@ -31,10 +35,15 @@ export const useCashTransactions = (accountId?: string) => {
         return [];
       }
 
-      const result = await getCashTransactionsAction(currentBusiness.id, accountId);
+      const skip = (page - 1) * pageSize;
+      const result = await getCashTransactionsAction(currentBusiness.id, accountId, skip, pageSize);
 
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to fetch transactions');
+      }
+
+      if (result.count !== undefined) {
+        setTotalCount(result.count);
       }
 
       // Format all transactions
@@ -58,13 +67,6 @@ export const useCashTransactions = (accountId?: string) => {
         return mapDbCashTransactionToCashTransaction(dbTransaction);
       });
 
-      // Sort
-      formattedTransactions.sort((a, b) => {
-        const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateCompare !== 0) return dateCompare;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-
       return formattedTransactions;
     } catch (error) {
       console.error('Error loading cash transactions:', error);
@@ -75,9 +77,9 @@ export const useCashTransactions = (accountId?: string) => {
       });
       return [];
     }
-  }, [user, currentBusiness?.id, accountId, toast]);
+  }, [user, currentBusiness?.id, accountId, page, pageSize, toast]);
 
-  const queryKey = useMemo(() => ['cash_transactions', currentBusiness?.id, user?.id, accountId], [currentBusiness?.id, user?.id, accountId]);
+  const queryKey = useMemo(() => ['cash_transactions', currentBusiness?.id, user?.id, accountId, page, pageSize], [currentBusiness?.id, user?.id, accountId, page, pageSize]);
 
   const { data: transactions = [], isLoading: isQueryLoading } = useQuery({
     queryKey,
@@ -157,7 +159,8 @@ export const useCashTransactions = (accountId?: string) => {
 
   const updateTransaction = async (id: string, updates: Partial<CashTransactionFormData>) => {
     try {
-      const result = await updateCashTransactionAction(id, updates);
+      if (!currentBusiness) throw new Error('No business selected');
+      const result = await updateCashTransactionAction(id, currentBusiness.id, updates);
       if (!result.success) throw new Error(result.error);
 
       toast({
@@ -207,7 +210,7 @@ export const useCashTransactions = (accountId?: string) => {
     try {
       if (!currentBusiness) return 0;
       const result = await getAccountOpeningBalanceAction(accountId, currentBusiness.id);
-      return result.success ? result.data : 0;
+      return result.success ? (result.data ?? 0) : 0;
     } catch (error) {
       return 0;
     }
@@ -360,6 +363,11 @@ export const useCashTransactions = (accountId?: string) => {
     deleteTransaction,
     getDailySummary,
     getDateRangeSummary,
-    refreshTransactions
-  }), [transactions, isLoading, createTransaction, createBulkTransactions, updateTransaction, deleteTransaction, getDailySummary, getDateRangeSummary, refreshTransactions]);
+    refreshTransactions,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalCount
+  }), [transactions, isLoading, createTransaction, createBulkTransactions, updateTransaction, deleteTransaction, getDailySummary, getDateRangeSummary, refreshTransactions, page, pageSize, totalCount]);
 };

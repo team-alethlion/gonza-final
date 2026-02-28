@@ -12,8 +12,6 @@ export async function getCustomerStatsAction(userId: string, branchId: string) {
         // 1. Count customers created this month
         const thisMonthCount = await db.customer.count({
             where: {
-                // Assuming we use agencyId for userId if they are an owner, or it's connected somehow
-                // For now, focusing on branchId as that's normally the tenant isolation in the schema
                 branchId: branchId,
                 createdAt: {
                     gte: startOfMonth
@@ -21,7 +19,7 @@ export async function getCustomerStatsAction(userId: string, branchId: string) {
             }
         });
 
-        // 2. Count customers with upcoming backgrounds (for now just count those who have a birthday set)
+        // 2. Count customers with upcoming backgrounds
         const withBirthdays = await db.customer.count({
             where: {
                 branchId: branchId,
@@ -44,7 +42,7 @@ export async function getCustomerStatsAction(userId: string, branchId: string) {
     }
 }
 
-export async function mergeCustomersAction(primaryCustomerId: string, duplicateIds: string[]) {
+export async function mergeCustomersAction(branchId: string, primaryCustomerId: string, duplicateIds: string[]) {
     try {
         if (!primaryCustomerId || duplicateIds.length === 0) {
             return { success: false, error: 'Invalid selection' };
@@ -52,37 +50,38 @@ export async function mergeCustomersAction(primaryCustomerId: string, duplicateI
 
         // Use a transaction to ensure all operations succeed or fail together
         await db.$transaction(async (tx: any) => {
+            // Verify all customers belong to the branch
+            const count = await tx.customer.count({
+                where: {
+                    id: { in: [primaryCustomerId, ...duplicateIds] },
+                    branchId: branchId
+                }
+            });
+
+            if (count !== duplicateIds.length + 1) {
+                throw new Error("Unauthorized: One or more customers do not belong to this branch");
+            }
+
             // 1. Update sales to point to primary customer
-            // In Prisma, assuming relation is through customerId
             await tx.sale.updateMany({
                 where: {
-                    customerId: {
-                        in: duplicateIds
-                    }
+                    customerId: { in: duplicateIds },
+                    branchId: branchId
                 },
                 data: {
                     customerId: primaryCustomerId
                 }
             });
 
-            // Note: The original code also updated messages. 
-            // If there's a Message model connected to customers, add it here.
-            // await tx.message.updateMany({
-            //     where: { customerId: { in: duplicateIds } },
-            //     data: { customerId: primaryCustomerId }
-            // });
-
             // 3. Delete duplicate customers
             await tx.customer.deleteMany({
                 where: {
-                    id: {
-                        in: duplicateIds
-                    }
+                    id: { in: duplicateIds },
+                    branchId: branchId
                 }
             });
         });
 
-        // Revalidate customers list
         revalidatePath('/customers');
         return { success: true };
     } catch (error: any) {
@@ -91,18 +90,33 @@ export async function mergeCustomersAction(primaryCustomerId: string, duplicateI
     }
 }
 
-export async function getCustomersAction(branchId: string) {
+export async function getCustomersAction(branchId: string, skip: number = 0, take: number = 50) {
     try {
-        const customers = await db.customer.findMany({
-            where: { branchId },
-            orderBy: { name: 'asc' }
-        });
+        const customers: any[] = await db.$queryRaw`
+            SELECT 
+                c.*,
+                COALESCE(s.total_spent, 0) as "lifetimeValue",
+                COALESCE(s.order_count, 0) as "orderCount"
+            FROM "Customer" c
+            LEFT JOIN (
+                SELECT 
+                    "customerName", 
+                    SUM(total) as total_spent, 
+                    COUNT(id) as order_count
+                FROM "Sale"
+                WHERE "branchId" = ${branchId} AND "paymentStatus" != 'QUOTE'
+                GROUP BY "customerName"
+            ) s ON LOWER(c.name) = LOWER(s."customerName")
+            WHERE c."branchId" = ${branchId}
+            ORDER BY c.name ASC
+            LIMIT ${take}
+            OFFSET ${skip}
+        `;
 
         const count = await db.customer.count({
             where: { branchId }
         });
 
-        // Map Prisma Customer model to the shape expected by useCustomers hook
         const mappedCustomers = customers.map((c: any) => ({
             id: c.id,
             fullName: c.name,
@@ -116,7 +130,9 @@ export async function getCustomersAction(branchId: string) {
             tags: c.tags || [],
             socialMedia: c.socialMedia || null,
             createdAt: c.createdAt.toISOString(),
-            updatedAt: c.updatedAt.toISOString()
+            updatedAt: c.updatedAt.toISOString(),
+            lifetimeValue: Number(c.lifetimeValue),
+            orderCount: Number(c.orderCount)
         }));
 
         return { success: true, data: { customers: mappedCustomers, count } };
@@ -131,7 +147,7 @@ export async function createCustomerAction(branchId: string, userId: string, dat
         const newCustomer = await db.customer.create({
             data: {
                 branchId: branchId,
-                adminId: userId, // Assuming user who created it is the admin/owner
+                adminId: userId,
                 name: data.fullName,
                 phone: data.phoneNumber || null,
                 email: data.email || null,
@@ -152,7 +168,7 @@ export async function createCustomerAction(branchId: string, userId: string, dat
     }
 }
 
-export async function updateCustomerAction(customerId: string, data: any) {
+export async function updateCustomerAction(customerId: string, branchId: string, data: any) {
     try {
         const updateData: any = {};
         if (data.fullName !== undefined) updateData.name = data.fullName;
@@ -167,7 +183,7 @@ export async function updateCustomerAction(customerId: string, data: any) {
         if (data.socialMedia !== undefined) updateData.socialMedia = data.socialMedia;
 
         const updatedCustomer = await db.customer.update({
-            where: { id: customerId },
+            where: { id: customerId, branchId: branchId },
             data: updateData
         });
         revalidatePath('/customers');
@@ -178,10 +194,10 @@ export async function updateCustomerAction(customerId: string, data: any) {
     }
 }
 
-export async function deleteCustomerAction(customerId: string) {
+export async function deleteCustomerAction(customerId: string, branchId: string) {
     try {
         await db.customer.delete({
-            where: { id: customerId }
+            where: { id: customerId, branchId: branchId }
         });
         revalidatePath('/customers');
         return { success: true };
@@ -231,10 +247,10 @@ export async function createCustomerCategoryAction(branchId: string, userId: str
     }
 }
 
-export async function updateCustomerCategoryAction(categoryId: string, name: string) {
+export async function updateCustomerCategoryAction(categoryId: string, branchId: string, name: string) {
     try {
         const updatedCategory = await db.customerCategory.update({
-            where: { id: categoryId },
+            where: { id: categoryId, branchId: branchId },
             data: { name: name.trim() }
         });
         revalidatePath('/customers');
@@ -245,15 +261,44 @@ export async function updateCustomerCategoryAction(categoryId: string, name: str
     }
 }
 
-export async function deleteCustomerCategoryAction(categoryId: string) {
+export async function deleteCustomerCategoryAction(categoryId: string, branchId: string) {
     try {
         await db.customerCategory.delete({
-            where: { id: categoryId }
+            where: { id: categoryId, branchId: branchId }
         });
         revalidatePath('/customers');
         return { success: true };
     } catch (error: any) {
         console.error('Error deleting customer category:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getCustomerLifetimeStatsAction(branchId: string, customerName: string) {
+    try {
+        const stats = await db.sale.aggregate({
+            where: {
+                branchId,
+                customerName: { equals: customerName, mode: 'insensitive' },
+                paymentStatus: { not: 'QUOTE' }
+            },
+            _sum: {
+                total: true
+            },
+            _count: {
+                id: true
+            }
+        });
+
+        return {
+            success: true,
+            data: {
+                total: Number(stats._sum.total || 0),
+                count: stats._count.id
+            }
+        };
+    } catch (error: any) {
+        console.error('Error fetching customer lifetime stats:', error);
         return { success: false, error: error.message };
     }
 }

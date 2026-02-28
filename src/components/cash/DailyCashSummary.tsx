@@ -1,6 +1,6 @@
-
+"use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,35 +26,36 @@ interface DailyCashSummaryProps {
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'custom';
 
 const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Initialize filters from URL params with fallbacks
   const [periodType, setPeriodType] = useState<PeriodType>(() => {
-    const paramPeriod = searchParams.get('summaryPeriod') as PeriodType;
+    const paramPeriod = searchParams?.get('summaryPeriod') as PeriodType;
     return paramPeriod && ['daily', 'weekly', 'monthly', 'custom'].includes(paramPeriod) ? paramPeriod : 'daily';
   });
 
   const [selectedDate, setSelectedDate] = useState(() => {
-    const paramDate = searchParams.get('summaryDate');
+    const paramDate = searchParams?.get('summaryDate');
     return paramDate ? new Date(paramDate) : new Date();
   });
 
   const [customStartDate, setCustomStartDate] = useState(() => {
-    const paramStartDate = searchParams.get('summaryStartDate');
+    const paramStartDate = searchParams?.get('summaryStartDate');
     return paramStartDate ? new Date(paramStartDate) : new Date();
   });
 
   const [customEndDate, setCustomEndDate] = useState(() => {
-    const paramEndDate = searchParams.get('summaryEndDate');
+    const paramEndDate = searchParams?.get('summaryEndDate');
     return paramEndDate ? new Date(paramEndDate) : new Date();
   });
 
   // Update filters when URL changes (navigation back/forward)
   useEffect(() => {
-    const paramPeriod = searchParams.get('summaryPeriod') as PeriodType;
-    const paramDate = searchParams.get('summaryDate');
-    const paramStartDate = searchParams.get('summaryStartDate');
-    const paramEndDate = searchParams.get('summaryEndDate');
+    const paramPeriod = searchParams?.get('summaryPeriod') as PeriodType;
+    const paramDate = searchParams?.get('summaryDate');
+    const paramStartDate = searchParams?.get('summaryStartDate');
+    const paramEndDate = searchParams?.get('summaryEndDate');
 
     if (paramPeriod && ['daily', 'weekly', 'monthly', 'custom'].includes(paramPeriod)) {
       setPeriodType(paramPeriod);
@@ -104,18 +105,18 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
   // Functions to update both state and URL
   const updatePeriodType = (value: PeriodType) => {
     setPeriodType(value);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     if (value !== 'daily') {
       newParams.set('summaryPeriod', value);
     } else {
       newParams.delete('summaryPeriod');
     }
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   const updateSelectedDate = (date: Date) => {
     setSelectedDate(date);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     const dateStr = format(date, 'yyyy-MM-dd');
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     if (dateStr !== todayStr) {
@@ -123,23 +124,23 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
     } else {
       newParams.delete('summaryDate');
     }
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   const updateCustomStartDate = (date: Date) => {
     setCustomStartDate(date);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     newParams.set('summaryPeriod', 'custom');
     newParams.set('summaryStartDate', format(date, 'yyyy-MM-dd'));
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   const updateCustomEndDate = (date: Date) => {
     setCustomEndDate(date);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     newParams.set('summaryPeriod', 'custom');
     newParams.set('summaryEndDate', format(date, 'yyyy-MM-dd'));
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   // Memoized handlers for better performance

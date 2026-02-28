@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useProfiles } from '@/contexts/ProfileContext';
 import UpdateNotificationButton from '@/components/UpdateNotificationButton';
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton';
@@ -15,7 +15,7 @@ const AnalyticsDashboard = lazy(() => import('@/components/AnalyticsDashboard'))
 
 const Index = () => {
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
-  const navigate = useNavigate();
+  const router = useRouter();
   const {
     businessError,
     settings,

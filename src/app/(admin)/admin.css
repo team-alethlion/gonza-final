@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @layer components {
   .linear-card {
     @apply bg-background border rounded-[5px] transition-all;

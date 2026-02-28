@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +39,7 @@ const BUSINESS_SIZES = [
 ];
 
 const Onboarding = () => {
-    const navigate = useNavigate();
+    const router = useRouter();
     const { user, signOut } = useAuth();
     const { onboarding, isLoading: onboardingLoading, isCompleted, saveOnboarding } = useOnboarding();
     const { settings, isLoading: settingsLoading, updateSettings } = useBusinessSettings();
@@ -65,9 +65,9 @@ const Onboarding = () => {
     useEffect(() => {
         if (!onboardingLoading && isCompleted) {
             console.log('Onboarding: Already completed, redirecting to dashboard');
-            navigate('/', { replace: true });
+            router.replace('/');
         }
-    }, [onboardingLoading, isCompleted, navigate]);
+    }, [onboardingLoading, isCompleted, router]);
 
     // Auto-fill form from existing settings once loaded
     useEffect(() => {
@@ -173,7 +173,7 @@ const Onboarding = () => {
             });
 
             toast.success('Business profile set up! Welcome aboard 🎉');
-            navigate('/', { replace: true });
+            router.replace('/');
         } catch (err) {
             console.error('Onboarding submit error:', err);
             toast.error('Something went wrong. Please try again.');

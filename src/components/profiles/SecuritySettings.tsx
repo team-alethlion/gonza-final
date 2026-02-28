@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { Button } from '@/components/ui/button';

@@ -4,8 +4,7 @@ import { format } from 'date-fns';
 export const exportCustomersToCSV = (
   customers: Customer[],
   currency: string = 'UGX',
-  getCategoryName: (categoryId: string | null) => string,
-  getCustomerLifetimePurchases?: (customerName: string) => { total: number; count: number }
+  getCategoryName: (categoryId: string | null) => string
 ) => {
   if (customers.length === 0) {
     alert('No customers to export');
@@ -28,10 +27,6 @@ export const exportCustomersToCSV = (
   ];
 
   const csvData = customers.map(customer => {
-    const lifetimeData = getCustomerLifetimePurchases ? 
-      getCustomerLifetimePurchases(customer.fullName) : 
-      { total: 0, count: 0 };
-    
     return [
       `"${(customer.fullName || '').replace(/"/g, '""')}"`,
       `"${(customer.phoneNumber || '').replace(/"/g, '""')}"`,
@@ -40,8 +35,8 @@ export const exportCustomersToCSV = (
       `"${(customer.location || '').replace(/"/g, '""')}"`,
       customer.birthday ? format(new Date(customer.birthday), 'yyyy-MM-dd') : '',
       `"${getCategoryName(customer.categoryId || null).replace(/"/g, '""')}"`,
-      lifetimeData.total.toFixed(2),
-      lifetimeData.count.toString(),
+      (customer.lifetimeValue || 0).toFixed(2),
+      (customer.orderCount || 0).toString(),
       `"${(customer.notes || '').replace(/"/g, '""')}"`,
       `"${(customer.tags || []).join(', ').replace(/"/g, '""')}"`,
       format(new Date(customer.createdAt), 'yyyy-MM-dd HH:mm:ss')

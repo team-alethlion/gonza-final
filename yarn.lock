@@ -2475,13 +2475,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@remix-run/router@npm:1.23.2":
-  version: 1.23.2
-  resolution: "@remix-run/router@npm:1.23.2"
-  checksum: 10c0/7096b7f2086b2cd80c9e06873b71a8317e04858c01edc06a6fed187b660408a90f47c8e120e8af4c369cf1fa6b6a316a66b0917f42b6eb8a566e98b277c50449
-  languageName: node
-  linkType: hard
-
 "@serialport/binding-mock@npm:10.2.2":
   version: 10.2.2
   resolution: "@serialport/binding-mock@npm:10.2.2"
@@ -2615,68 +2608,6 @@ __metadata:
   version: 1.1.0
   resolution: "@standard-schema/spec@npm:1.1.0"
   checksum: 10c0/d90f55acde4b2deb983529c87e8025fa693de1a5e8b49ecc6eb84d1fd96328add0e03d7d551442156c7432fd78165b2c26ff561b970a9a881f046abb78d6a526
-  languageName: node
-  linkType: hard
-
-"@supabase/auth-js@npm:2.97.0":
-  version: 2.97.0
-  resolution: "@supabase/auth-js@npm:2.97.0"
-  dependencies:
-    tslib: "npm:2.8.1"
-  checksum: 10c0/46571cf72409de3d690b972f80442d2bea463420874f747a37eaa98bb0928a5fa31a0b5b555a6c7b6ed6e09d5316542f0cd64ef48c4e95ba36bd24106e5aefe1
-  languageName: node
-  linkType: hard
-
-"@supabase/functions-js@npm:2.97.0":
-  version: 2.97.0
-  resolution: "@supabase/functions-js@npm:2.97.0"
-  dependencies:
-    tslib: "npm:2.8.1"
-  checksum: 10c0/f0e3b281fb558944b4b48326c3df2f3ff7b3b925b50037acec6db44ecc768555f44be2db715a4f2398590b8cfcc867e214aa081d595e2defa599cb96881b1ce7
-  languageName: node
-  linkType: hard
-
-"@supabase/postgrest-js@npm:2.97.0":
-  version: 2.97.0
-  resolution: "@supabase/postgrest-js@npm:2.97.0"
-  dependencies:
-    tslib: "npm:2.8.1"
-  checksum: 10c0/49ea3d28f34b4d4aedc73fadc1003a311f8f4ac06a7de2cd31e0fd1469dcf162367af96f10bd91ce4aa833a68923b47965bdf69eb5fbad85593f5cc0734d4a51
-  languageName: node
-  linkType: hard
-
-"@supabase/realtime-js@npm:2.97.0":
-  version: 2.97.0
-  resolution: "@supabase/realtime-js@npm:2.97.0"
-  dependencies:
-    "@types/phoenix": "npm:^1.6.6"
-    "@types/ws": "npm:^8.18.1"
-    tslib: "npm:2.8.1"
-    ws: "npm:^8.18.2"
-  checksum: 10c0/4787118820c1794d476025978cab1c209dfd909db46a36e014852dd7716680c4bf86c07c4d1dd7d620e4d4c839b406ff055f0e929a57aee9239626987ef340a1
-  languageName: node
-  linkType: hard
-
-"@supabase/storage-js@npm:2.97.0":
-  version: 2.97.0
-  resolution: "@supabase/storage-js@npm:2.97.0"
-  dependencies:
-    iceberg-js: "npm:^0.8.1"
-    tslib: "npm:2.8.1"
-  checksum: 10c0/296426059c20cc94cd7839b4272624025aa504fa8cb18f4823dbc7e491270110f826be3b53cbea96eef4687d076dfa86c93fd957df73895e9018a03596bf719c
-  languageName: node
-  linkType: hard
-
-"@supabase/supabase-js@npm:^2.76.1":
-  version: 2.97.0
-  resolution: "@supabase/supabase-js@npm:2.97.0"
-  dependencies:
-    "@supabase/auth-js": "npm:2.97.0"
-    "@supabase/functions-js": "npm:2.97.0"
-    "@supabase/postgrest-js": "npm:2.97.0"
-    "@supabase/realtime-js": "npm:2.97.0"
-    "@supabase/storage-js": "npm:2.97.0"
-  checksum: 10c0/fbaf91449f255e542721b101fee02a7950c9cd66423f0f6c4f5a78aedd09459e52bbadcdf9ea77f3155dee9e8d1ffdedf98b2f4b3f7e674ab1cad2c008f5e851
   languageName: node
   linkType: hard
 
@@ -2846,13 +2777,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/phoenix@npm:^1.6.6":
-  version: 1.6.7
-  resolution: "@types/phoenix@npm:1.6.7"
-  checksum: 10c0/0ff8b6dc7d3d8d4a94d5b6bb4f7792db0d40ddef0dd722651929925663bd6aade2a0d41453dbcf4a31bb65471a2c982b17ba3e43eb7abc31b50c20cc489364a4
-  languageName: node
-  linkType: hard
-
 "@types/prop-types@npm:*":
   version: 15.7.15
   resolution: "@types/prop-types@npm:15.7.15"
@@ -2897,15 +2821,6 @@ __metadata:
   version: 2.0.7
   resolution: "@types/trusted-types@npm:2.0.7"
   checksum: 10c0/4c4855f10de7c6c135e0d32ce462419d8abbbc33713b31d294596c0cc34ae1fa6112a2f9da729c8f7a20707782b0d69da3b1f8df6645b0366d08825ca1522e0c
-  languageName: node
-  linkType: hard
-
-"@types/ws@npm:^8.18.1":
-  version: 8.18.1
-  resolution: "@types/ws@npm:8.18.1"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10c0/61aff1129143fcc4312f083bc9e9e168aa3026b7dd6e70796276dcfb2c8211c4292603f9c4864fae702f2ed86e4abd4d38aa421831c2fd7f856c931a481afbab
   languageName: node
   linkType: hard
 
@@ -3856,6 +3771,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dexie-react-hooks@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "dexie-react-hooks@npm:4.2.0"
+  peerDependencies:
+    "@types/react": ">=16"
+    dexie: ">=4.2.0-alpha.1 <5.0.0"
+    react: ">=16"
+  checksum: 10c0/1d5270584088e8e1e693bb23c9b9b6b09530c55ab258a57e7ede25afe20e450539b40d912c1b81392f732adcadde2fe7d75b8faf65aa7c09702cf1128b249f82
+  languageName: node
+  linkType: hard
+
+"dexie@npm:^4.3.0":
+  version: 4.3.0
+  resolution: "dexie@npm:4.3.0"
+  checksum: 10c0/c152db2612f26040c4967c1040c2707837a7b9a97247ff1d7e5e85b6da6abfb26a65248195cd2a54d2202579fa5009b7eb0a696d93444b39fac551eb0d8fc21a
+  languageName: node
+  linkType: hard
+
 "didyoumean@npm:^1.2.2":
   version: 1.2.2
   resolution: "didyoumean@npm:1.2.2"
@@ -4106,15 +4039,6 @@ __metadata:
   peerDependencies:
     eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0 || ^9.0.0
   checksum: 10c0/1c8d50fa5984c6dea32470651807d2922cc3934cf3425e78f84a24c2dfd972e7f019bee84aefb27e0cf2c13fea0ac1d4473267727408feeb1c56333ca1489385
-  languageName: node
-  linkType: hard
-
-"eslint-plugin-react-refresh@npm:^0.4.9":
-  version: 0.4.26
-  resolution: "eslint-plugin-react-refresh@npm:0.4.26"
-  peerDependencies:
-    eslint: ">=8.40"
-  checksum: 10c0/11c2b25b7a7025e621b02970c4cf3815b0b77486027df9f8bb731cc52972156804fd163b0f99404b33e36a3c60cd1a1be8199ba64c66b5276da3173bbb5ab6e7
   languageName: node
   linkType: hard
 
@@ -4569,6 +4493,104 @@ __metadata:
   languageName: node
   linkType: hard
 
+"gonza-systems@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "gonza-systems@workspace:."
+  dependencies:
+    "@auth/prisma-adapter": "npm:^2.11.1"
+    "@capacitor/android": "npm:^7.4.4"
+    "@capacitor/cli": "npm:^7.4.4"
+    "@capacitor/core": "npm:^7.4.4"
+    "@capacitor/ios": "npm:^7.4.4"
+    "@capacitor/storage": "npm:^1.2.5"
+    "@eslint/js": "npm:^9.9.0"
+    "@hookform/resolvers": "npm:^3.9.0"
+    "@prisma/adapter-pg": "npm:^7.4.1"
+    "@prisma/client": "npm:latest"
+    "@radix-ui/react-accordion": "npm:^1.2.0"
+    "@radix-ui/react-alert-dialog": "npm:^1.1.1"
+    "@radix-ui/react-aspect-ratio": "npm:^1.1.0"
+    "@radix-ui/react-avatar": "npm:^1.1.0"
+    "@radix-ui/react-checkbox": "npm:^1.1.1"
+    "@radix-ui/react-collapsible": "npm:^1.1.0"
+    "@radix-ui/react-context-menu": "npm:^2.2.1"
+    "@radix-ui/react-dialog": "npm:^1.1.11"
+    "@radix-ui/react-dropdown-menu": "npm:^2.1.1"
+    "@radix-ui/react-hover-card": "npm:^1.1.1"
+    "@radix-ui/react-label": "npm:^2.1.0"
+    "@radix-ui/react-menubar": "npm:^1.1.1"
+    "@radix-ui/react-navigation-menu": "npm:^1.2.0"
+    "@radix-ui/react-popover": "npm:^1.1.1"
+    "@radix-ui/react-progress": "npm:^1.1.7"
+    "@radix-ui/react-radio-group": "npm:^1.2.0"
+    "@radix-ui/react-scroll-area": "npm:^1.1.0"
+    "@radix-ui/react-select": "npm:^2.1.1"
+    "@radix-ui/react-separator": "npm:^1.1.0"
+    "@radix-ui/react-slider": "npm:^1.2.0"
+    "@radix-ui/react-slot": "npm:^1.1.0"
+    "@radix-ui/react-switch": "npm:^1.1.0"
+    "@radix-ui/react-tabs": "npm:^1.1.0"
+    "@radix-ui/react-toast": "npm:^1.2.1"
+    "@radix-ui/react-toggle": "npm:^1.1.0"
+    "@radix-ui/react-toggle-group": "npm:^1.1.0"
+    "@radix-ui/react-tooltip": "npm:^1.1.4"
+    "@tailwindcss/typography": "npm:^0.5.15"
+    "@tanstack/react-query": "npm:^5.56.2"
+    "@types/bcryptjs": "npm:^3.0.0"
+    "@types/pg": "npm:^8.16.0"
+    "@types/react": "npm:^18.3.3"
+    "@types/react-dom": "npm:^18.3.0"
+    autoprefixer: "npm:^10.4.20"
+    baseline-browser-mapping: "npm:^2.9.11"
+    capacitor-bluetooth-spp: "npm:^0.1.4"
+    class-variance-authority: "npm:^0.7.1"
+    clsx: "npm:^2.1.1"
+    cmdk: "npm:^1.0.0"
+    date-fns: "npm:^4.1.0"
+    dexie: "npm:^4.3.0"
+    dexie-react-hooks: "npm:^4.2.0"
+    embla-carousel-react: "npm:^8.3.0"
+    esc-pos-encoder: "npm:^3.0.0"
+    eslint: "npm:^9.9.0"
+    eslint-plugin-react-hooks: "npm:^5.1.0-rc.0"
+    globals: "npm:^15.9.0"
+    html2canvas: "npm:^1.4.1"
+    html2pdf.js: "npm:^0.10.3"
+    input-otp: "npm:^1.2.4"
+    jspdf: "npm:^3.0.4"
+    jspdf-autotable: "npm:^5.0.2"
+    lovable-tagger: "npm:^1.1.7"
+    lucide-react: "npm:^0.462.0"
+    next: "npm:^16.1.6"
+    next-auth: "npm:^5.0.0-beta.30"
+    next-themes: "npm:^0.3.0"
+    node-thermal-printer: "npm:^4.5.0"
+    pg: "npm:^8.18.0"
+    postcss: "npm:^8.4.47"
+    prisma: "npm:latest"
+    react: "npm:^18.3.1"
+    react-barcode: "npm:^1.6.1"
+    react-day-picker: "npm:^8.10.1"
+    react-dom: "npm:^18.3.1"
+    react-hook-form: "npm:^7.53.0"
+    react-native-thermal-receipt-printer: "npm:^1.2.0-rc.2"
+    react-onesignal: "npm:^3.4.0"
+    react-resizable-panels: "npm:^2.1.3"
+    recharts: "npm:^2.12.7"
+    serialport: "npm:^13.0.0"
+    signature_pad: "npm:^5.0.9"
+    sonner: "npm:^1.5.0"
+    tailwind-merge: "npm:^2.5.2"
+    tailwindcss: "npm:^3.4.11"
+    tailwindcss-animate: "npm:^1.0.7"
+    typescript: "npm:^5.6.3"
+    typescript-eslint: "npm:^8.0.1"
+    vaul: "npm:^0.9.3"
+    xlsx: "npm:^0.18.5"
+    zod: "npm:^3.23.8"
+  languageName: unknown
+  linkType: soft
+
 "graceful-fs@npm:^4.1.6, graceful-fs@npm:^4.2.0, graceful-fs@npm:^4.2.4, graceful-fs@npm:^4.2.6":
   version: 4.2.11
   resolution: "graceful-fs@npm:4.2.11"
@@ -4665,13 +4687,6 @@ __metadata:
     agent-base: "npm:^7.1.2"
     debug: "npm:4"
   checksum: 10c0/f729219bc735edb621fa30e6e84e60ee5d00802b8247aac0d7b79b0bd6d4b3294737a337b93b86a0bd9e68099d031858a39260c976dc14cdbba238ba1f8779ac
-  languageName: node
-  linkType: hard
-
-"iceberg-js@npm:^0.8.1":
-  version: 0.8.1
-  resolution: "iceberg-js@npm:0.8.1"
-  checksum: 10c0/e504da64cc26e8ad7c5344353a7203c671a740c14eb6086f20505f5e9739cab774493e616032530c962df97f2a855115cc2e89a47dd81581df5917b21a69ec48
   languageName: node
   linkType: hard
 
@@ -6236,30 +6251,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router-dom@npm:^6.26.2":
-  version: 6.30.3
-  resolution: "react-router-dom@npm:6.30.3"
-  dependencies:
-    "@remix-run/router": "npm:1.23.2"
-    react-router: "npm:6.30.3"
-  peerDependencies:
-    react: ">=16.8"
-    react-dom: ">=16.8"
-  checksum: 10c0/e8a1e13c662ed6ee71a785bd3418ba04b700bcd8aff6ea7b32524371e8abb1c85568cd4fe9b9e9d555b8101fd415f6f1796531f593da60be179ce75b37038657
-  languageName: node
-  linkType: hard
-
-"react-router@npm:6.30.3":
-  version: 6.30.3
-  resolution: "react-router@npm:6.30.3"
-  dependencies:
-    "@remix-run/router": "npm:1.23.2"
-  peerDependencies:
-    react: ">=16.8"
-  checksum: 10c0/a0a74bf5a933cf0abd47e0eac1d3a505cd66b866e3ee8f20d8016885d3b4361ba3ba72dee026248c6125e631b191ba6ad109184c892281cea6cb747c71bf5940
-  languageName: node
-  linkType: hard
-
 "react-smooth@npm:^4.0.4":
   version: 4.0.4
   resolution: "react-smooth@npm:4.0.4"
@@ -7037,7 +7028,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:2.8.1, tslib@npm:^2.0.0, tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2, tslib@npm:^2.8.0, tslib@npm:^2.8.1":
+"tslib@npm:^2.0.0, tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2, tslib@npm:^2.8.0, tslib@npm:^2.8.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
@@ -7259,105 +7250,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite_react_shadcn_ts@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "vite_react_shadcn_ts@workspace:."
-  dependencies:
-    "@auth/prisma-adapter": "npm:^2.11.1"
-    "@capacitor/android": "npm:^7.4.4"
-    "@capacitor/cli": "npm:^7.4.4"
-    "@capacitor/core": "npm:^7.4.4"
-    "@capacitor/ios": "npm:^7.4.4"
-    "@capacitor/storage": "npm:^1.2.5"
-    "@eslint/js": "npm:^9.9.0"
-    "@hookform/resolvers": "npm:^3.9.0"
-    "@prisma/adapter-pg": "npm:^7.4.1"
-    "@prisma/client": "npm:latest"
-    "@radix-ui/react-accordion": "npm:^1.2.0"
-    "@radix-ui/react-alert-dialog": "npm:^1.1.1"
-    "@radix-ui/react-aspect-ratio": "npm:^1.1.0"
-    "@radix-ui/react-avatar": "npm:^1.1.0"
-    "@radix-ui/react-checkbox": "npm:^1.1.1"
-    "@radix-ui/react-collapsible": "npm:^1.1.0"
-    "@radix-ui/react-context-menu": "npm:^2.2.1"
-    "@radix-ui/react-dialog": "npm:^1.1.11"
-    "@radix-ui/react-dropdown-menu": "npm:^2.1.1"
-    "@radix-ui/react-hover-card": "npm:^1.1.1"
-    "@radix-ui/react-label": "npm:^2.1.0"
-    "@radix-ui/react-menubar": "npm:^1.1.1"
-    "@radix-ui/react-navigation-menu": "npm:^1.2.0"
-    "@radix-ui/react-popover": "npm:^1.1.1"
-    "@radix-ui/react-progress": "npm:^1.1.7"
-    "@radix-ui/react-radio-group": "npm:^1.2.0"
-    "@radix-ui/react-scroll-area": "npm:^1.1.0"
-    "@radix-ui/react-select": "npm:^2.1.1"
-    "@radix-ui/react-separator": "npm:^1.1.0"
-    "@radix-ui/react-slider": "npm:^1.2.0"
-    "@radix-ui/react-slot": "npm:^1.1.0"
-    "@radix-ui/react-switch": "npm:^1.1.0"
-    "@radix-ui/react-tabs": "npm:^1.1.0"
-    "@radix-ui/react-toast": "npm:^1.2.1"
-    "@radix-ui/react-toggle": "npm:^1.1.0"
-    "@radix-ui/react-toggle-group": "npm:^1.1.0"
-    "@radix-ui/react-tooltip": "npm:^1.1.4"
-    "@supabase/supabase-js": "npm:^2.76.1"
-    "@tailwindcss/typography": "npm:^0.5.15"
-    "@tanstack/react-query": "npm:^5.56.2"
-    "@types/bcryptjs": "npm:^3.0.0"
-    "@types/pg": "npm:^8.16.0"
-    "@types/react": "npm:^18.3.3"
-    "@types/react-dom": "npm:^18.3.0"
-    autoprefixer: "npm:^10.4.20"
-    baseline-browser-mapping: "npm:^2.9.11"
-    capacitor-bluetooth-spp: "npm:^0.1.4"
-    class-variance-authority: "npm:^0.7.1"
-    clsx: "npm:^2.1.1"
-    cmdk: "npm:^1.0.0"
-    date-fns: "npm:^4.1.0"
-    embla-carousel-react: "npm:^8.3.0"
-    esc-pos-encoder: "npm:^3.0.0"
-    eslint: "npm:^9.9.0"
-    eslint-plugin-react-hooks: "npm:^5.1.0-rc.0"
-    eslint-plugin-react-refresh: "npm:^0.4.9"
-    globals: "npm:^15.9.0"
-    html2canvas: "npm:^1.4.1"
-    html2pdf.js: "npm:^0.10.3"
-    input-otp: "npm:^1.2.4"
-    jspdf: "npm:^3.0.4"
-    jspdf-autotable: "npm:^5.0.2"
-    lovable-tagger: "npm:^1.1.7"
-    lucide-react: "npm:^0.462.0"
-    next: "npm:^16.1.6"
-    next-auth: "npm:^5.0.0-beta.30"
-    next-themes: "npm:^0.3.0"
-    node-thermal-printer: "npm:^4.5.0"
-    pg: "npm:^8.18.0"
-    postcss: "npm:^8.4.47"
-    prisma: "npm:latest"
-    react: "npm:^18.3.1"
-    react-barcode: "npm:^1.6.1"
-    react-day-picker: "npm:^8.10.1"
-    react-dom: "npm:^18.3.1"
-    react-hook-form: "npm:^7.53.0"
-    react-native-thermal-receipt-printer: "npm:^1.2.0-rc.2"
-    react-onesignal: "npm:^3.4.0"
-    react-resizable-panels: "npm:^2.1.3"
-    react-router-dom: "npm:^6.26.2"
-    recharts: "npm:^2.12.7"
-    serialport: "npm:^13.0.0"
-    signature_pad: "npm:^5.0.9"
-    sonner: "npm:^1.5.0"
-    tailwind-merge: "npm:^2.5.2"
-    tailwindcss: "npm:^3.4.11"
-    tailwindcss-animate: "npm:^1.0.7"
-    typescript: "npm:^5.6.3"
-    typescript-eslint: "npm:^8.0.1"
-    vaul: "npm:^0.9.3"
-    xlsx: "npm:^0.18.5"
-    zod: "npm:^3.23.8"
-  languageName: unknown
-  linkType: soft
-
 "which@npm:^2.0.1":
   version: 2.0.2
   resolution: "which@npm:2.0.2"
@@ -7418,21 +7310,6 @@ __metadata:
   dependencies:
     dank-do-while: "npm:^0.1.2"
   checksum: 10c0/bf7637722bac8af012c3dad7749132a5ccee607ca989ea63e100684e5a4832c4d0e8adf6bf792608d76fcef463c326cbed41702e9f5a05c2aca840e5ceb40414
-  languageName: node
-  linkType: hard
-
-"ws@npm:^8.18.2":
-  version: 8.19.0
-  resolution: "ws@npm:8.19.0"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ">=5.0.2"
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10c0/4741d9b9bc3f9c791880882414f96e36b8b254e34d4b503279d6400d9a4b87a033834856dbdd94ee4b637944df17ea8afc4bce0ff4a1560d2166be8855da5b04
   languageName: node
   linkType: hard
 

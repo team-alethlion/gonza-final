@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { useAuth } from '@/components/auth/AuthProvider';

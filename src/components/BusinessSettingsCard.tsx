@@ -1,6 +1,8 @@
 
+"use client";
+
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings } from 'lucide-react';
@@ -21,7 +23,7 @@ const BusinessSettingsCard: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-center">
         <Button asChild variant="secondary" className="gap-2">
-          <Link to="/settings">
+          <Link href="/settings">
             <Settings size={16} />
             Configure Settings
           </Link>

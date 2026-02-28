@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -16,14 +18,14 @@ import UsageHistoryTable from '@/components/messages/UsageHistoryTable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 const Messages = () => {
   const { user } = useAuth();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { currentProfile, hasPermission, isLoading: profilesLoading } = useProfiles();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Permissions
   const canView = hasPermission('messages', 'view');
@@ -135,7 +137,7 @@ const Messages = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/')} variant="outline" className="gap-2">
+          <Button onClick={() => router.push('/')} variant="outline" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>

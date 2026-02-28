@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import { Customer } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -5,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Eye, Calendar, Receipt, Edit, Mail, Phone, MapPin, Tag, FileText } from 'lucide-react';
 import { format } from 'date-fns';
-import { useSalesData } from '@/hooks/useSalesData';
-import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { formatNumber } from '@/lib/utils';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -32,19 +31,16 @@ const CustomerList: React.FC<CustomerListProps> = ({
   canEdit = true,
   canDelete = true
 }) => {
-  const { user } = useAuth();
-  const { getCustomerLifetimePurchases } = useSalesData(user?.id);
   const { settings } = useBusinessSettings();
   const isMobile = useIsMobile();
   const { canViewTotalAmount, canViewSellingPrice } = useFinancialVisibility();
   const [noticeDialogOpen, setNoticeDialogOpen] = useState(false);
   const [selectedCustomerForNotice, setSelectedCustomerForNotice] = useState<Customer | null>(null);
 
-  // Calculate customer's lifetime purchase total using the new function
-  const getCustomerLifetimeTotal = (customerName: string) => {
+  // Use pre-calculated lifetime value from the customer object
+  const getCustomerLifetimeTotal = (customer: Customer) => {
     if (!(canViewTotalAmount || canViewSellingPrice)) return '•••';
-    const purchaseData = getCustomerLifetimePurchases(customerName);
-    return `${settings.currency} ${formatNumber(purchaseData.total)}`;
+    return `${settings.currency} ${formatNumber(customer.lifetimeValue || 0)}`;
   };
 
   const handleSendNotice = (customer: Customer) => {
@@ -93,7 +89,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
                     <div className="flex items-center gap-1 mt-1">
                       <Receipt className="h-4 w-4 text-green-600 flex-shrink-0" />
                       <span className="text-sm font-medium text-green-600 truncate">
-                        {getCustomerLifetimeTotal(customer.fullName)}
+                        {getCustomerLifetimeTotal(customer)}
                       </span>
                     </div>
                   </div>
@@ -265,7 +261,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
                     <div className="flex items-center gap-1">
                       <Receipt className="h-4 w-4 text-green-600 flex-shrink-0" />
                       <span className="text-sm font-medium text-green-600">
-                        {getCustomerLifetimeTotal(customer.fullName)}
+                        {getCustomerLifetimeTotal(customer)}
                       </span>
                     </div>
                   </td>

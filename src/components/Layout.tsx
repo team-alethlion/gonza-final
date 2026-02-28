@@ -1,11 +1,9 @@
-
 import AgencyLayout from "./AgencyLayout";
-import { Outlet } from "react-router-dom";
 
-const Layout = () => {
+const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <AgencyLayout>
-      <Outlet />
+      {children}
     </AgencyLayout>
   );
 };

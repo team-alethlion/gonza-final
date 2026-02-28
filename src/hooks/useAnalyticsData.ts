@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sale, AnalyticsData } from '@/types';
 import {
-  isWithinInterval,
   startOfDay,
   endOfDay,
   startOfWeek,
@@ -13,10 +12,9 @@ import {
   subDays,
   subWeeks,
   subMonths,
-  isSameDay
 } from 'date-fns';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { getTotalExpensesAction } from '@/app/actions/analytics';
+import { getAnalyticsSummaryAction } from '@/app/actions/analytics';
 
 interface UseAnalyticsDataProps {
   sales: Sale[];
@@ -28,169 +26,20 @@ interface UseAnalyticsDataProps {
 }
 
 export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, isCustomRange, isSpecificDate }: UseAnalyticsDataProps) {
-  const [expenses, setExpenses] = useState<number>(0);
-  const [isLoadingExpenses, setIsLoadingExpenses] = useState(true);
+  const [summary, setSummary] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const { currentBusiness } = useBusiness();
 
-  // Memoize the expensive calculations
-  const calculateSaleTotals = useCallback((sale: Sale) => {
-    // Calculate total sale price after discounts (same logic as revenue calculation)
-    const totalSalePrice = sale.items && Array.isArray(sale.items)
-      ? sale.items.reduce((sum, item) => {
-        const subtotal = item.price * item.quantity;
-        const discountAmount = item.discountType === 'amount'
-          ? (item.discountAmount || 0)
-          : (subtotal * (item.discountPercentage || 0)) / 100;
-        return sum + (subtotal - discountAmount);
-      }, 0)
-      : 0;
-
-    const totalCost = sale.items && Array.isArray(sale.items)
-      ? sale.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0)
-      : 0;
-
-    return { totalSalePrice, totalCost };
-  }, []);
-
-  // Memoize date filtering function
-  const matchesDateFilter = useCallback((saleDate: Date): boolean => {
-    // Validate the sale date
-    if (isNaN(saleDate.getTime())) {
-      return false;
-    }
-
-    if (dateFilter === 'all') return true;
-
-    if (dateFilter === 'custom' && isCustomRange) {
-      if (dateRange.from && dateRange.to) {
-        return isWithinInterval(saleDate, {
-          start: startOfDay(dateRange.from),
-          end: endOfDay(dateRange.to)
-        });
-      }
-      return true;
-    }
-
-    if (dateFilter === 'specific' && isSpecificDate) {
-      if (specificDate) {
-        return isSameDay(saleDate, specificDate);
-      }
-      return true;
-    }
-
-    const today = new Date();
-
-    switch (dateFilter) {
-      case 'today':
-        return isWithinInterval(saleDate, {
-          start: startOfDay(today),
-          end: endOfDay(today)
-        });
-      case 'yesterday':
-        const yesterday = subDays(today, 1);
-        return isWithinInterval(saleDate, {
-          start: startOfDay(yesterday),
-          end: endOfDay(yesterday)
-        });
-      case 'this-week':
-        return isWithinInterval(saleDate, {
-          start: startOfWeek(today, { weekStartsOn: 1 }),
-          end: endOfWeek(today, { weekStartsOn: 1 })
-        });
-      case 'last-week':
-        const lastWeekStart = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1);
-        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-        return isWithinInterval(saleDate, {
-          start: lastWeekStart,
-          end: lastWeekEnd
-        });
-      case 'this-month':
-        return isWithinInterval(saleDate, {
-          start: startOfMonth(today),
-          end: endOfMonth(today)
-        });
-      case 'last-month':
-        const lastMonth = subMonths(today, 1);
-        return isWithinInterval(saleDate, {
-          start: startOfMonth(lastMonth),
-          end: endOfMonth(lastMonth)
-        });
-      case 'this-year':
-        return isWithinInterval(saleDate, {
-          start: startOfYear(today),
-          end: endOfYear(today)
-        });
-      default:
-        return true;
-    }
-  }, [dateFilter, isCustomRange, isSpecificDate, dateRange, specificDate]);
-
-  // Memoize filtered sales calculation
-  const filteredSalesData = useMemo(() => {
-    const filtered = sales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      return matchesDateFilter(saleDate);
-    });
-
-    return {
-      all: filtered,
-      nonQuotes: filtered.filter(sale => sale.paymentStatus !== 'Quote')
-    };
-  }, [sales, matchesDateFilter]);
-
-  // Memoize analytics data calculation
-  const analyticsData = useMemo((): AnalyticsData => {
-    return filteredSalesData.nonQuotes.reduce((acc, sale) => {
-      const { totalSalePrice, totalCost } = calculateSaleTotals(sale);
-      // Calculate profit from actual revenue and cost to handle old sales correctly
-      const actualProfit = totalSalePrice - totalCost;
-
-      return {
-        totalSales: acc.totalSales + totalSalePrice,
-        totalProfit: acc.totalProfit + actualProfit,
-        totalCost: acc.totalCost + totalCost,
-        paidSalesCount: acc.paidSalesCount + (sale.paymentStatus === 'Paid' ? 1 : 0),
-        pendingSalesCount: acc.pendingSalesCount + (sale.paymentStatus === 'NOT PAID' ? 1 : 0),
-      };
-    }, {
-      totalSales: 0,
-      totalProfit: 0,
-      totalCost: 0,
-      paidSalesCount: 0,
-      pendingSalesCount: 0,
-    });
-  }, [filteredSalesData.nonQuotes, calculateSaleTotals]);
-
-  // Memoize bar chart data
-  const barChartData = useMemo(() => [
-    { name: 'Total Sales', amount: analyticsData.totalSales },
-    { name: 'Total Cost', amount: analyticsData.totalCost },
-    { name: 'Total Expenses', amount: expenses },
-    { name: 'Total Profit', amount: analyticsData.totalProfit },
-  ], [analyticsData, expenses]);
-
-  // Memoize recent sales calculation
-  const recentSales = useMemo(() => {
-    return [...filteredSalesData.all]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 20);
-  }, [filteredSalesData.all]);
-
-  // Memoize non-quote sales count
-  const nonQuoteSalesCount = useMemo(() => {
-    return filteredSalesData.nonQuotes.length;
-  }, [filteredSalesData.nonQuotes]);
-
-  // Fetch expenses data based on the current date filter and business location
+  // Fetch analytics summary from server based on filters
   useEffect(() => {
-    const fetchExpenses = async () => {
+    const fetchSummary = async () => {
       if (!currentBusiness) {
-        setExpenses(0);
-        setIsLoadingExpenses(false);
+        setSummary(null);
+        setIsLoadingSummary(false);
         return;
       }
 
-      setIsLoadingExpenses(true);
+      setIsLoadingSummary(true);
       try {
         let startDate: string | undefined;
         let endDate: string | undefined;
@@ -238,32 +87,69 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
           }
         }
 
-        const result = await getTotalExpensesAction(currentBusiness.id, startDate, endDate);
+        const result = await getAnalyticsSummaryAction(currentBusiness.id, startDate, endDate);
 
-        if (!result.success) {
-          console.error('Error fetching expenses:', result.error);
-          return;
+        if (result.success) {
+          setSummary(result.data);
         }
-
-        setExpenses(result.data || 0);
       } catch (error) {
-        console.error('Failed to fetch expenses:', error);
+        console.error('Failed to fetch analytics summary:', error);
       } finally {
-        setIsLoadingExpenses(false);
+        setIsLoadingSummary(false);
       }
     };
 
-    fetchExpenses();
+    fetchSummary();
   }, [dateFilter, isCustomRange, isSpecificDate, dateRange.from, dateRange.to, specificDate, currentBusiness]);
 
+  // Transform summary into AnalyticsData format
+  const analyticsData = useMemo((): AnalyticsData => {
+    if (!summary) {
+      return {
+        totalSales: 0,
+        totalProfit: 0,
+        totalCost: 0,
+        paidSalesCount: 0,
+        pendingSalesCount: 0,
+      };
+    }
+    return {
+      totalSales: summary.totalSales,
+      totalProfit: summary.totalProfit,
+      totalCost: summary.totalCost,
+      paidSalesCount: summary.paidSalesCount,
+      pendingSalesCount: summary.pendingSalesCount,
+    };
+  }, [summary]);
+
+  // Memoize bar chart data
+  const barChartData = useMemo(() => [
+    { name: 'Total Sales', amount: analyticsData.totalSales },
+    { name: 'Total Cost', amount: analyticsData.totalCost },
+    { name: 'Total Expenses', amount: summary?.totalExpenses || 0 },
+    { name: 'Total Profit', amount: analyticsData.totalProfit },
+  ], [analyticsData, summary]);
+
+  // Memoize recent sales (already filtered/limited by the caller usually)
+  const recentSales = useMemo(() => {
+    return [...sales]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 20);
+  }, [sales]);
+
+  // Non-quote count (from summary if available, else from list)
+  const nonQuoteSalesCount = useMemo(() => {
+    if (summary) return summary.paidSalesCount + summary.pendingSalesCount;
+    return sales.filter(s => s.paymentStatus !== 'Quote').length;
+  }, [summary, sales]);
+
   return {
-    filteredSales: filteredSalesData.all,
-    nonQuoteSales: filteredSalesData.nonQuotes,
+    filteredSales: sales,
     analyticsData,
     barChartData,
     recentSales,
     nonQuoteSalesCount,
-    expenses,
-    isLoadingExpenses
+    expenses: summary?.totalExpenses || 0,
+    isLoadingExpenses: isLoadingSummary
   };
 }

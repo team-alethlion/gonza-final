@@ -1,3 +1,4 @@
+"use client";
 import React, { useMemo } from 'react';
 import { Sale } from '@/types';
 import { Button } from '@/components/ui/button';

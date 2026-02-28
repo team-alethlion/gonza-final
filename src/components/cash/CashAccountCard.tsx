@@ -1,5 +1,6 @@
+"use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +22,7 @@ interface CashAccountCardProps {
 }
 
 const CashAccountCard: React.FC<CashAccountCardProps> = ({ account, onAccountDeleted }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const { deleteAccount, deleteAccountWithTransactions } = useCashAccounts();
   const { getDailySummary } = useCashTransactions(account.id);
@@ -114,8 +115,8 @@ const CashAccountCard: React.FC<CashAccountCardProps> = ({ account, onAccountDel
   }, [deleteAccountWithTransactions, account.id, onAccountDeleted]);
 
   const handleCardClick = useCallback(() => {
-    navigate(`/cash/${account.id}`);
-  }, [navigate, account.id]);
+    router.push(`/cash/${account.id}`);
+  }, [router, account.id]);
 
   return (
     <>

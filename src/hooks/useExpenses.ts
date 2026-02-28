@@ -191,7 +191,9 @@ export const useExpenses = () => {
         cashAccountId: updates.linkToCash ? updates.cashAccountId : (updates.linkToCash === false ? null : currentExpense.cashAccountId)
       };
 
-      const result = await updateExpenseAction(id, updatePayload, currentExpense);
+      if (!currentBusiness) throw new Error('No business selected');
+
+      const result = await updateExpenseAction(id, currentBusiness.id, updatePayload, currentExpense);
 
       if (!result.success) throw new Error(result.error);
 
@@ -213,7 +215,8 @@ export const useExpenses = () => {
 
   const deleteExpense = async (id: string) => {
     try {
-      const result = await deleteExpenseAction(id);
+      if (!currentBusiness) throw new Error('No business selected');
+      const result = await deleteExpenseAction(id, currentBusiness.id);
       if (!result.success) throw new Error(result.error);
 
       // Optimistic update

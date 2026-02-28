@@ -30,6 +30,11 @@ export interface Sale {
   items: SaleItem[];
   paymentStatus: 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale';
   profit: number;
+  total: number;
+  totalCost: number;
+  subtotal: number;
+  discount: number;
+  taxAmount: number;
   date: Date;
   taxRate?: number;
   cashTransactionId?: string;
@@ -66,6 +71,11 @@ export interface DbSale {
   items: Json;
   payment_status: string;
   profit: number;
+  total: number;
+  total_cost: number;
+  subtotal: number;
+  discount: number;
+  tax_amount: number;
   date: string;
   tax_rate?: number | null;
   created_at: string;
@@ -307,6 +317,8 @@ export interface Customer {
   gender: string | null;
   tags: string[] | null;
   notes: string | null;
+  lifetimeValue?: number;
+  orderCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -388,6 +400,11 @@ export const mapDbSaleToSale = (dbSale: DbSale): Sale => {
     items,
     paymentStatus: dbSale.payment_status as 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale',
     profit: Number(dbSale.profit),
+    total: Number(dbSale.total || 0),
+    totalCost: Number(dbSale.total_cost || 0),
+    subtotal: Number(dbSale.subtotal || 0),
+    discount: Number(dbSale.discount || 0),
+    taxAmount: Number(dbSale.tax_amount || 0),
     date: new Date(dbSale.date),
     taxRate: dbSale.tax_rate ? Number(dbSale.tax_rate) : 0,
     cashTransactionId: dbSale.cash_transaction_id || undefined,

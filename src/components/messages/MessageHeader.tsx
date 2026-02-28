@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { MessageSquare, Plus, FileText, Zap, CreditCard, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';

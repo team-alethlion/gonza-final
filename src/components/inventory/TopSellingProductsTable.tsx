@@ -1,5 +1,6 @@
+"use client";
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -39,7 +40,7 @@ const TopSellingProductsTable: React.FC<TopSellingProductsTableProps> = ({
 }) => {
   const { settings } = useBusinessSettings();
   const { canViewCostPrice, canViewProfit, canViewSellingPrice } = useFinancialVisibility();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Pagination
   const {
@@ -206,7 +207,7 @@ const TopSellingProductsTable: React.FC<TopSellingProductsTableProps> = ({
                     <TableRow
                       key={`${item.description}-${index}`}
                       className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => productId && navigate(`/inventory/${productId}`)}
+                      onClick={() => productId && router.push(`/inventory/${productId}`)}
                     >
                       <TableCell className="text-center">
                         <span className="text-xs bg-primary/10 text-primary rounded-full w-6 h-6 inline-flex items-center justify-center font-bold">

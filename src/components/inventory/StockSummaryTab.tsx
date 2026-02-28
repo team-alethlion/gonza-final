@@ -1,6 +1,6 @@
-
+"use client";
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -33,7 +33,7 @@ interface StockSummaryData {
 }
 
 const StockSummaryTab = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { products } = useProducts(user?.id, 10000); // Load all products for filtering
 
@@ -233,7 +233,7 @@ const StockSummaryTab = () => {
   };
 
   const handleProductClick = (productId: string) => {
-    navigate(`/inventory/${productId}`);
+    router.push(`/inventory/${productId}`);
   };
 
   const handleFilteredDataChange = (filteredData: StockSummaryData[]) => {

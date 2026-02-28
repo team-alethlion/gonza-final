@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -45,9 +46,9 @@ export const NewProfileDialog: React.FC<NewProfileDialogProps> = ({
       console.error(err);
     }
 
-    // If no profiles exist, force role to owner
+    // If no profiles exist, force role to admin
     if (profiles.length === 0) {
-      setFormData(prev => ({ ...prev, role: 'owner', role_id: null }));
+      setFormData(prev => ({ ...prev, role: 'admin', role_id: null }));
     }
   };
 
@@ -150,7 +151,7 @@ export const NewProfileDialog: React.FC<NewProfileDialogProps> = ({
                   ))
                 ) : (
                   <>
-                    <SelectItem value="owner">Owner</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                   </>
@@ -158,7 +159,7 @@ export const NewProfileDialog: React.FC<NewProfileDialogProps> = ({
               </SelectContent>
             </Select>
             {profiles.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">First profile must be the Owner.</p>
+              <p className="text-xs text-muted-foreground mt-1">First profile must be the Admin.</p>
             )}
           </div>
 

@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sale, BusinessSettings } from '@/types';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -79,33 +80,13 @@ const MobileCard = React.memo(({
   const { payments } = useInstallmentPayments(sale.id);
   const { hasPermission } = useProfiles();
   const { canViewCostPrice, canViewProfit, canViewSellingPrice, canViewTotalAmount } = useFinancialVisibility();
-  // Calculate subtotal from items with discount considerations
-  const subtotal = sale.items.reduce((total, item) => {
-    const itemSubtotal = item.price * item.quantity;
-    const discountAmount = item.discountType === 'amount'
-      ? (item.discountAmount || 0)
-      : (itemSubtotal * (item.discountPercentage || 0)) / 100;
-    return total + (itemSubtotal - discountAmount);
-  }, 0);
-
-  // Calculate total discount amount
-  const totalDiscount = sale.items.reduce((total, item) => {
-    const itemSubtotal = item.price * item.quantity;
-    const discountAmount = item.discountType === 'amount'
-      ? (item.discountAmount || 0)
-      : (itemSubtotal * (item.discountPercentage || 0)) / 100;
-    return total + discountAmount;
-  }, 0);
-
-  // Calculate tax amount based on subtotal and tax rate
+  
+  const subtotal = sale.subtotal;
+  const totalDiscount = sale.discount;
   const taxRate = sale.taxRate || 0;
-  const taxAmount = subtotal * (taxRate / 100);
-
-  // Calculate total including tax
-  const totalWithTax = subtotal + taxAmount;
-
-  // Calculate total cost
-  const totalCost = sale.items.reduce((total, item) => total + (item.cost * item.quantity), 0);
+  const taxAmount = sale.taxAmount;
+  const totalWithTax = sale.total;
+  const totalCost = sale.totalCost;
 
   // Calculate actual amounts for installment sales based on payment history
   const actualAmountPaid = sale.paymentStatus === 'Installment Sale'
@@ -433,16 +414,29 @@ const SalesTable: React.FC<SalesTableProps> = ({
     }
   }, [currency]);
 
-  // Memoize cash account lookup
+  // Create memoized lookup maps for O(1) access
+  const transactionMap = useMemo(() => {
+    const map = new Map<string, any>();
+    transactions.forEach(t => map.set(t.id, t));
+    return map;
+  }, [transactions]);
+
+  const accountMap = useMemo(() => {
+    const map = new Map<string, any>();
+    accounts.forEach(a => map.set(a.id, a));
+    return map;
+  }, [accounts]);
+
+  // Memoize cash account lookup using pre-built maps
   const getCashAccountName = useCallback((sale: Sale) => {
     if (!sale.cashTransactionId) return null;
 
-    const linkedTransaction = transactions.find(transaction => transaction.id === sale.cashTransactionId);
+    const linkedTransaction = transactionMap.get(sale.cashTransactionId);
     if (!linkedTransaction || !linkedTransaction.accountId) return null;
 
-    const linkedAccount = accounts.find(account => account.id === linkedTransaction.accountId);
+    const linkedAccount = accountMap.get(linkedTransaction.accountId);
     return linkedAccount ? linkedAccount.name : null;
-  }, [transactions, accounts]);
+  }, [transactionMap, accountMap]);
 
   const getReceiptButtonLabel = useCallback((paymentStatus: string) => {
     switch (paymentStatus) {

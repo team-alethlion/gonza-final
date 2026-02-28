@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useProfiles, BusinessRole } from '@/contexts/ProfileContext';

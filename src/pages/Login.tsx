@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -48,7 +48,7 @@ const Login = () => {
   const [resetEmailLoading, setResetEmailLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { signIn, signInWithGoogle, resetPassword, user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -61,13 +61,13 @@ const Login = () => {
   // Redirect if user is already authenticated
   useEffect(() => {
     // Don't redirect if this is a password recovery flow
-    const isRecovery = window.location.hash.includes("type=recovery");
+    const isRecovery = typeof window !== 'undefined' && window.location.hash.includes("type=recovery");
 
     if (user && !isRecovery) {
       console.log("User already authenticated, redirecting to dashboard");
-      navigate("/", { replace: true });
+      router.replace("/");
     }
-  }, [user, navigate]);
+  }, [user, router]);
 
   const handleSubmit = async (data: LoginFormData) => {
     setLoading(true);
@@ -310,7 +310,7 @@ const Login = () => {
             type="button"
             variant="outline"
             className="w-full border-primary/20 hover:bg-primary/5 mt-4"
-            onClick={() => navigate("/signup")}
+            onClick={() => router.push("/signup")}
             disabled={loading || googleLoading}>
             Create Account
           </Button>

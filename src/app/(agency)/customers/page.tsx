@@ -33,7 +33,10 @@ const Customers = () => {
   const { customers, isLoading, createCustomer, updateCustomer, deleteCustomer, page, setPage, pageSize, setPageSize, totalCount } = useCustomers(50);
   const { categories } = useCustomerCategories();
   const { settings } = useBusinessSettings();
-  const { getCustomerLifetimePurchases } = useSalesData(user?.id);
+  
+  // We no longer need all sales on the client for lifetime stats
+  // const { getCustomerLifetimePurchases } = useSalesData(user?.id);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -232,7 +235,6 @@ const Customers = () => {
         businessName={settings.businessName}
         businessLogo={settings.businessLogo}
         getCategoryName={getCategoryName}
-        getCustomerLifetimePurchases={getCustomerLifetimePurchases}
         canCreate={canCreate}
       />
 

@@ -1,4 +1,7 @@
 
+"use client"
+
+import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import Logo from './header/Logo';
@@ -8,6 +11,21 @@ import InstallButton from './header/InstallButton';
 
 const Header = () => {
   const isMobile = useIsMobile();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-white/80 backdrop-blur-md px-6 sticky top-0 z-50">
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <Logo />
+        </div>
+      </header>
+    );
+  }
 
   if (isMobile) {
     return (

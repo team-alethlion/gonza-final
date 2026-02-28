@@ -1,3 +1,5 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -20,14 +22,14 @@ import { formatCashCurrency } from '@/lib/utils';
 import { LayoutGrid, List, PieChart, Plus, Upload, AlertCircle } from 'lucide-react';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { exportExpensesToCSV } from '@/utils/exportExpensesToCSV';
 import { exportExpensesToPDF } from '@/utils/exportExpensesToPDF';
 import { generateExpenseTemplate } from '@/utils/generateExpenseTemplate';
 
 const Expenses = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
   const { settings } = useBusinessSettings();
@@ -103,7 +105,7 @@ const Expenses = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/')} variant="outline">
+          <Button onClick={() => router.push('/')} variant="outline">
             Back to Dashboard
           </Button>
         </div>

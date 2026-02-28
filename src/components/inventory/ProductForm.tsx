@@ -1,5 +1,6 @@
+"use client";
 import React, { useState, useEffect, useRef, DragEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onProductSubmit,
   isLoading,
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { settings } = useBusinessSettings();
   const { user } = useAuth();
   const { uploadProductImage, compressImage } = useProductImage(user?.id);
@@ -448,7 +449,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     type="button"
                     variant="link"
                     className="p-0 h-auto text-blue-600 underline"
-                    onClick={() => navigate(`/categories?returnTo=${encodeURIComponent(window.location.pathname)}`)}
+                    onClick={() => router.push(`/categories?returnTo=${encodeURIComponent(window.location.pathname)}`)}
                     disabled={isSubmitting}
                   >
                     Categories page <ExternalLink className="h-3 w-3 ml-1 inline" />
@@ -792,7 +793,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
             <Button
               variant="outline"
               type="button"
-              onClick={() => navigate('/inventory')}
+              onClick={() => router.push('/inventory')}
               disabled={isSubmitting || compressing}
             >
               Cancel

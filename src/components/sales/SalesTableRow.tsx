@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { format } from 'date-fns';
 import { TableRow, TableCell } from '@/components/ui/table';
@@ -51,36 +52,13 @@ const SalesTableRow: React.FC<SalesTableRowProps> = ({
   const { formatFinancial, canViewCostPrice, canViewProfit } = useFinancialVisibility();
 
   const totalQuantity = sale.items.reduce((total, item) => total + item.quantity, 0);
-  const totalItemsPrice = sale.items.reduce((total, item) => total + item.price, 0);
-  const averagePrice = totalQuantity > 0 ? totalItemsPrice / sale.items.length : 0;
+  const averagePrice = totalQuantity > 0 ? (sale.subtotal + sale.discount) / totalQuantity : 0;
 
-  // Calculate subtotal from items with discount considerations
-  const subtotal = sale.items.reduce((total, item) => {
-    const itemSubtotal = item.price * item.quantity;
-    const discountAmount = item.discountType === 'amount'
-      ? (item.discountAmount || 0)
-      : (itemSubtotal * (item.discountPercentage || 0)) / 100;
-    return total + (itemSubtotal - discountAmount);
-  }, 0);
-
-  // Calculate total discount amount
-  const totalDiscount = sale.items.reduce((total, item) => {
-    const itemSubtotal = item.price * item.quantity;
-    const discountAmount = item.discountType === 'amount'
-      ? (item.discountAmount || 0)
-      : (itemSubtotal * (item.discountPercentage || 0)) / 100;
-    return total + discountAmount;
-  }, 0);
-
-  // Calculate tax amount based on subtotal and tax rate
-  const taxRate = sale.taxRate || 0;
-  const taxAmount = subtotal * (taxRate / 100);
-
-  // Total including tax
-  const saleTotal = subtotal + taxAmount;
-
-  // Calculate total cost
-  const totalCost = sale.items.reduce((total, item) => total + (item.cost * item.quantity), 0);
+  const subtotal = sale.subtotal;
+  const totalDiscount = sale.discount;
+  const taxAmount = sale.taxAmount;
+  const saleTotal = sale.total;
+  const totalCost = sale.totalCost;
 
   // Improved cash account name resolution with better logging
   const getCashAccountName = () => {

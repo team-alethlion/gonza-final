@@ -1,8 +1,6 @@
 "use client";
 
 import { AuthProvider } from "./contexts/AuthContext";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
 import "./admin.css";
 
 export default function AdminLayout({
@@ -10,11 +8,9 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [queryClient] = useState(() => new QueryClient());
-
   return (
-    <>
+    <AuthProvider>
       <div className="admin-theme admin-scope min-h-screen">{children}</div>
-    </>
+    </AuthProvider>
   );
 }

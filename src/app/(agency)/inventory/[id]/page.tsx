@@ -1,6 +1,7 @@
+"use client";
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useProducts } from '@/hooks/useProducts';
 import { useStockHistory } from '@/hooks/useStockHistory';
@@ -11,8 +12,9 @@ import ProductDetails from '@/components/inventory/ProductDetails';
 import ProductStockHistory from '@/components/inventory/ProductStockHistory';
 
 const ProductDetail = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const params = useParams();
+  const id = params?.id as string;
+  const router = useRouter();
   const { user } = useAuth();
   const { products, isLoading, loadProducts, refetch } = useProducts(user?.id, 10000); // Load all products
   const [product, setProduct] = useState<Product | null>(null);
@@ -32,12 +34,12 @@ const ProductDetail = () => {
         setProduct(foundProduct);
       } else {
         toast.error('Product not found');
-        navigate('/inventory');
+        router.push('/inventory');
       }
 
       setIsRefreshing(false);
     }
-  }, [id, refetch, navigate]);
+  }, [id, refetch, router]);
 
   // Handle stock update callback - refresh both product and stock history
   const handleStockUpdate = React.useCallback(async () => {
@@ -73,10 +75,10 @@ const ProductDetail = () => {
         setProduct(foundProduct);
       } else {
         toast.error('Product not found');
-        navigate('/inventory');
+        router.push('/inventory');
       }
     }
-  }, [id, products, isLoading, navigate]);
+  }, [id, products, isLoading, router]);
 
   // Listen for stock updates from other components
   useEffect(() => {

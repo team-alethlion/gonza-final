@@ -1,16 +1,17 @@
+"use client";
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, XCircle, Loader, AlertCircle, Rocket, MessageSquare, ArrowRight } from 'lucide-react';
 
 const PaymentCallback = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed' | 'cancelled'>('loading');
   const [message, setMessage] = useState('Verifying your payment with PesaPal...');
   const [details, setDetails] = useState<any>(null);
 
-  const orderTrackingId = searchParams.get('OrderTrackingId');
-  const purchaseId = searchParams.get('purchase_id');
+  const orderTrackingId = searchParams?.get('OrderTrackingId');
+  const purchaseId = searchParams?.get('purchase_id');
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -68,7 +69,7 @@ const PaymentCallback = () => {
           // Redirect after a short delay so the user can see the success state
           setTimeout(() => {
             console.log('[PaymentCallback] Auto-redirecting to dashboard');
-            navigate('/');
+            router.push('/');
           }, 4000);
 
         } else if (result.payment_status === 'failed') {
@@ -96,7 +97,7 @@ const PaymentCallback = () => {
     };
 
     verifyPayment();
-  }, [orderTrackingId, purchaseId, navigate]);
+  }, [orderTrackingId, purchaseId, router]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#fafafa] p-6">
@@ -163,7 +164,7 @@ const PaymentCallback = () => {
           <div className="space-y-4">
             {status !== 'loading' && (
               <button
-                onClick={() => navigate('/')}
+                onClick={() => router.push('/')}
                 className="group relative w-full h-14 bg-foreground text-background font-bold text-[12px] uppercase tracking-widest rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 overflow-hidden shadow-lg shadow-black/5"
               >
                 <span className="relative z-10 flex items-center gap-2">

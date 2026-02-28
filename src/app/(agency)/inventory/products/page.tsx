@@ -1,6 +1,8 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Download, Upload, Trash2, ArrowLeft, Printer } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -44,7 +46,7 @@ import { useProfiles } from '@/contexts/ProfileContext';
 type SortOrder = 'asc' | 'desc';
 
 const Products = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { hasPermission } = useProfiles();
@@ -718,7 +720,7 @@ const Products = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/inventory')}
+              onClick={() => router.push('/inventory')}
               className="shrink-0 h-8 w-8"
               title="Back to inventory"
             >
@@ -737,7 +739,7 @@ const Products = () => {
             <div className="space-y-2">
               <div className="flex gap-2">
                 {canCreate && (
-                  <Button onClick={() => navigate('/inventory/new')} className="flex-1 gap-2 h-9">
+                  <Button onClick={() => router.push('/inventory/new')} className="flex-1 gap-2 h-9">
                     <Plus size={16} /> Add Product
                   </Button>
                 )}
@@ -944,7 +946,7 @@ const Products = () => {
                 </DropdownMenu>
               )}
               {canCreate && (
-                <Button onClick={() => navigate('/inventory/new')} className="gap-2">
+                <Button onClick={() => router.push('/inventory/new')} className="gap-2">
                   <Plus size={16} /> Add Product
                 </Button>
               )}

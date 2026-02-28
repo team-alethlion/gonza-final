@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useState, useContext, createContext, useEffect } from 'react';
 import { toast } from 'sonner';
+import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, useSession } from 'next-auth/react';
 
 import { signInAction, signUpAction } from '@/app/actions/auth';
 
@@ -25,40 +26,52 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Auto-login for development while migrating
+  // Sync with next-auth session
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('gonza_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (status === 'authenticated' && session?.user) {
+      setUser({
+        id: session.user.id || '',
+        email: session.user.email || undefined
+      });
+    } else if (status === 'unauthenticated') {
+      setUser(null);
     }
-    setLoading(false);
-  }, []);
+    setLoading(status === 'loading');
+  }, [session, status]);
 
   const signIn = async (email: string, password: string) => {
-    const result = await signInAction(email, password);
-    if (result.success && result.user) {
-      const userData = { id: result.user.id, email: result.user.email };
-      setUser(userData);
-      localStorage.setItem('gonza_user', JSON.stringify(userData));
-      toast.success('Signed in successfully');
-    } else {
-      throw new Error(result.error || 'Login failed');
+    const result = await nextAuthSignIn('credentials', {
+      email,
+      password,
+      redirect: false
+    });
+
+    if (result?.error) {
+      throw new Error(result.error);
     }
+    
+    toast.success('Signed in successfully');
   };
 
   const signInWithGoogle = async () => {
-    // Mock for now, will integrate with actual OAuth later
-    toast.error('Google sign-in not yet implemented with Prisma');
+    await nextAuthSignIn('google', { callbackUrl: '/' });
   };
 
   const signUp = async (email: string, password: string, options?: { data?: Record<string, any> }) => {
     const result = await signUpAction({ email, password, name: options?.data?.name });
     if (result.success && result.user) {
-      toast.success('Account created successfully. Please sign in.');
+      // Auto-signin with NextAuth after successful signup
+      await nextAuthSignIn('credentials', {
+        email,
+        password,
+        redirect: false
+      });
+      
+      toast.success('Account created and signed in successfully.');
       return { error: null, user: result.user };
     } else {
       return { error: new Error(result.error || 'Sign up failed'), user: null };
@@ -66,9 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    setUser(null);
-    localStorage.removeItem('gonza_user');
-    toast.success('Successfully signed out');
+    await nextAuthSignOut({ redirect: true, callbackUrl: '/' });
   };
 
   const resetPassword = async (email: string) => {

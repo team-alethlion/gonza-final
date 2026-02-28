@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
@@ -12,7 +13,6 @@ interface CustomerHeaderProps {
   businessName?: string;
   businessLogo?: string;
   getCategoryName?: (categoryId: string | null) => string;
-  getCustomerLifetimePurchases?: (customerName: string) => { total: number; count: number };
   canCreate?: boolean;
 }
 
@@ -24,7 +24,6 @@ const CustomerHeader: React.FC<CustomerHeaderProps> = ({
   businessName = 'Your Business',
   businessLogo,
   getCategoryName = () => 'Uncategorized',
-  getCustomerLifetimePurchases,
   canCreate = true
 }) => {
   return (
@@ -41,7 +40,6 @@ const CustomerHeader: React.FC<CustomerHeaderProps> = ({
             businessName={businessName}
             businessLogo={businessLogo}
             getCategoryName={getCategoryName}
-            getCustomerLifetimePurchases={getCustomerLifetimePurchases}
           />
           {onFindDuplicates && (
             <Button onClick={onFindDuplicates} variant="outline" className="gap-2 px-6 py-3 text-sm font-medium">

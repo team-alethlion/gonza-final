@@ -1,5 +1,6 @@
+"use client";
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Edit, Eye, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,20 +43,21 @@ const CashTransactionsList: React.FC<CashTransactionsListProps> = ({
   const { canManageFinanceAccounts } = useFinancialVisibility();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const canEdit = hasPermission('finance', 'edit');
   const canDelete = hasPermission('finance', 'delete');
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
 
   // Initialize filters from URL params
-  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
-  const [transactionTypeFilter, setTransactionTypeFilter] = useState(() => searchParams.get('type') || 'all');
+  const [searchTerm, setSearchTerm] = useState(() => searchParams?.get('search') || '');
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState(() => searchParams?.get('type') || 'all');
 
   // Update filters when URL changes (navigation back/forward)
   useEffect(() => {
-    const search = searchParams.get('search') || '';
-    const type = searchParams.get('type') || 'all';
+    const search = searchParams?.get('search') || '';
+    const type = searchParams?.get('type') || 'all';
 
     setSearchTerm(search);
     setTransactionTypeFilter(type);
@@ -64,24 +66,24 @@ const CashTransactionsList: React.FC<CashTransactionsListProps> = ({
   // Functions to update both state and URL
   const updateSearchTerm = (value: string) => {
     setSearchTerm(value);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     if (value) {
       newParams.set('search', value);
     } else {
       newParams.delete('search');
     }
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   const updateTransactionTypeFilter = (value: string) => {
     setTransactionTypeFilter(value);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams?.toString());
     if (value && value !== 'all') {
       newParams.set('type', value);
     } else {
       newParams.delete('type');
     }
-    setSearchParams(newParams);
+    router.push(`?${newParams.toString()}`);
   };
 
   const formatCurrency = (amount: number) => {
@@ -176,8 +178,6 @@ const CashTransactionsList: React.FC<CashTransactionsListProps> = ({
 
     return { from: earliestDate, to: latestDate };
   };
-
-  // ... keep existing code (getTransactionTypeColor, getTransactionTypeLabel, getAmountColor functions)
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {

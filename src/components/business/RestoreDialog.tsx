@@ -1,3 +1,4 @@
+"use client";
 import React, { useRef, useState } from 'react';
 import { Upload, AlertTriangle } from 'lucide-react';
 import {

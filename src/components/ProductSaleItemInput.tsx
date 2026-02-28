@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import { SaleItem } from '@/types';
 import { formatNumber, formatNumberInput, parseNumberInput } from '@/lib/utils';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { Product } from '@/types';
-import { getAllProductsAction } from '@/app/actions/products';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
+import { useLocalProductSearch } from '@/hooks/useProductSync';
 // Removed direct Supabase import
 
 import { matchProductSearch } from '@/utils/searchUtils';
@@ -70,27 +70,8 @@ const ProductSaleItemInput: React.FC<ProductSaleItemInputProps> = ({
     return () => clearTimeout(timer);
   }, [newProductName]);
 
-  // Load all products directly with React Query (bypass useProducts filtering)
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ['all-products', user?.id, currentBusiness?.id],
-    queryFn: async () => {
-      if (!user?.id || !currentBusiness?.id) return [];
-      return await getAllProductsAction(user.id, currentBusiness.id);
-    },
-    enabled: !!user?.id && !!currentBusiness?.id,
-    staleTime: 5 * 60_000, // Cache for 5 minutes
-  });
-
-  // Instant client-side filtering (now debounced and supporting multi-word search)
-  const filteredProducts = useMemo(() => {
-    if (!debouncedSearchTerm.trim()) {
-      return [];
-    }
-
-    return allProducts
-      .filter(product => matchProductSearch(product, debouncedSearchTerm))
-      .slice(0, 20); // Limit to 20 results for display
-  }, [allProducts, debouncedSearchTerm]);
+  // Use Local Dexie search instead of React Query + allProducts
+  const filteredProducts = useLocalProductSearch(debouncedSearchTerm) || [];
 
   // Update state when item changes (important for edit mode or external updates)
   useEffect(() => {
@@ -228,7 +209,7 @@ const ProductSaleItemInput: React.FC<ProductSaleItemInputProps> = ({
       description: '',
       price: 0,
       cost: 0,
-      productId: null,
+      productId: undefined,
       discountAmount: 0,
       discountPercentage: 0
     };

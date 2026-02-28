@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Send } from 'lucide-react';
 import { Customer } from '@/hooks/useCustomers';

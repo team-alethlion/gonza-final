@@ -1,3 +1,5 @@
+"use client"
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Receipt, Package, DollarSign, HelpCircle, MessageSquare, Users, Wallet, Settings, CheckSquare, History as HistoryIcon, UserCircle, CreditCard } from 'lucide-react';

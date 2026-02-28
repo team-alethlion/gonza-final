@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +39,7 @@ const SignUp = () => {
   const [signupError, setSignupError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const form = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
@@ -90,7 +90,7 @@ const SignUp = () => {
       // Based on previous logs, most users are redirected to login for verification.
       // However, the user requested "after that should redirect to the onboarding page".
       // We'll try to navigate to onboarding, which is protected by RequiredSetupGate.
-      navigate('/onboarding');
+      router.push('/onboarding');
 
     } catch (error: any) {
       console.error('Error during signup:', error);
@@ -288,7 +288,7 @@ const SignUp = () => {
             type="button"
             variant="outline"
             className="w-full border-primary/20 hover:bg-primary/5 mt-4"
-            onClick={() => navigate('/login')}
+            onClick={() => router.push('/login')}
           >
             Already have an account? Sign In
           </Button>

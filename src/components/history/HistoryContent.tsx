@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { HistoryList } from './HistoryList';
 import { HistoryStats } from './HistoryStats';

@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Tabs } from '@/components/ui/tabs';
 import { useTasks } from '@/hooks/useTasks';
@@ -11,13 +13,13 @@ import TaskPageContent from '@/components/tasks/TaskPageContent';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 const Tasks = () => {
   const { user } = useAuth();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Permissions
   const canView = hasPermission('tasks', 'view');
@@ -90,7 +92,7 @@ const Tasks = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/')} variant="outline" className="gap-2">
+          <Button onClick={() => router.push('/')} variant="outline" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>

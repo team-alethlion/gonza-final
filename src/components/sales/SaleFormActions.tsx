@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useState, useMemo } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";

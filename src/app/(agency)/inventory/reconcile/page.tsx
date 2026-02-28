@@ -1,3 +1,5 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useMemo } from 'react';
@@ -18,7 +20,7 @@ import { toast } from 'sonner';
 import { AlertCircle, TrendingDown, TrendingUp, PackagePlus, PackageMinus, Wrench } from 'lucide-react';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   getAllProductsAction
 } from '@/app/actions/products';
@@ -59,7 +61,7 @@ interface ReconciliationPreview {
 
 const StockReconciliationPage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
 
@@ -230,7 +232,7 @@ const StockReconciliationPage: React.FC = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/inventory')} variant="outline">
+          <Button onClick={() => router.push('/inventory')} variant="outline">
             Back to Inventory
           </Button>
         </div>

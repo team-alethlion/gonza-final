@@ -12,76 +12,94 @@ export interface InventoryStats {
 
 export async function getGlobalInventoryStatsAction(businessId: string) {
     try {
-        const products = await db.product.findMany({
-            where: {
-                branchId: businessId,
-            },
-            select: {
-                stock: true,
-                minStock: true,
-                costPrice: true,
-                sellingPrice: true
+        const stats = await db.$queryRaw`
+            SELECT 
+                COALESCE(SUM(CAST(stock AS DECIMAL) * CAST("sellingPrice" AS DECIMAL)), 0) as "totalStockValue",
+                COALESCE(SUM(CAST(stock AS DECIMAL) * CAST("costPrice" AS DECIMAL)), 0) as "totalCostValue",
+                CAST(COUNT(CASE WHEN stock <= 0 THEN 1 END) AS INTEGER) as "outOfStockCount",
+                CAST(COUNT(CASE WHEN stock > 0 AND stock <= "minStock" THEN 1 END) AS INTEGER) as "lowStockCount"
+            FROM "Product"
+            WHERE "branchId" = ${businessId}
+        `;
+
+        const result = (stats as any)[0];
+
+        return {
+            success: true,
+            data: {
+                totalCostValue: Number(result.totalCostValue),
+                totalStockValue: Number(result.totalStockValue),
+                outOfStockCount: Number(result.outOfStockCount),
+                lowStockCount: Number(result.lowStockCount)
             }
-        });
-
-        const stats: InventoryStats = products.reduce((acc: InventoryStats, p: any) => {
-            const stock = p.stock || 0;
-            const cost = p.costPrice || 0;
-            const price = p.sellingPrice || 0;
-            const minStock = p.minStock || 0;
-
-            acc.totalCostValue += stock * cost;
-            acc.totalStockValue += stock * price;
-
-            if (stock <= 0) {
-                acc.outOfStockCount += 1;
-            } else if (stock <= minStock) {
-                acc.lowStockCount += 1;
-            }
-
-            return acc;
-        }, {
-            totalCostValue: 0,
-            totalStockValue: 0,
-            lowStockCount: 0,
-            outOfStockCount: 0
-        });
-
-        return { success: true, data: stats };
+        };
     } catch (error: any) {
         console.error('Error fetching global inventory stats:', error);
         return { success: false, error: error.message };
     }
 }
 
-export async function getTotalExpensesAction(businessId: string, startDate?: string, endDate?: string) {
+export async function getAnalyticsSummaryAction(branchId: string, startDate?: string, endDate?: string) {
     try {
+        const start = startDate ? new Date(startDate) : undefined;
+        const end = endDate ? new Date(endDate) : undefined;
+
         const where: any = {
-            branchId: businessId
+            branchId,
+            paymentStatus: { not: 'QUOTE' }
         };
 
-        if (startDate || endDate) {
+        if (start || end) {
             where.date = {};
-            if (startDate) {
-                where.date.gte = new Date(startDate);
-            }
-            if (endDate) {
-                where.date.lte = new Date(endDate);
-            }
+            if (start) where.date.gte = start;
+            if (end) where.date.lte = end;
         }
 
-        const expenses = await db.expense.findMany({
+        // Aggregate Sales Data
+        const stats = await db.sale.aggregate({
             where,
-            select: {
+            _sum: {
+                total: true,
+                totalCost: true,
+                profit: true
+            }
+        });
+
+        // Get Status Counts
+        const [paidCount, unpaidCount, installmentCount] = await Promise.all([
+            db.sale.count({ where: { ...where, paymentStatus: 'PAID' } }),
+            db.sale.count({ where: { ...where, paymentStatus: 'UNPAID' } }),
+            db.sale.count({ where: { ...where, paymentStatus: 'INSTALLMENT' } })
+        ]);
+
+        // Aggregate Expenses
+        const expensesWhere: any = { branchId };
+        if (start || end) {
+            expensesWhere.date = {};
+            if (start) expensesWhere.date.gte = start;
+            if (end) expensesWhere.date.lte = end;
+        }
+
+        const expensesAggregate = await db.expense.aggregate({
+            where: expensesWhere,
+            _sum: {
                 amount: true
             }
         });
 
-        const total = expenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0);
-
-        return { success: true, data: total };
+        return {
+            success: true,
+            data: {
+                totalSales: Number(stats._sum.total || 0),
+                totalCost: Number(stats._sum.totalCost || 0),
+                totalProfit: Number(stats._sum.profit || 0),
+                paidSalesCount: paidCount,
+                pendingSalesCount: unpaidCount + installmentCount,
+                totalExpenses: Number(expensesAggregate._sum.amount || 0)
+            }
+        };
     } catch (error: any) {
-        console.error('Error fetching total expenses:', error);
+        console.error('Error fetching analytics summary:', error);
         return { success: false, error: error.message };
     }
 }

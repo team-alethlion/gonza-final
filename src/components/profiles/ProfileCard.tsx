@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role.toLowerCase()) {
+      case 'admin':
       case 'owner':
         return 'default';
       case 'manager':

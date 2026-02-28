@@ -88,7 +88,8 @@ export const useCustomerCategories = () => {
 
   const updateCategory = async (id: string, name: string) => {
     try {
-      const result = await updateCustomerCategoryAction(id, name);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await updateCustomerCategoryAction(id, currentBusiness.id, name);
       if (result.success) {
         toast({
           title: "Success",
@@ -112,7 +113,8 @@ export const useCustomerCategories = () => {
 
   const deleteCategory = async (id: string) => {
     try {
-      const result = await deleteCustomerCategoryAction(id);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await deleteCustomerCategoryAction(id, currentBusiness.id);
       if (result.success) {
         toast({
           title: "Success",

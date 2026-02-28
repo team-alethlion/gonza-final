@@ -157,7 +157,7 @@ export const useProducts = (userId: string | undefined, initialPageSize: number 
         imageUrl = await uploadProductImage(imageFile);
       }
 
-      const result = await updateProductAction(id, {
+      const result = await updateProductAction(id, currentBusiness.id, {
         ...updates,
         imageUrl,
         userId,
@@ -180,9 +180,9 @@ export const useProducts = (userId: string | undefined, initialPageSize: number 
 
   const deleteProduct = async (id: string): Promise<boolean> => {
     try {
-      if (!userId) return false;
+      if (!userId || !currentBusiness) return false;
 
-      const success = await deleteProductAction(id);
+      const success = await deleteProductAction(id, currentBusiness.id);
 
       if (success) {
         queryClient.invalidateQueries({ queryKey: baseQueryKey });

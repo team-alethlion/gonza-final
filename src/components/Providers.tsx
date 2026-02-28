@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
+import { SessionProvider } from "next-auth/react";
+import { SyncManager } from "./SyncManager";
 
 export function Providers({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(
@@ -22,14 +24,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
     );
 
     return (
-        <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-                <BusinessProvider>
-                    <ProfileProvider>
-                        {children}
-                    </ProfileProvider>
-                </BusinessProvider>
-            </AuthProvider>
-        </QueryClientProvider>
+        <SessionProvider>
+            <QueryClientProvider client={queryClient}>
+                <AuthProvider>
+                    <BusinessProvider>
+                        <ProfileProvider>
+                            <SyncManager />
+                            {children}
+                        </ProfileProvider>
+                    </BusinessProvider>
+                </AuthProvider>
+            </QueryClientProvider>
+        </SessionProvider>
     );
 }

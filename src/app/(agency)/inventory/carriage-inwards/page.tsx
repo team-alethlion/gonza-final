@@ -1,7 +1,9 @@
+"use client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -17,7 +19,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { useProfiles } from '@/contexts/ProfileContext';
 
 const CarriageInwards = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { toast } = useToast();
@@ -85,7 +87,7 @@ const CarriageInwards = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/inventory')}
+              onClick={() => router.push('/inventory')}
               className="shrink-0 h-8 w-8"
               title="Back to inventory"
             >

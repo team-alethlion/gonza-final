@@ -1,3 +1,5 @@
+"use client"
+
 import { LogOut, Settings, User, ChevronDown, Check, Building2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

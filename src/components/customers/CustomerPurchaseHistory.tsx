@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useSalesData } from '@/hooks/useSalesData';
@@ -15,6 +16,8 @@ import { format } from 'date-fns';
 import { formatNumber } from '@/lib/utils';
 import Link from 'next/link';
 import ReceiptDialog from '@/components/sales/ReceiptDialog';
+import { Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface CustomerPurchaseHistoryProps {
   customerId: string;

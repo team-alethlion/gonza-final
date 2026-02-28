@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Search, Filter, MessageSquare } from 'lucide-react';
 import { Message } from '@/hooks/useMessages';

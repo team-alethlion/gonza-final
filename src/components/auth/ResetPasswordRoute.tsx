@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { redirect } from 'next/navigation';
 import ResetPassword from '@/pages/ResetPassword';
 
 /**
@@ -7,6 +7,9 @@ import ResetPassword from '@/pages/ResetPassword';
  * Otherwise, redirect authenticated users to the home page.
  */
 const ResetPasswordRoute = () => {
+    // In server components or during initial render, window might not be available
+    if (typeof window === 'undefined') return null;
+
     const isRecovery = window.location.hash.includes('type=recovery');
 
     console.log('ResetPasswordRoute check:', {
@@ -15,7 +18,11 @@ const ResetPasswordRoute = () => {
         pathname: window.location.pathname
     });
 
-    return isRecovery ? <ResetPassword /> : <Navigate to="/" replace />;
+    if (isRecovery) {
+        return <ResetPassword />;
+    }
+
+    return redirect('/');
 };
 
 export default ResetPasswordRoute;

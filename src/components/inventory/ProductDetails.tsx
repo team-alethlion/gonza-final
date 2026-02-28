@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 // @ts-ignore - react-barcode may not have types installed
 import Barcode from 'react-barcode';
@@ -5,7 +6,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Product, StockHistoryEntry } from '@/types';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   isLoadingHistory,
   onStockUpdate
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
   const { settings } = useBusinessSettings();
@@ -70,7 +71,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     const result = await deleteProduct(product.id);
     if (result) {
       toast.success("Product deleted successfully");
-      navigate('/inventory');
+      router.push('/inventory');
       return true;
     }
     return false;
@@ -78,22 +79,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   const handleDuplicateProduct = () => {
     toast.success("Duplicating product...");
-    // Navigate to new product page with product data for duplication
-    navigate('/inventory/new', {
-      state: {
-        duplicateData: {
-          name: `${product.name} (Copy)`,
-          description: product.description,
-          category: product.category,
-          supplier: product.supplier,
-          costPrice: product.costPrice,
-          sellingPrice: product.sellingPrice,
-          imageUrl: product.imageUrl,
-          createdAt: product.createdAt,
-          minimumStock: product.minimumStock
-        }
-      }
-    });
+    // Navigate to new product page with product id for duplication (Next.js query param)
+    router.push(`/inventory/new?duplicateId=${product.id}`);
   };
 
   const getStockStatusBadge = () => {
@@ -228,7 +215,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/products')}
+              onClick={() => router.push('/products')}
               className="flex items-center gap-2 hover:bg-gray-50 text-sm"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -264,7 +251,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             {/* Primary Action - Edit Button with Secondary Color */}
             {hasPermission('inventory', 'edit') && (
               <Button
-                onClick={() => navigate(`/inventory/edit/${product.id}`)}
+                onClick={() => router.push(`/inventory/edit/${product.id}`)}
                 className="flex items-center justify-center gap-2 w-full lg:w-auto bg-secondary hover:bg-secondary/90 text-sm"
                 size="sm"
               >

@@ -1,3 +1,4 @@
+"use client";
 // SalesForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -6,7 +7,8 @@ import { Sale, SaleFormData, SaleItem, mapSaleToDbSale, Customer, Product } from
 import { useAuth } from '@/components/auth/AuthProvider';
 import { calculateProfit } from '@/utils/calculateProfit';
 import { generateReceiptNumber } from '@/utils/generateReceiptNumber';
-import { lookupProductByBarcodeAction, getProductsForBarcodeScannerAction, updateSaleCashTransactionAction } from '@/app/actions/products';
+import { localDb } from '@/lib/dexie';
+import { lookupProductByBarcodeAction, updateSaleCashTransactionAction } from '@/app/actions/products';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProducts } from '@/hooks/useProducts';
 import { useSaleProductSelection } from '@/hooks/useSaleProductSelection';
@@ -20,6 +22,7 @@ import { useStockHistory } from '@/hooks/useStockHistory';
 import { useMessages } from '@/hooks/useMessages'; // This is the key fix!
 import { useQuery } from '@tanstack/react-query';
 import { upsertSaleAction } from '@/app/actions/sales';
+import { queueOfflineSale } from '@/hooks/useOfflineSync';
 
 // Components
 import SaleFormHeader from '@/components/sales/SaleFormHeader';
@@ -300,6 +303,32 @@ const SalesForm: React.FC<SalesFormProps> = ({
         finalCashTransactionId
       );
 
+      if (!navigator.onLine) {
+        // Offline handling
+        const offlineSaleData = {
+          ...formData,
+          date: selectedDate.toISOString(),
+          receiptNumber,
+          taxRate: formData.taxRate,
+          amountPaid: formData.amountPaid,
+          amountDue: formData.amountDue,
+          items: formData.items,
+          notes: formData.notes
+        };
+
+        await queueOfflineSale(
+          offlineSaleData,
+          currentBusiness?.id || '',
+          user?.id || ''
+        );
+
+        toast.success('Offline! Sale queued for sync when connection returns.');
+        setIsSubmitted(true);
+        if (draftData && onClearDraft) onClearDraft();
+        if (!onSaleComplete) router.push('/sales');
+        return;
+      }
+
       const { success, data: saleResult, error } = await upsertSaleAction(saleDbData, !!initialData, initialData?.id);
 
       if (!success || !saleResult) throw new Error(error || 'Failed to save sale');
@@ -322,6 +351,11 @@ const SalesForm: React.FC<SalesFormProps> = ({
         amountDue: result.amountDue ? Number(result.amountDue) : undefined,
         notes: result.notes || '',
         categoryId: result.categoryId || undefined,
+        total: result.total || 0,
+        totalCost: result.totalCost || 0,
+        subtotal: result.subtotal || 0,
+        discount: result.discount || 0,
+        taxAmount: result.taxAmount || 0,
         createdAt: new Date(result.createdAt),
       };
 
@@ -428,18 +462,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
     [totalAmount, taxAmount]
   );
 
-  // Barcode Scanner Integration
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ['all-products-for-scanner', user?.id, currentBusiness?.id],
-    queryFn: async () => {
-      if (!user?.id || !currentBusiness?.id) return [];
-      const data = await getProductsForBarcodeScannerAction(currentBusiness.id);
-      return (data || []).map(mapDbProductToProduct) as Product[];
-    },
-    enabled: !!user?.id && !!currentBusiness?.id,
-    staleTime: 5 * 60_000,
-  });
-
   const scannerBufferRef = useRef('');
   const lastKeyTimeRef = useRef(Date.now());
 
@@ -460,7 +482,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
       const isAlphanumeric = /^[a-zA-Z0-9\-_]$/.test(e.key);
 
       // Aggressive Interception: If NOT in an input field, suppress ALL alphanumeric keys
-      // This prevents the "leakage" into the console that causes ReferenceError.
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true';
       if (!isInput && isAlphanumeric) {
         e.preventDefault();
@@ -471,30 +492,42 @@ const SalesForm: React.FC<SalesFormProps> = ({
       if (e.key === 'Enter') {
         const scannedBarcode = scannerBufferRef.current.trim();
         if (scannedBarcode.length >= 2) {
-          // Always prevent Enter from being processed by browser/console
           e.preventDefault();
           e.stopPropagation();
 
           console.log(`[Scanner] Processing: "${scannedBarcode}"`);
 
-          // Perform direct server-side lookup via Prisma action
-          const performServerLookup = async (code: string): Promise<Product | null> => {
-            const result = await lookupProductByBarcodeAction(code, currentBusiness?.id || '');
-            return result ? mapDbProductToProduct(result) : null;
-          };
-
           const handleScan = async () => {
-            const product = await performServerLookup(scannedBarcode);
+            // 1. Try Local Lookup (Dexie) - Instant
+            let product = await localDb.products
+              .where('barcode').equals(scannedBarcode)
+              .or('itemNumber').equals(scannedBarcode)
+              .first();
+
+            // 2. Fallback to Server if not in local cache
+            if (!product) {
+              console.log(`[Scanner] 🔍 Not in local DB, trying server lookup...`);
+              const serverResult = await lookupProductByBarcodeAction(scannedBarcode, currentBusiness?.id || '');
+              if (serverResult) {
+                // serverResult is already formatted as Product by our refactored action
+                product = {
+                  ...serverResult,
+                  createdAt: new Date(serverResult.createdAt),
+                  updatedAt: new Date(serverResult.updatedAt)
+                } as Product;
+                // Background update local cache for future scans
+                localDb.products.put(product);
+              }
+            }
 
             if (product) {
               const referenceCode = product.barcode || product.itemNumber || scannedBarcode;
-              console.log(`[Scanner] ✅ Server Match: ${product.name}`);
-              console.log(`[Scanner] 🔗 Mapping "${scannedBarcode}" -> System Code "${referenceCode}"`);
-
+              console.log(`[Scanner] ✅ Match Found: ${product.name}`);
               handleAddItem(product);
               toast.success(`Scanned: ${product.name} (${referenceCode})`);
             } else {
-              console.warn(`[Scanner] ❌ No server match for: "${scannedBarcode}"`);
+              console.warn(`[Scanner] ❌ No match for: "${scannedBarcode}"`);
+              toast.error(`Product not found: ${scannedBarcode}`);
             }
           };
 

@@ -1,3 +1,4 @@
+"use client";
 
 import React, { useState } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -8,12 +9,12 @@ import { useCashAccountRedirect } from '@/hooks/useCashAccountRedirect';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 
 const Cash = () => {
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { accounts, isLoading, createAccount, refreshAccounts } = useCashAccounts();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,7 +56,7 @@ const Cash = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/')} variant="outline">
+          <Button onClick={() => router.push('/')} variant="outline">
             Back to Dashboard
           </Button>
         </div>

@@ -1,3 +1,4 @@
+"use client";
 
 import React, { useState, useMemo } from 'react';
 import { Task, TaskFilters } from '@/types/task';

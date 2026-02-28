@@ -1,3 +1,4 @@
+"use client";
 
 import React from 'react';
 import { Expense } from '@/hooks/useExpenses';

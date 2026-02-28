@@ -16,13 +16,17 @@ export interface TopCustomer {
   orderCount: number;
 }
 
-export const useSalesData = (userId: string | undefined, sortOrder: string = 'desc', pageSize?: number) => {
+export const useSalesData = (
+  userId: string | undefined,
+  sortOrder: string = 'desc',
+  pageSize?: number,
+  enabled: boolean = true
+) => {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const { currentBusiness } = useBusiness();
-  const { restoreStockForSale } = useInventoryActions(userId);
 
   const loadSales = useCallback(async (): Promise<Sale[]> => {
     try {
@@ -46,6 +50,11 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
           items: item.items as any,
           payment_status: item.payment_status,
           profit: item.profit ? Number(item.profit) : 0,
+          total: item.total ? Number(item.total) : 0,
+          total_cost: item.total_cost ? Number(item.total_cost) : 0,
+          subtotal: item.subtotal ? Number(item.subtotal) : 0,
+          discount: item.discount ? Number(item.discount) : 0,
+          tax_amount: item.tax_amount ? Number(item.tax_amount) : 0,
           date: item.date,
           tax_rate: item.tax_rate || 0,
           created_at: item.created_at,
@@ -84,7 +93,7 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
   } = useQuery({
     queryKey,
     queryFn: loadSales,
-    enabled: !!userId && !!currentBusiness?.id,
+    enabled: enabled && !!userId && !!currentBusiness?.id,
     staleTime: 30_000,
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: true,
@@ -103,7 +112,7 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
 
     nonQuoteSales.forEach(sale => {
       const customerName = sale.customerName;
-      const saleTotal = sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const saleTotal = sale.total; // Use pre-calculated total
 
       if (!customerMap.has(customerName)) {
         customerMap.set(customerName, {
@@ -142,9 +151,7 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
       );
 
       // Calculate total purchase amount and count
-      const total = customerSales.reduce((sum, sale) =>
-        sum + sale.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
-      );
+      const total = customerSales.reduce((sum, sale) => sum + sale.total, 0);
 
       return {
         total,
@@ -161,19 +168,8 @@ export const useSalesData = (userId: string | undefined, sortOrder: string = 'de
         throw new Error('Sale not found');
       }
 
-      // Restore product quantities back to inventory (Only if it wasn't a quote which doesn't deduct stock)
-      if (saleToDelete.paymentStatus !== 'Quote' && saleToDelete.items.length > 0) {
-        console.log('Restoring product quantities via useInventoryActions...');
-        const success = await restoreStockForSale(saleToDelete.items, id, saleToDelete.receiptNumber, currentBusiness?.id);
-
-        if (!success) {
-          toast({
-            title: "Inventory Update Warning",
-            description: "Sale deleted, but inventory restoration might have failed. Please check your stock levels.",
-            variant: "destructive"
-          });
-        }
-      }
+      // NOTE: Inventory restoration is now handled atomically on the server 
+      // inside deleteSaleAction Prisma transaction.
 
       // Proceed to delete the sale via API Action
       if (!currentBusiness?.id) {

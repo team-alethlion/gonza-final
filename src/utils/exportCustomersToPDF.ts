@@ -7,8 +7,7 @@ export const exportCustomersToPDF = (
   getCategoryName: (categoryId: string | null) => string,
   currency?: string,
   businessName?: string,
-  businessLogo?: string,
-  getCustomerLifetimePurchases?: (customerName: string) => { total: number; count: number }
+  businessLogo?: string
 ) => {
   if (customers.length === 0) {
     alert('No customers to export');
@@ -128,10 +127,6 @@ export const exportCustomersToPDF = (
       doc.rect(startX, yPosition, tableWidth, 6, 'F');
     }
 
-    const lifetimeData = getCustomerLifetimePurchases ? 
-      getCustomerLifetimePurchases(customer.fullName) : 
-      { total: 0, count: 0 };
-
     let xPosition = startX;
     const rowData = [
       customer.fullName || '',
@@ -141,8 +136,8 @@ export const exportCustomersToPDF = (
       customer.location || '',
       customer.birthday ? format(new Date(customer.birthday), 'MMM dd') : '',
       getCategoryName(customer.categoryId || null),
-      `${currency || 'UGX'} ${lifetimeData.total.toLocaleString()}`,
-      lifetimeData.count.toString()
+      `${currency || 'UGX'} ${(customer.lifetimeValue || 0).toLocaleString()}`,
+      (customer.orderCount || 0).toString()
     ];
 
     rowData.forEach((data, colIndex) => {

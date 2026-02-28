@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+"use client"
+
+import React, { useState, useEffect } from 'react';
 import { Plus, Package, ShoppingCart, Users, DollarSign, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -12,8 +14,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const FloatingActionButton = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleNavigation = (path: string, queryParams?: Record<string, string>) => {
     let url = path;
@@ -24,6 +31,8 @@ const FloatingActionButton = () => {
     router.push(url);
     setIsOpen(false);
   };
+
+  if (!mounted) return null;
 
   return (
     <div className={`fixed ${isMobile ? 'bottom-28' : 'bottom-6'} right-6 z-50`}>

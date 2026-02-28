@@ -3,12 +3,21 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
+import bcrypt from 'bcryptjs';
 
 export async function getBusinessLocationsAction(userId: string) {
+    const session = await auth();
+    if (!session || !session.user) return [];
+    if (session.user.id !== userId && (session.user as any).role?.toLowerCase() !== 'superadmin') return [];
+
     try {
         const branches = await db.branch.findMany({
             where: {
-                adminId: userId
+                OR: [
+                    { adminId: userId },
+                    { users: { some: { id: userId } } }
+                ]
             },
             orderBy: [
                 {
@@ -20,8 +29,6 @@ export async function getBusinessLocationsAction(userId: string) {
             ]
         });
 
-        // The previous context expected an is_default field, but it's not in the model.
-        // We will make the first branch the default if is_default is missing.
         return branches.map((b: any, index: number) => ({
             id: b.id,
             name: b.name,
@@ -38,6 +45,9 @@ export async function getBusinessLocationsAction(userId: string) {
 }
 
 export async function createBusinessAction(userId: string, name: string) {
+    const session = await auth();
+    if (!session || !session.user || session.user.id !== userId) throw new Error("Unauthorized");
+
     try {
         const branch = await db.branch.create({
             data: {
@@ -66,6 +76,9 @@ export async function createBusinessAction(userId: string, name: string) {
 }
 
 export async function updateBusinessAction(id: string, userId: string, name: string) {
+    const session = await auth();
+    if (!session || !session.user || (session.user.id !== userId && (session.user as any).role?.toLowerCase() !== 'superadmin')) throw new Error("Unauthorized");
+
     try {
         const branch = await db.branch.update({
             where: {
@@ -83,7 +96,7 @@ export async function updateBusinessAction(id: string, userId: string, name: str
                 id: branch.id,
                 name: branch.name,
                 user_id: branch.adminId,
-                is_default: false, // Update logic handles defaultness elsewhere
+                is_default: false,
                 created_at: branch.createdAt.toISOString(),
                 updated_at: branch.updatedAt.toISOString(),
                 switch_password_hash: branch.accessPassword
@@ -96,6 +109,9 @@ export async function updateBusinessAction(id: string, userId: string, name: str
 }
 
 export async function deleteBusinessAction(id: string, userId: string) {
+    const session = await auth();
+    if (!session || !session.user || (session.user.id !== userId && (session.user as any).role?.toLowerCase() !== 'superadmin')) throw new Error("Unauthorized");
+
     try {
         await db.branch.delete({
             where: {
@@ -114,19 +130,27 @@ export async function deleteBusinessAction(id: string, userId: string) {
 // --- BUSINESS RESET ---
 
 export async function resetBusinessAction(id: string, userId: string) {
+    const session = await auth();
+    if (!session || !session.user || (session.user.id !== userId && (session.user as any).role?.toLowerCase() !== 'superadmin')) throw new Error("Unauthorized");
+
     try {
-        // Delete all business data in a transaction (products, sales, stock history, etc.)
+        // VERIFY OWNERSHIP BEFORE WIPE
+        const branch = await db.branch.findUnique({
+            where: { id },
+            select: { adminId: true }
+        });
+
+        if (!branch || (branch.adminId !== userId && (session.user as any).role?.toLowerCase() !== 'superadmin')) {
+            throw new Error("Unauthorized: You do not have permission to reset this business.");
+        }
+
+        // Delete all business data in a transaction
         await db.$transaction(async (tx: any) => {
-            // Delete stock history first (references products)
             await tx.productHistory.deleteMany({ where: { locationId: id } });
-            // Delete sale items related data
             await tx.sale.deleteMany({ where: { branchId: id } });
-            // Delete products
             await tx.product.deleteMany({ where: { branchId: id } });
-            // Delete customers
             await tx.customer.deleteMany({ where: { branchId: id } });
-            // Delete activity history
-            await tx.activityHistory.deleteMany({ where: { branchId: id } });
+            await tx.activityHistory.deleteMany({ where: { locationId: id } });
         });
 
         return { success: true };
@@ -138,9 +162,15 @@ export async function resetBusinessAction(id: string, userId: string) {
 
 // --- BUSINESS PASSWORD ---
 
-import bcrypt from 'bcryptjs';
-
 export async function setBusinessPasswordAction(businessId: string, password: string) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    
+    // Authorization: only branch users or superadmins can set password
+    const userBranchId = (session.user as any).branchId;
+    const isSuperAdmin = (session.user as any).role?.toLowerCase() === 'superadmin';
+    if (userBranchId && userBranchId !== businessId && !isSuperAdmin) throw new Error("Unauthorized");
+
     try {
         const hash = await bcrypt.hash(password, 10);
         await db.branch.update({
@@ -162,7 +192,7 @@ export async function verifyBusinessPasswordAction(businessId: string, password:
         });
 
         if (!branch?.accessPassword) {
-            return { success: true, verified: true }; // No password set
+            return { success: true, verified: true };
         }
 
         const verified = await bcrypt.compare(password, branch.accessPassword);
@@ -174,6 +204,18 @@ export async function verifyBusinessPasswordAction(businessId: string, password:
 }
 
 export async function removeBusinessPasswordAction(businessId: string) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    
+    // Verification: only admin of the branch or superadmin
+    const isSuperAdmin = (session.user as any).role?.toLowerCase() === 'superadmin';
+    const branch = await db.branch.findUnique({
+        where: { id: businessId },
+        select: { adminId: true }
+    });
+
+    if (!isSuperAdmin && branch?.adminId !== session.user.id) throw new Error("Unauthorized");
+
     try {
         await db.branch.update({
             where: { id: businessId },

@@ -244,7 +244,7 @@ export async function bulkUpdateTasksAction(ids: string[], userId: string, updat
 export async function getTaskCategoriesAction(userId: string, locationId: string) {
     try {
         const categories = await db.taskCategory.findMany({
-            where: { userId, branchId: locationId },
+            where: { branchId: locationId },
             orderBy: { name: 'asc' }
         });
 
@@ -308,20 +308,22 @@ export async function createDefaultTaskCategoriesAction(userId: string, location
     try {
         const defaultNames = ['General', 'Marketing', 'Operations', 'Finance', 'Follow-up'];
 
-        const existing = await db.taskCategory.findMany({
-            where: { userId, branchId: locationId, name: { in: defaultNames } },
-            select: { name: true }
-        });
-
-        const existingNames = new Set(existing.map((e: any) => e.name));
-        const toCreate = defaultNames.filter(n => !existingNames.has(n)).map(name => ({
-            userId,
-            branchId: locationId,
-            name
-        }));
-
-        if (toCreate.length > 0) {
-            await db.taskCategory.createMany({ data: toCreate });
+        // Using individual upserts to be absolutely safe across all environments and race conditions
+        for (const name of defaultNames) {
+            await db.taskCategory.upsert({
+                where: {
+                    branchId_name: {
+                        branchId: locationId,
+                        name: name
+                    }
+                },
+                update: {}, // Do nothing if it exists
+                create: {
+                    userId,
+                    branchId: locationId,
+                    name
+                }
+            });
         }
 
         return { success: true };

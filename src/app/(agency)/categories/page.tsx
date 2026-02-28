@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -31,10 +33,10 @@ import {
 import { toast } from 'sonner';
 
 const Categories = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { categories, isLoading, createCategory, updateCategory, deleteCategory } = useCategories(user?.id);
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
 
   // Form states
@@ -45,9 +47,9 @@ const Categories = () => {
 
   const handleGoBack = () => {
     if (returnTo) {
-      navigate(returnTo);
+      router.push(returnTo);
     } else {
-      navigate('/products');
+      router.push('/products');
     }
   };
 

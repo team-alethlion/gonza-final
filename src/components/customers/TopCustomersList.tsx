@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +9,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useCustomers } from '@/hooks/useCustomers';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { getDateRangeFromFilter } from '@/utils/dateFilters';
 
 interface TopCustomersListProps {
@@ -26,7 +27,7 @@ const TopCustomersList: React.FC<TopCustomersListProps> = ({
   const { sales, isLoading } = useSalesData(user?.id || '');
   const { customers } = useCustomers();
   const { settings } = useBusinessSettings();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Pagination state
   const [page, setPage] = React.useState(1);
@@ -112,7 +113,7 @@ const TopCustomersList: React.FC<TopCustomersListProps> = ({
     if (customerId) {
       const customer = customers.find(c => c.id === customerId);
       if (customer) {
-        navigate(`/customers?view=${customer.id}`);
+        router.push(`/customers?view=${customer.id}`);
         return;
       }
     }
@@ -120,7 +121,7 @@ const TopCustomersList: React.FC<TopCustomersListProps> = ({
     // Fallback to finding by name
     const customer = customers.find(c => c.fullName === customerName);
     if (customer) {
-      navigate(`/customers?view=${customer.id}`);
+      router.push(`/customers?view=${customer.id}`);
     }
   };
 

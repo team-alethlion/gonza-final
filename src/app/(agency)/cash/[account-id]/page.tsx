@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   Search,
@@ -59,9 +61,10 @@ import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
 import { Skeleton } from "@/components/ui/skeleton";
 
 const CashAccount = () => {
-  const { accountId } = useParams<{ accountId: string }>();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const params = useParams();
+  const accountId = params?.['account-id'] as string;
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { accounts, isLoading, updateAccount, refreshAccounts } = useCashAccounts();
@@ -259,7 +262,7 @@ const CashAccount = () => {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => navigate('/')} variant="outline">
+          <Button onClick={() => router.push('/')} variant="outline">
             Back to Dashboard
           </Button>
         </div>
@@ -275,7 +278,7 @@ const CashAccount = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Account not found</h2>
-          <Button onClick={() => navigate('/cash')}>
+          <Button onClick={() => router.push('/cash')}>
             Back to Cash Accounts
           </Button>
         </div>
@@ -353,7 +356,7 @@ const CashAccount = () => {
               // Clear the stored account when explicitly navigating back
               localStorage.removeItem('lastVisitedCashAccount');
               localStorage.removeItem('lastVisitedCashAccountUrl');
-              navigate('/cash');
+              router.push('/cash');
             }}
             className="gap-2 px-2 md:px-3"
           >

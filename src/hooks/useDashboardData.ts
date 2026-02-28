@@ -9,9 +9,9 @@ export const useDashboardData = () => {
   const { user } = useAuth();
   const { isLoading: businessLoading, error: businessError, currentBusiness } = useBusiness();
   const { settings, isLoading: settingsLoading } = useBusinessSettings();
-  // Load all sales for accurate analytics calculations
-  // The AnalyticsDashboard component is already lazy-loaded, so this won't block initial render
-  const { sales, isLoading: salesLoading } = useSalesData(user?.id, 'desc');
+  // Load only recent sales for the dashboard
+  // Analytics summary is now handled server-side in AnalyticsDashboard via useAnalyticsData
+  const { sales, isLoading: salesLoading } = useSalesData(user?.id, 'desc', 50);
   const { updateAvailable, isUpdating, triggerUpdate } = useAppUpdate();
 
   // Memoize page title computation with more efficient logic

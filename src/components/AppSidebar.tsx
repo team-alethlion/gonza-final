@@ -1,5 +1,7 @@
+"use client"
+
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +24,12 @@ const AppSidebar = () => {
   const { signOut } = useAuth();
   const { hasPermission } = useProfiles();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const canManageSettings = hasPermission('settings', 'manage');
 
   const handleLogout = async () => {
@@ -36,6 +44,8 @@ const AppSidebar = () => {
       setIsLoggingOut(false);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <Sidebar collapsible="icon" className="hidden border-r border-primary-foreground/20 bg-primary text-primary-foreground md:flex">

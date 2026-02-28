@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getProfilesAction, createProfileAction, updateProfileAction, deleteProfileAction } from '@/app/actions/profiles';
 import { useBusiness } from './BusinessContext';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'sonner';
 
@@ -57,10 +56,9 @@ interface ProfileContextType {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const userId = user?.id;
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
-  const { signOut } = useAuth();
   const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [currentProfile, setCurrentProfile] = useState<BusinessProfile | null>(null);
   const [isProfileVerified, setIsProfileVerified] = useState(false);
@@ -79,11 +77,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [currentBusiness?.id, currentProfile?.id, isProfileVerified]);
 
   const loadProfiles = async () => {
+    console.log('ProfileContext: loadProfiles starting, userId:', userId, 'businessId:', currentBusiness?.id);
     if (!userId || !currentBusiness?.id) return;
 
     setIsLoading(true);
     try {
       const data = await getProfilesAction(currentBusiness.id);
+      console.log('ProfileContext: getProfilesAction result:', data?.length, 'profiles found');
       setProfiles(data as unknown as BusinessProfile[]);
     } catch (error) {
       console.error('Error loading profiles:', error);
@@ -117,7 +117,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateProfile = async (id: string, data: Partial<BusinessProfile>): Promise<boolean> => {
     try {
-      const result = await updateProfileAction(id, data);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await updateProfileAction(id, currentBusiness.id, data);
 
       if (!result.success) throw new Error(result.error);
 
@@ -135,7 +136,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteProfile = async (id: string): Promise<boolean> => {
     try {
-      const result = await deleteProfileAction(id);
+      if (!currentBusiness) throw new Error("No business selected");
+      const result = await deleteProfileAction(id, currentBusiness.id);
 
       if (!result.success) throw new Error(result.error);
 
@@ -255,21 +257,22 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const hasPermission = (module: string, action: string = 'view'): boolean => {
     if (!currentProfile) return false;
 
-    // Default Owner permission if role field is 'owner' (backward compatibility) OR if the assigned role is named 'Owner'
-    if (currentProfile.role === 'owner' || currentProfile.business_role?.name === 'Owner') return true;
+    const role = (currentProfile.role || "").toLowerCase();
+    const businessRoleName = (currentProfile.business_role?.name || "").toLowerCase();
+
+    // Full access for Admin (Agency Owner) and Manager (as requested)
+    if (
+      role === 'admin' || 
+      role === 'manager' || 
+      role === 'owner' || 
+      businessRoleName === 'admin' || 
+      businessRoleName === 'owner'
+    ) return true;
 
     const permissions = currentProfile.business_role?.permissions;
     if (!permissions) {
-      // Fallback for default permissions based on the text role field if no business_role is assigned
-      if (currentProfile.role === 'manager') {
-        // Managers get view/create/edit on most things
-        const managerModules = ['sales', 'inventory', 'customers', 'messages', 'tasks'];
-        if (managerModules.includes(module.toLowerCase())) {
-          return true;
-        }
-      }
-      if (currentProfile.role === 'staff') {
-        // Staff get view on most, create on sales/tasks
+      // Fallback for staff or other roles
+      if (role === 'staff') {
         if (action === 'view') return true;
         if (['sales', 'tasks'].includes(module.toLowerCase()) && action === 'create') return true;
       }
@@ -279,7 +282,11 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const modulePermissions = permissions[module.toLowerCase()];
     if (!modulePermissions) return false;
 
-    return modulePermissions.includes(action.toLowerCase());
+    const hasPerm = modulePermissions.includes(action.toLowerCase());
+    if (!hasPerm) {
+        console.log(`ProfileContext: Permission denied for ${module}:${action} for profile ${currentProfile.profile_name}`);
+    }
+    return hasPerm;
   };
 
   // Load profiles when business changes

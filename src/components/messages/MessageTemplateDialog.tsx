@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { FileText, Save } from 'lucide-react';
 import { MessageTemplate } from '@/hooks/useMessages';
