@@ -8,6 +8,7 @@ import {
   LogOut,
   Search,
   Building2,
+  Package,
   User,
   Snowflake,
   Trash2,
@@ -309,13 +310,20 @@ export default function AdminDashboardClient() {
             Management
           </p>
           <nav className="space-y-0.5">
-            <a
-              href="#"
+            <Link
+              href="/"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-1.5 bg-primary/5 text-primary rounded-[5px] text-[11px] font-bold uppercase tracking-wider transition-colors">
               <Building2 className="w-3.5 h-3.5" />
               <span>Businesses</span>
-            </a>
+            </Link>
+            <Link
+              href="/packages"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-1.5 text-muted-foreground hover:bg-muted/50 rounded-[5px] text-[11px] font-bold uppercase tracking-wider transition-colors">
+              <Package className="w-3.5 h-3.5" />
+              <span>Subscription Tiers</span>
+            </Link>
           </nav>
         </div>
 

@@ -12,7 +12,7 @@ model Agency {
 
   // Package Management
   packageId String?
-  package   Package? @relation(fields: [packageId], references: [id])
+  package   Package? @relation(fields: [packageId], references: [id], onDelete: Cascade)
 
   users          User[]
   branches       Branch[]
