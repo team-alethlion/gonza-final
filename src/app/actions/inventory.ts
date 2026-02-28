@@ -323,7 +323,7 @@ export async function getStockRepairsPreviewAction(businessId: string) {
 
 // --- REQUISITIONS ---
 
-export async function getRequisitionsAction(branchId: string) {
+export async function getRequisitionsAction(userId: string, branchId: string) {
     try {
         const records = await db.requisition.findMany({
             where: { branchId },
@@ -340,6 +340,7 @@ export async function getRequisitionsAction(branchId: string) {
                 ...r,
                 date: r.date.toISOString(),
                 createdAt: r.createdAt.toISOString(),
+                updatedAt: r.updatedAt.toISOString(),
                 userName: r.user?.name || 'Unknown',
                 itemCount: r.items.length
             }))
@@ -352,8 +353,14 @@ export async function getRequisitionsAction(branchId: string) {
 
 export async function createRequisitionAction(data: any) {
     try {
+        // Map locationId to branchId for Zod validation if needed
+        const payload = {
+            ...data,
+            branchId: data.locationId || data.branchId
+        };
+        
         // Validate input data
-        const validatedData = createRequisitionSchema.parse(data);
+        const validatedData = createRequisitionSchema.parse(payload);
 
         const result = await db.requisition.create({
             data: {
@@ -371,6 +378,9 @@ export async function createRequisitionAction(data: any) {
                         quantity: Number(item.quantity)
                     }))
                 }
+            },
+            include: {
+                items: true
             }
         });
 
@@ -382,6 +392,43 @@ export async function createRequisitionAction(data: any) {
             return { success: false, error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` };
         }
         console.error('Error creating requisition:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateRequisitionAction(id: string, userId: string, updates: any) {
+    try {
+        const result = await db.requisition.update({
+            where: { id },
+            data: {
+                title: updates.title,
+                notes: updates.notes,
+                status: updates.status,
+                priority: updates.priority,
+            },
+            include: {
+                items: true
+            }
+        });
+
+        revalidatePath('/inventory/requisitions');
+        return { success: true, data: result };
+    } catch (error: any) {
+        console.error('Error updating requisition:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteRequisitionAction(id: string, userId: string) {
+    try {
+        await db.requisition.delete({
+            where: { id }
+        });
+
+        revalidatePath('/inventory/requisitions');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting requisition:', error);
         return { success: false, error: error.message };
     }
 }

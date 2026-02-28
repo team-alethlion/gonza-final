@@ -10,22 +10,22 @@ import {
 export interface Requisition {
   id: string;
   userId: string;
-  locationId: string;
+  branchId: string;
   requisitionNumber: string;
-  title: string;
+  title: string | null;
   items: RequisitionItem[];
   notes: string | null;
-  status: 'draft' | 'submitted' | 'approved' | 'completed';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED' | 'CANCELLED' | string;
+  priority: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface RequisitionItem {
   id: string;
-  productId: string;
   productName: string;
+  sku: string | null;
   quantity: number;
-  urgentItem?: boolean;
 }
 
 export const useRequisitions = (userId: string | undefined, locationId: string | undefined) => {
@@ -47,16 +47,17 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
         setRequisitions(result.data.map((req: any) => ({
           ...req,
           createdAt: new Date(req.createdAt),
-          updatedAt: new Date(req.updatedAt)
+          updatedAt: new Date(req.updatedAt),
+          branchId: req.branchId || locationId
         })));
       } else {
         throw new Error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading requisitions:', error);
       toast({
         title: "Error",
-        description: "Failed to load requisitions. Please try again.",
+        description: error.message || "Failed to load requisitions. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -70,7 +71,7 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
 
   const createRequisition = async (
     title: string,
-    items: RequisitionItem[],
+    items: any[],
     notes?: string
   ): Promise<Requisition | null> => {
     if (!userId || !locationId) return null;
@@ -85,7 +86,7 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
         title,
         items,
         notes: notes || null,
-        status: 'draft'
+        priority: 'NORMAL'
       });
 
       if (!result.success || !result.data) {
@@ -96,7 +97,8 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
       const newRequisition: Requisition = {
         ...data,
         createdAt: new Date(data.createdAt),
-        updatedAt: new Date(data.updatedAt)
+        updatedAt: new Date(data.updatedAt),
+        branchId: data.branchId || locationId
       };
 
       setRequisitions(prev => [newRequisition, ...prev]);
@@ -107,11 +109,11 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
       });
 
       return newRequisition;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating requisition:', error);
       toast({
         title: "Error",
-        description: "Failed to create requisition. Please try again.",
+        description: error.message || "Failed to create requisition. Please try again.",
         variant: "destructive"
       });
       return null;
@@ -120,14 +122,9 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
 
   const updateRequisition = async (
     id: string,
-    updates: Partial<{
-      title: string;
-      items: RequisitionItem[];
-      notes: string;
-      status: 'draft' | 'submitted' | 'approved' | 'completed';
-    }>
+    updates: any
   ): Promise<boolean> => {
-    if (!userId) return false;
+    if (!userId || !locationId) return false;
 
     try {
       const result = await updateRequisitionAction(id, userId, updates);
@@ -140,7 +137,8 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
       const updatedRequisition: Requisition = {
         ...data,
         createdAt: new Date(data.createdAt),
-        updatedAt: new Date(data.updatedAt)
+        updatedAt: new Date(data.updatedAt),
+        branchId: data.branchId || locationId
       };
 
       setRequisitions(prev => prev.map(req => req.id === id ? updatedRequisition : req));
@@ -151,11 +149,11 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
       });
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating requisition:', error);
       toast({
         title: "Error",
-        description: "Failed to update requisition. Please try again.",
+        description: error.message || "Failed to update requisition. Please try again.",
         variant: "destructive"
       });
       return false;
@@ -163,7 +161,7 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
   };
 
   const deleteRequisition = async (id: string): Promise<boolean> => {
-    if (!userId) return false;
+    if (!userId || !locationId) return false;
 
     try {
       const result = await deleteRequisitionAction(id, userId);
