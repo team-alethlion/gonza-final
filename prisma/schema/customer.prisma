@@ -12,12 +12,12 @@ model Customer {
   notes   String?
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   birthday    DateTime?
   gender      String?
   categoryId  String?
-  category    CustomerCategory? @relation(fields: [categoryId], references: [id])
+  category    CustomerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   tags        String[]
   socialMedia Json?
 
@@ -30,9 +30,9 @@ model Customer {
 
   // Multi-tenancy
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
   adminId  String // Owner isolation
-  admin    User    @relation("CustomerOwner", fields: [adminId], references: [id])
+  admin    User    @relation("CustomerOwner", fields: [adminId], references: [id], onDelete: Cascade)
 
   sales   Sale[]
   tickets Ticket[]
@@ -98,10 +98,10 @@ model CustomerCategory {
   isDefault Boolean @default(false)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   customers Customer[]
 

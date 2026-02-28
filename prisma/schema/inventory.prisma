@@ -8,13 +8,13 @@ model Category {
   description String?
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String?
-  user   User?   @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   products  Product[]
   createdAt DateTime  @default(now())
@@ -32,7 +32,7 @@ model Supplier {
   address     String?
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   products  Product[]
   createdAt DateTime  @default(now())
@@ -60,19 +60,19 @@ model Product {
   tags                String[]
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   supplierId String?
-  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -100,7 +100,7 @@ model StockAudit {
   performedBy String?
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -112,7 +112,7 @@ model StockAuditItem {
   audit   StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   productName String
   sku         String?
@@ -168,13 +168,13 @@ model StockTransfer {
   date           DateTime @default(now())
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   fromBranchId String
-  fromBranch   Branch @relation("FromBranch", fields: [fromBranchId], references: [id])
+  fromBranch   Branch @relation("FromBranch", fields: [fromBranchId], references: [id], onDelete: Cascade)
 
   toBranchId String
-  toBranch   Branch @relation("ToBranch", fields: [toBranchId], references: [id])
+  toBranch   Branch @relation("ToBranch", fields: [toBranchId], references: [id], onDelete: Cascade)
 
   status TransferStatus      @default(COMPLETED)
   items  StockTransferItem[]
@@ -216,13 +216,13 @@ model Requisition {
   locationId        String?
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   status   RequisitionStatus @default(PENDING)
   priority String            @default("NORMAL") // "LOW", "NORMAL", "HIGH", "URGENT"
@@ -257,9 +257,9 @@ enum RequisitionStatus {
 model CarriageInward {
   id       String @id @default(cuid())
   userId   String
-  user     User   @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   supplierName String
   details      String?
@@ -268,7 +268,7 @@ model CarriageInward {
 
   // Optional link to cash account if paid immediately
   cashAccountId String?
-  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id])
+  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

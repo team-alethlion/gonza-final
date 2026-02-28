@@ -12,10 +12,10 @@ model Branch {
   accessPassword String? // Nullable if we want to allow open branches
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   adminId      String
-  admin        User          @relation("AdminBranches", fields: [adminId], references: [id])
+  admin        User          @relation("AdminBranches", fields: [adminId], references: [id], onDelete: Cascade)
   users        User[]        @relation("BranchUsers")
   products     Product[]
   customers    Customer[]
@@ -88,10 +88,10 @@ model TaskCategory {
   name String
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   tasks Task[]
 
@@ -111,11 +111,11 @@ model Task {
   status   TaskStatus   @default(TODO)
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   // Category
   categoryId String?
-  category   TaskCategory? @relation(fields: [categoryId], references: [id])
+  category   TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   // Completion
   completed   Boolean   @default(false)
@@ -135,13 +135,13 @@ model Task {
   parentTaskId String?
 
   assignedToId String?
-  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Cascade)
 
   createdById String
-  createdBy   User   @relation("TaskCreator", fields: [createdById], references: [id])
+  createdBy   User   @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,9 +175,9 @@ enum RecurrenceType {
 model ActivityHistory {
   id         String @id @default(cuid())
   userId     String @map("user_id")
-  user       User   @relation(fields: [userId], references: [id])
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   locationId String @map("location_id")
-  branch     Branch @relation(fields: [locationId], references: [id])
+  branch     Branch @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   activityType ActivityType   @map("activity_type")
   module       ActivityModule
@@ -192,7 +192,7 @@ model ActivityHistory {
   profileName String? @map("profile_name")
 
   agencyId String? @map("agency_id")
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
 

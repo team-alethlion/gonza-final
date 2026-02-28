@@ -12,10 +12,10 @@ model CashAccount {
   isActive       Boolean @default(true)
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
@@ -47,10 +47,10 @@ model CashTransaction {
   account   CashAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   branchId String // location_id
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   installmentPayment InstallmentPayment?
   expenses           Expense[]
@@ -74,7 +74,7 @@ model InstallmentPayment {
   user   User   @relation("PaymentReceiver", fields: [userId], references: [id])
 
   cashTransactionId String?          @unique
-  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id])
+  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,19 +90,19 @@ model Expense {
   reference     String?
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   userId   String
-  user     User   @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   receiptImage String?
 
   cashAccountId     String?
-  cashAccount       CashAccount?     @relation(fields: [cashAccountId], references: [id])
+  cashAccount       CashAccount?     @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
   cashTransactionId String?
-  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id])
+  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -114,10 +114,10 @@ model ExpenseCategory {
   isDefault Boolean @default(false)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,7 +128,7 @@ model ExpenseCategory {
 model Transaction {
   id                       String   @id @default(cuid())
   userId                   String
-  user                     User     @relation(fields: [userId], references: [id])
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount                   Decimal  @db.Decimal(15, 2)
   currency                 String   @default("UGX")
   status                   String   @default("pending") // "pending", "completed", "failed"

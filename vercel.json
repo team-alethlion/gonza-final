@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/activity-cleanup",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/orphaned-account-cleanup",
+      "schedule": "0 0 * * 0"
     }
   ]
 }

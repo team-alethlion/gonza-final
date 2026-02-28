@@ -8,11 +8,11 @@ model Sale {
   date       DateTime @default(now())
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   // Customer Info (denormalized)
   customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
+  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerName    String
   customerPhone   String?
   customerAddress String?
@@ -40,33 +40,33 @@ model Sale {
 
   // Cash Account
   cashAccountId String?
-  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id])
+  cashAccount   CashAccount? @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
 
   // Multi-tenancy
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   userId   String
-  user     User   @relation("SalesCreated", fields: [userId], references: [id])
+  user     User   @relation("SalesCreated", fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   categoryId String?
-  category   SaleCategory? @relation(fields: [categoryId], references: [id])
+  category   SaleCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   installmentPayments InstallmentPayment[]
   notes               String?
 
   cashTransactionId String?          @unique
-  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id])
+  cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id], onDelete: SetNull)
 }
 
 model SalesGoal {
   id        String   @id @default(cuid())
   branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   target    Decimal  @default(0) @db.Decimal(10, 2)
   current   Decimal  @default(0) @db.Decimal(10, 2)
   period    String   @default("monthly") // daily, weekly, monthly, yearly
@@ -82,10 +82,10 @@ model SaleCategory {
   name String @unique
 
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   sales Sale[]
 

@@ -40,10 +40,10 @@ model Agency {
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String // ID of the Super Admin
-  actor     User     @relation("AuditLogActor", fields: [actorId], references: [id])
+  actor     User     @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Cascade)
   targetId  String? // ID of the Agency or User being modified
   agencyId  String?
-  agency    Agency?  @relation(fields: [agencyId], references: [id])
+  agency    Agency?  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   action    String // "IMPERSONATION_START", "PASSWORD_RESET", "TRIAL_EXTENSION"
   metadata  Json? // Store old_value vs new_value or IP address
   createdAt DateTime @default(now())
@@ -64,7 +64,7 @@ model User {
   role                  Role      @relation(fields: [roleId], references: [id])
 
   agencyId String?
-  agency   Agency? @relation(fields: [agencyId], references: [id])
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   auditLogs AuditLog[] @relation("AuditLogActor")
 
@@ -182,7 +182,7 @@ model Role {
   users       User[]
 
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
