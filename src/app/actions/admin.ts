@@ -51,6 +51,7 @@ export async function getPlatformUserSummary() {
             include: {
                 agency: {
                     include: {
+                        package: true,
                         branches: {
                             include: {
                                 settings: true
@@ -79,14 +80,14 @@ export async function getPlatformUserSummary() {
 
                 return {
                     id: branch.id,
-                    onboarding_id: null, // Prisma schema doesn't have a direct onboarding model, using settings
+                    onboarding_id: null,
                     name: branch.name,
                     address: settings?.address || branch.location,
                     completed: !(settings?.needsOnboarding ?? true),
                     business_email: settings?.email || branch.email || '',
                     business_phone: settings?.phone || branch.phone || '',
-                    billing_amount: 0, // Need to define where billing amount is stored, maybe Agency or a new Billing model
-                    billing_duration: agency?.subscriptionStatus || 'trial',
+                    billing_amount: Number(agency?.package?.monthlyPrice || 0),
+                    billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
                     days_remaining: daysRemaining,
                     next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
                     last_active_at: (user.lastSeen || branch.updatedAt || branch.createdAt).toISOString(),
@@ -103,6 +104,11 @@ export async function getPlatformUserSummary() {
                     ? differenceInDays(new Date(agency.trialEndDate), new Date())
                     : 0;
 
+            let locationLimit = (user.user_metadata as any)?.location_limit || 1;
+            if (agency?.package) {
+                locationLimit = agency.package.unlimitedLocations ? 999 : (agency.package.maxLocations || 1);
+            }
+
             return {
                 user_id: user.id,
                 email: user.email,
@@ -112,8 +118,9 @@ export async function getPlatformUserSummary() {
                 locations: locations,
                 is_frozen: user.status === 'SUSPENDED',
                 created_at: user.createdAt.toISOString(),
-                billing_amount: 0,
-                billing_duration: agency?.subscriptionStatus || 'trial',
+                location_limit: locationLimit,
+                billing_amount: Number(agency?.package?.monthlyPrice || 0),
+                billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
                 days_remaining: daysRemaining,
                 next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || ''
             };
@@ -190,8 +197,8 @@ export async function getPlatformUserDetail(userId: string) {
                 completed: !(settings?.needsOnboarding ?? true),
                 business_email: settings?.email || branch.email || '',
                 business_phone: settings?.phone || branch.phone || '',
-                billing_amount: 0,
-                billing_duration: agency?.subscriptionStatus || 'trial',
+                billing_amount: Number(agency?.package?.monthlyPrice || 0),
+                billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
                 days_remaining: daysRemaining,
                 next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
                 last_active_at: (user.lastSeen || branch.updatedAt || branch.createdAt).toISOString(),
@@ -208,6 +215,11 @@ export async function getPlatformUserDetail(userId: string) {
                 ? differenceInDays(new Date(agency.trialEndDate), new Date())
                 : 0;
 
+        let locationLimit = (user.user_metadata as any)?.location_limit || 1;
+        if (agency?.package) {
+            locationLimit = agency.package.unlimitedLocations ? 999 : (agency.package.maxLocations || 1);
+        }
+
         const data = {
             user_id: user.id,
             email: user.email,
@@ -215,9 +227,9 @@ export async function getPlatformUserDetail(userId: string) {
             location_count: branches.length,
             locations: locations,
             is_frozen: user.status === 'SUSPENDED',
-            location_limit: 3, // Default or fetch from agency/package
-            billing_amount: 0,
-            billing_duration: agency?.subscriptionStatus || 'trial',
+            location_limit: locationLimit,
+            billing_amount: Number(agency?.package?.monthlyPrice || 0),
+            billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
             days_remaining: daysRemaining,
             next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
             created_at: user.createdAt.toISOString()
@@ -239,7 +251,11 @@ export async function getPlatformOnboardingData() {
         const branches = await prisma.branch.findMany({
             include: {
                 settings: true,
-                agency: true
+                agency: {
+                    include: {
+                        package: true
+                    }
+                }
             }
         });
 
@@ -252,8 +268,8 @@ export async function getPlatformOnboardingData() {
             business_address: branch.settings?.address || branch.location,
             nature_of_business: branch.settings?.metadata ? (branch.settings.metadata as any).nature_of_business : '',
             business_size: branch.settings?.metadata ? (branch.settings.metadata as any).business_size : '',
-            billing_duration: branch.agency?.subscriptionStatus || 'trial',
-            billing_amount: 0,
+            billing_duration: branch.agency?.package?.name || branch.agency?.subscriptionStatus || 'trial',
+            billing_amount: Number(branch.agency?.package?.monthlyPrice || 0),
             days_remaining: branch.agency?.subscriptionExpiry 
                 ? differenceInDays(new Date(branch.agency.subscriptionExpiry), new Date()) 
                 : 0,
@@ -361,6 +377,51 @@ export async function updatePlatformOnboardingData(params: any) {
     }
 }
 
+export async function getSystemStatsAction() {
+    const session = await auth();
+    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+        throw new Error('Unauthorized');
+    }
+
+    try {
+        const [userCount, branchCount, frozenCount] = await Promise.all([
+            // Managed users only
+            prisma.user.count({
+                where: {
+                    role: {
+                        name: {
+                            in: ['admin', 'agency', 'manager']
+                        }
+                    }
+                }
+            }),
+            prisma.branch.count(),
+            prisma.user.count({
+                where: {
+                    status: 'SUSPENDED',
+                    role: {
+                        name: {
+                            in: ['admin', 'agency', 'manager']
+                        }
+                    }
+                }
+            })
+        ]);
+
+        return {
+            success: true,
+            data: {
+                totalUsers: userCount,
+                totalLocations: branchCount,
+                totalFrozen: frozenCount
+            }
+        };
+    } catch (error: any) {
+        console.error('Error fetching system stats:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function updateUserAccountStatus(params: any) {
     const session = await auth();
     if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
@@ -370,11 +431,20 @@ export async function updateUserAccountStatus(params: any) {
     try {
         const { p_user_id, p_is_frozen, p_location_limit } = params;
 
+        // Fetch current metadata to merge
+        const user = await prisma.user.findUnique({
+            where: { id: p_user_id },
+            select: { user_metadata: true }
+        });
+
+        const currentMetadata = (user?.user_metadata as any) || {};
+
         await prisma.user.update({
             where: { id: p_user_id },
             data: {
                 status: p_is_frozen ? 'SUSPENDED' : 'ACTIVE',
                 user_metadata: {
+                    ...currentMetadata,
                     location_limit: p_location_limit
                 }
             }

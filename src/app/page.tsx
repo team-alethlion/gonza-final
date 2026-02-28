@@ -13,13 +13,22 @@ import PublicLayoutWrapper from "./(public)/layout";
 export default async function RootPage() {
   const session = await auth();
 
-  console.log("RootPage: Session data:", JSON.stringify({
-    user: session?.user ? {
-      email: session.user.email,
-      role: (session.user as any).role,
-      id: session.user.id
-    } : null
-  }, null, 2));
+  console.log(
+    "RootPage: Session data:",
+    JSON.stringify(
+      {
+        user: session?.user
+          ? {
+              email: session.user.email,
+              role: (session.user as any).role,
+              id: session.user.id,
+            }
+          : null,
+      },
+      null,
+      2,
+    ),
+  );
 
   // 1. Handle Unauthenticated users
   if (!session || !session.user) {

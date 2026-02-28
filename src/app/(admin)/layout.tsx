@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "./contexts/AuthContext";
+import AdminShell from "./components/AdminShell";
 import "./admin.css";
 
 export default function AdminLayout({
@@ -10,7 +11,9 @@ export default function AdminLayout({
 }) {
   return (
     <AuthProvider>
-      <div className="admin-theme admin-scope min-h-screen">{children}</div>
+      <div className="admin-theme admin-scope min-h-screen">
+        <AdminShell>{children}</AdminShell>
+      </div>
     </AuthProvider>
   );
 }

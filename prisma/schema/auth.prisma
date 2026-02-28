@@ -219,6 +219,9 @@ model Package {
   maxProducts       Int     @default(50)
   unlimitedProducts Boolean @default(false)
   
+  maxLocations      Int     @default(1)
+  unlimitedLocations Boolean @default(false)
+  
   maxCustomers       Int     @default(100)
   unlimitedCustomers Boolean @default(false)
 

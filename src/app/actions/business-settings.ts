@@ -154,15 +154,22 @@ export async function getAccountStatusAction(userId: string) {
             }
         }
 
-        // 3. Billing Info
+        // 3. Billing & Limits Info
         let billingAmount = 50000;
+        let locationLimit = (user.user_metadata as any)?.location_limit || 1;
+
         if (agency && agency.package) {
             billingAmount = Number(agency.package.monthlyPrice) || 50000;
+            if (agency.package.unlimitedLocations) {
+                locationLimit = 999;
+            } else {
+                locationLimit = agency.package.maxLocations || 1;
+            }
         }
 
         return {
             is_frozen: isFrozen,
-            location_limit: 1, // Traditional default
+            location_limit: locationLimit,
             billing_amount: billingAmount,
             billing_duration: 'Monthly',
             days_remaining: daysRemaining,

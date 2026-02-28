@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  LayoutDashboard,
-  LogOut,
   Search,
   Building2,
   Package,
@@ -16,7 +14,6 @@ import {
   Filter,
   Loader2,
   RefreshCw,
-  Menu,
   Phone,
   Settings2,
 } from "lucide-react";
@@ -31,7 +28,8 @@ import autoTable from "jspdf-autotable";
 import { 
   getPlatformUserSummary, 
   toggleUserFreeze, 
-  deletePlatformUserAccount 
+  deletePlatformUserAccount,
+  getSystemStatsAction
 } from "@/app/actions/admin";
 
 function cn(...inputs: ClassValue[]) {
@@ -62,6 +60,7 @@ interface UserSummary {
   location_count: number;
   locations: LocationRecord[];
   is_frozen: boolean;
+  location_limit: number;
   created_at: string;
   billing_amount: number;
   billing_duration: string;
@@ -83,7 +82,6 @@ export default function AdminDashboardClient() {
     targetName: string | null;
     isFrozen?: boolean;
   }>({ show: false, type: "edit", targetId: null, targetName: null });
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -98,6 +96,16 @@ export default function AdminDashboardClient() {
     },
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-system-stats"],
+    queryFn: async () => {
+      const result = await getSystemStatsAction();
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    refetchInterval: 30000
   });
 
   const filteredUsers = users?.filter((u) => {
@@ -281,187 +289,107 @@ export default function AdminDashboardClient() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex font-geist overflow-x-hidden">
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+    <>
+      <header className="h-auto lg:h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 px-4 py-4 lg:py-0 lg:px-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[10px] font-bold text-foreground uppercase tracking-[0.2em]">
+              Business Directory
+            </h1>
 
-      <aside
-        className={cn(
-          "w-56 border-r border-border/40 bg-white flex flex-col fixed inset-y-0 z-50 transition-transform duration-300 lg:translate-x-0",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-        )}>
-        <div className="h-16 flex items-center px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-primary rounded flex items-center justify-center">
-              <LayoutDashboard className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-xs font-bold tracking-widest uppercase text-foreground">
-              Console
-            </span>
-          </div>
-        </div>
-
-        <div className="px-4 py-2">
-          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em]">
-            Management
-          </p>
-          <nav className="space-y-0.5">
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-3 py-1.5 bg-primary/5 text-primary rounded-[5px] text-[11px] font-bold uppercase tracking-wider transition-colors">
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Businesses</span>
-            </Link>
-            <Link
-              href="/packages"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-3 py-1.5 text-muted-foreground hover:bg-muted/50 rounded-[5px] text-[11px] font-bold uppercase tracking-wider transition-colors">
-              <Package className="w-3.5 h-3.5" />
-              <span>Subscription Tiers</span>
-            </Link>
-          </nav>
-        </div>
-
-        <div className="mt-auto p-4 border-t border-border/40 bg-[#fafafa]/50">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3">
-            <div className="w-7 h-7 rounded bg-white border border-border/40 flex items-center justify-center shrink-0">
-              <User className="w-3.5 h-3.5 text-muted-foreground/60" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-foreground truncate uppercase tracking-tight">
-                {user?.username}
-              </p>
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-green-500" />
-                <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest">
-                  Online
-                </span>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => signOut()}
-            className="w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-[5px] text-[10px] font-bold uppercase tracking-widest transition-colors">
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign out</span>
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 lg:pl-56 w-full">
-        <header className="h-auto lg:h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 px-4 py-4 lg:py-0 lg:px-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="p-2 -ml-2 lg:hidden hover:bg-muted rounded transition-colors">
-                  <Menu className="w-4 h-4 text-foreground" />
-                </button>
-                <h1 className="text-[10px] font-bold text-foreground uppercase tracking-[0.2em]">
-                  Dashboard
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-1 lg:hidden">
-                <button
-                  onClick={exportPDF}
-                  className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground">
-                  <div className="text-[8px] font-bold uppercase tracking-tighter">
-                    PDF
-                  </div>
-                </button>
-                <button
-                  onClick={exportCSV}
-                  className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground">
-                  <div className="text-[8px] font-bold uppercase tracking-tighter">
-                    CSV
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-              <div className="relative w-full lg:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  placeholder="Search entities..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="linear-input pl-9 w-full lg:w-56 bg-muted/20 border-transparent focus:bg-white focus:border-border/60 h-9 transition-all"
-                />
-              </div>
+            <div className="flex items-center gap-1 lg:hidden">
               <button
-                onClick={() => {
-                  queryClient.invalidateQueries({
-                    queryKey: ["admin-user-summary"],
-                  });
-                  toast.success("Syncing latest data...");
-                }}
-                className="flex items-center gap-2 h-9 px-4 bg-white border border-border/40 hover:bg-muted rounded-[5px] text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
-                title="Force Sync">
-                <RefreshCw
-                  className={cn("w-3 h-3", isLoading && "animate-spin")}
-                />
-                <span className="hidden sm:inline">Refresh Data</span>
+                onClick={exportPDF}
+                className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground">
+                <div className="text-[8px] font-bold uppercase tracking-tighter">
+                  PDF
+                </div>
               </button>
-              <div className="hidden lg:block h-8 w-px bg-border/40 mx-1" />
-              <div className="hidden lg:flex items-center gap-2 bg-white border border-border/40 rounded-[5px] p-1">
-                <button
-                  onClick={exportPDF}
-                  className="p-1 px-2.5 text-[9px] font-bold uppercase tracking-widest hover:bg-muted rounded transition-colors flex items-center gap-2">
-                  Export PDF
-                </button>
-                <button
-                  onClick={exportCSV}
-                  className="p-1 px-2.5 text-[9px] font-bold uppercase tracking-widest hover:bg-muted rounded transition-colors flex items-center gap-2">
-                  Export CSV
-                </button>
-              </div>
+              <button
+                onClick={exportCSV}
+                className="p-2 hover:bg-muted rounded transition-colors text-muted-foreground">
+                <div className="text-[8px] font-bold uppercase tracking-tighter">
+                  CSV
+                </div>
+              </button>
             </div>
           </div>
-        </header>
 
-        <div className="p-4 lg:p-10 max-w-[1400px] mx-auto space-y-6 lg:space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                label: "Platform Users",
-                value: users?.length || 0,
-                icon: User,
-                color: "text-primary",
-              },
-              {
-                label: "Total Locations",
-                value:
-                  users?.reduce((acc, u) => acc + u.location_count, 0) || 0,
-                icon: Building2,
-                color: "text-green-600",
-              },
-              {
-                label: "Frozen Accounts",
-                value: users?.filter((u) => u.is_frozen).length || 0,
-                icon: Snowflake,
-                color: "text-blue-500",
-              },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="linear-card p-6 bg-white group hover:border-primary/20">
-                <div className="flex justify-between items-start mb-4">
-                  <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-muted-foreground opacity-60">
-                    {stat.label}
-                  </p>
-                  <div
-                    className={cn(
-                      "p-1.5 rounded bg-muted/30 transition-colors",
-                      stat.color,
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="relative w-full lg:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+              <input
+                type="text"
+                placeholder="Search entities..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="linear-input pl-9 w-full lg:w-56 bg-muted/20 border-transparent focus:bg-white focus:border-border/60 h-9 transition-all"
+              />
+            </div>
+            <button
+              onClick={() => {
+                queryClient.invalidateQueries({
+                  queryKey: ["admin-user-summary"],
+                });
+                toast.success("Syncing latest data...");
+              }}
+              className="flex items-center gap-2 h-9 px-4 bg-white border border-border/40 hover:bg-muted rounded-[5px] text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
+              title="Force Sync">
+              <RefreshCw
+                className={cn("w-3 h-3", isLoading && "animate-spin")}
+              />
+              <span className="hidden sm:inline">Refresh Data</span>
+            </button>
+            <div className="hidden lg:block h-8 w-px bg-border/40 mx-1" />
+            <div className="hidden lg:flex items-center gap-2 bg-white border border-border/40 rounded-[5px] p-1">
+              <button
+                onClick={exportPDF}
+                className="p-1 px-2.5 text-[9px] font-bold uppercase tracking-widest hover:bg-muted rounded transition-colors flex items-center gap-2">
+                Export PDF
+              </button>
+              <button
+                onClick={exportCSV}
+                className="p-1 px-2.5 text-[9px] font-bold uppercase tracking-widest hover:bg-muted rounded transition-colors flex items-center gap-2">
+                Export CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 lg:p-10 max-w-[1400px] mx-auto space-y-6 lg:space-y-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              label: "Platform Users",
+              value: stats?.totalUsers || 0,
+              icon: User,
+              color: "text-primary",
+            },
+            {
+              label: "Total Locations",
+              value: stats?.totalLocations || 0,
+              icon: Building2,
+              color: "text-green-600",
+            },
+            {
+              label: "Frozen Accounts",
+              value: stats?.totalFrozen || 0,
+              icon: Snowflake,
+              color: "text-blue-500",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="linear-card p-6 bg-white group hover:border-primary/20">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-muted-foreground opacity-60">
+                  {stat.label}
+                </p>
+                <div
+                  className={cn(
+                    "p-1.5 rounded bg-muted/30 transition-colors",
+                    stat.color,
                     )}>
                     <stat.icon className="w-3.5 h-3.5" />
                   </div>
@@ -583,10 +511,16 @@ export default function AdminDashboardClient() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-muted/40 rounded-[4px] text-[10px] font-bold text-muted-foreground uppercase tracking-wider border border-border/10">
-                              {u.location_count}
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border",
+                              u.location_count >= u.location_limit 
+                                ? "bg-amber-50 text-amber-600 border-amber-100" 
+                                : "bg-muted/40 text-muted-foreground border-border/10"
+                            )}>
+                              {u.location_count} / {u.location_limit === 999 ? '∞' : u.location_limit}
                             </span>
                           </td>
+
                           <td className="px-4 py-3 text-center">
                             {u.is_frozen ? (
                               <div className="inline-flex items-center gap-1.5 text-blue-600 font-bold text-[8px] uppercase tracking-tighter bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50">
@@ -692,7 +626,6 @@ export default function AdminDashboardClient() {
             </div>
           </div>
         </div>
-      </main>
 
       {confirmModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200">
@@ -752,6 +685,6 @@ export default function AdminDashboardClient() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

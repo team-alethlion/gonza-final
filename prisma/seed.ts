@@ -111,6 +111,7 @@ async function main() {
                 yearlyPrice: 500000,
                 maxUsers: 2,
                 maxProducts: 50,
+                maxLocations: 1,
                 maxSalesPerMonth: 200,
                 maxCustomers: 100,
                 hasFreeTrial: true,
@@ -128,6 +129,7 @@ async function main() {
                 yearlyPrice: 1200000,
                 maxUsers: 10,
                 maxProducts: 1000,
+                maxLocations: 3,
                 maxSalesPerMonth: 5000,
                 maxCustomers: 2000,
                 hasFreeTrial: true,
@@ -144,6 +146,7 @@ async function main() {
                 yearlyPrice: 3500000,
                 unlimitedUsers: true,
                 unlimitedProducts: true,
+                unlimitedLocations: true,
                 unlimitedSales: true,
                 unlimitedCustomers: true,
                 hasFreeTrial: false

@@ -6,6 +6,7 @@ import { useBusinessPassword } from '@/hooks/useBusinessPassword';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { getBusinessLocationsAction, createBusinessAction, updateBusinessAction, deleteBusinessAction, resetBusinessAction } from '@/app/actions/business';
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 
 export interface BusinessLocation {
@@ -48,9 +49,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
-
-  // Static default – limit can be driven from Prisma user profile if needed.
-  const locationLimit = 3;
+  const { locationLimit } = useOnboarding();
 
 
   const getStorageKey = () => user ? `selected_business_${user.id}` : null;
