@@ -5,6 +5,7 @@ import React from 'react';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useQuery } from '@tanstack/react-query';
 import { getSubscriptionPaymentsAction, initiateSubscriptionPaymentAction } from '@/app/actions/billing';
+import { getPackagesAction } from '@/app/actions/packages';
 import {
     CreditCard,
     Calendar,
@@ -16,7 +17,12 @@ import {
     Building2,
     ChevronRight,
     FileText,
-    History as HistoryIcon
+    History as HistoryIcon,
+    Sparkles,
+    Check,
+    ArrowRightLeft,
+    Box,
+    Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -44,6 +50,7 @@ const BillingHistory = () => {
         billingAmount,
         billingDuration,
         nextBillingDate,
+        packageId: currentPackageId,
         isFrozen,
         isLoading: isSubscriptionLoading,
         refetch: refetchOnboarding
@@ -57,6 +64,15 @@ const BillingHistory = () => {
             return data as SubscriptionPayment[];
         },
         enabled: !!user
+    });
+
+    const { data: packages, isLoading: isPackagesLoading } = useQuery({
+        queryKey: ['billing-packages'],
+        queryFn: async () => {
+            const result = await getPackagesAction();
+            if (!result.success) throw new Error(result.error);
+            return result.data || [];
+        }
     });
 
     const payments = React.useMemo(() => {
@@ -85,8 +101,8 @@ const BillingHistory = () => {
         await generateSubscriptionInvoice(payment, type);
     };
 
-    const handleRenew = async () => {
-        if (!user || !billingAmount) return;
+    const handleRenew = async (targetPackageId?: string) => {
+        if (!user) return;
 
         setIsInitiatingPayment(true);
         try {
@@ -97,7 +113,8 @@ const BillingHistory = () => {
                 user.id,
                 locationId,
                 billingDuration || 'monthly',
-                phone
+                phone,
+                targetPackageId
             );
 
             if (!result.success) {
@@ -254,6 +271,85 @@ const BillingHistory = () => {
                         </h3>
                         <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Scheduled Renewal</p>
                     </div>
+                </div>
+            </div>
+
+            {/* NEW: Available Plans Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Available Tiers</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {isPackagesLoading ? (
+                        Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="h-64 rounded-2xl bg-slate-100 animate-pulse border border-slate-200" />
+                        ))
+                    ) : packages?.map((pkg: any) => {
+                        const isCurrent = pkg.id === currentPackageId;
+                        return (
+                            <div key={pkg.id} className={cn(
+                                "bg-white border rounded-2xl p-6 relative transition-all group overflow-hidden shadow-sm",
+                                isCurrent ? "border-blue-200 ring-4 ring-blue-50 shadow-xl" : "border-border/40 hover:border-slate-300 hover:shadow-md"
+                            )}>
+                                {isCurrent && (
+                                    <div className="absolute top-0 right-0 px-4 py-1.5 bg-blue-600 text-white rounded-bl-2xl text-[10px] font-bold uppercase tracking-widest shadow-lg">
+                                        Active
+                                    </div>
+                                )}
+                                
+                                <div className="mb-6">
+                                    <h4 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{pkg.name}</h4>
+                                    <div className="mt-2 flex items-baseline gap-1.5">
+                                        <span className="text-2xl font-extrabold text-slate-900">UGX {pkg.monthlyPrice.toLocaleString()}</span>
+                                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">/ Mo</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2 line-clamp-2">{pkg.description || 'Professional inventory and sales management tools.'}</p>
+                                </div>
+
+                                <div className="space-y-3 mb-8 pt-6 border-t border-slate-50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-5 h-5 rounded-md bg-slate-50 flex items-center justify-center">
+                                            <Users className="w-3 h-3 text-slate-400" />
+                                        </div>
+                                        <span className="text-xs text-slate-600">{pkg.unlimitedUsers ? 'Unlimited' : `Up to ${pkg.maxUsers}`} Team Members</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-5 h-5 rounded-md bg-slate-50 flex items-center justify-center">
+                                            <Box className="w-3 h-3 text-slate-400" />
+                                        </div>
+                                        <span className="text-xs text-slate-600">{pkg.unlimitedProducts ? 'Unlimited' : `Up to ${pkg.maxProducts}`} Products</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-5 h-5 rounded-md bg-blue-50 flex items-center justify-center">
+                                            <Check className="w-3 h-3 text-blue-500" />
+                                        </div>
+                                        <span className="text-xs text-blue-600 font-medium">Standard Support Included</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => handleRenew(pkg.id)}
+                                    disabled={isInitiatingPayment}
+                                    className={cn(
+                                        "w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border",
+                                        isCurrent 
+                                            ? "bg-slate-50 text-slate-400 border-slate-100 cursor-default" 
+                                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 active:scale-[0.98]"
+                                    )}
+                                >
+                                    {isCurrent ? (
+                                        <><CheckCircle2 className="w-4 h-4" /> Your Plan</>
+                                    ) : (
+                                        <><ArrowRightLeft className="w-4 h-4" /> {pkg.monthlyPrice > (billingAmount || 0) ? 'Upgrade' : 'Switch Plan'}</>
+                                    )}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

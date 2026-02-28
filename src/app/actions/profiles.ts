@@ -4,6 +4,7 @@
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
+import { checkUserQuota } from '@/lib/quota-check';
 
 // Profiles Server Actions (Using the User model from Prisma Auth map)
 export async function getProfilesAction(branchId: string) {
@@ -79,6 +80,9 @@ export async function createProfileAction(branchId: string, profileData: any) {
     if ((session.user as any).branchId && (session.user as any).branchId !== branchId) throw new Error("Unauthorized");
 
     try {
+        const session = await auth();
+        const agencyId = (session?.user as any)?.agencyId;
+        if (agencyId) { await checkUserQuota(agencyId); }
         // We'll need a default role if not provided
         let roleId = profileData.role_id;
 

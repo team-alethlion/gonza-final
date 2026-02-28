@@ -7,6 +7,7 @@ import { Product, ProductFormData, mapDbProductToProduct, mapProductToDbProduct 
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { z } from 'zod';
+import { checkProductQuota } from '@/lib/quota-check';
 
 // Validation for bulk update
 const bulkUpdateSchema = z.array(z.object({
@@ -289,6 +290,16 @@ export async function createProductAction(data: any) {
   const session = await auth();
   if (!session || !session.user) return null;
   if ((session.user as any).branchId && (session.user as any).branchId !== data.businessId) return null;
+
+  const agencyId = (session.user as any).agencyId;
+  if (agencyId) {
+    try {
+      await checkProductQuota(agencyId);
+    } catch (err: any) {
+      console.error('Quota check failed:', err.message);
+      return null; // Or return an error object if you update the return type
+    }
+  }
 
   try {
     const result = await db.$transaction(async (tx: any) => {

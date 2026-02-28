@@ -5,6 +5,8 @@ import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PaymentStatus } from '@prisma/client';
+import { checkSalesQuota } from '@/lib/quota-check';
+import { auth } from '@/auth';
 
 const saleItemSchema = z.object({
     productId: z.string().optional().nullable(),
@@ -367,6 +369,12 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
 
 export async function createReceiptAction(saleData: any, businessId: string, userId: string) {
     try {
+        const session = await auth();
+        const agencyId = (session?.user as any)?.agencyId;
+        if (agencyId) {
+            await checkSalesQuota(agencyId);
+        }
+
         // Validate input data
         const validatedData = createReceiptSchema.parse(saleData);
 

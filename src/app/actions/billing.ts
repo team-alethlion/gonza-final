@@ -86,9 +86,9 @@ function normalizeUgPhoneNumber(raw: string): string {
     return phone;
 }
 
-export async function initiateSubscriptionPaymentAction(userId: string, locationId: string, billingCycle: string, phone: string) {
+export async function initiateSubscriptionPaymentAction(userId: string, locationId: string, billingCycle: string, phone: string, newPackageId?: string) {
     try {
-        // 1. Fetch user, agency, and package to get the correct price
+        // 1. Fetch user, and determining which package to use (current or a new selection)
         const user = await db.user.findUnique({
             where: { id: userId },
             include: {
@@ -100,11 +100,25 @@ export async function initiateSubscriptionPaymentAction(userId: string, location
             }
         });
 
-        if (!user || !user.agency || !user.agency.package) {
+        if (!user || !user.agency) {
+            throw new Error("User or Agency not found.");
+        }
+
+        let pkg = user.agency.package;
+
+        // If a new package ID is provided (Upgrade/Downgrade path), fetch its details
+        if (newPackageId) {
+            const targetPkg = await db.package.findUnique({
+                where: { id: newPackageId }
+            });
+            if (!targetPkg) throw new Error("The selected package was not found.");
+            pkg = targetPkg;
+        }
+
+        if (!pkg) {
             throw new Error("No subscription package found for this user.");
         }
 
-        const pkg = user.agency.package;
         const billingCycleLower = billingCycle.toLowerCase();
         
         // Calculate amount server-side - DO NOT TRUST CLIENT AMOUNT
@@ -128,7 +142,7 @@ export async function initiateSubscriptionPaymentAction(userId: string, location
                 status: 'pending',
                 type: 'subscription',
                 billingCycle: billingCycle,
-                packageId: pkg.id,
+                packageId: pkg.id, // Store the target package ID
                 agencyId: user.agencyId
             }
         });

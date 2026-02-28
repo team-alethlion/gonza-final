@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { verifyPlatformAdmin } from '@/app/actions/admin';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
     user: { username: string } | null;
@@ -14,61 +15,48 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const [user, setUser] = useState<{ username: string } | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Restore session from localStorage
-        const savedSession = localStorage.getItem('platform_admin_session');
-        if (savedSession) {
-            try {
-                const session = JSON.parse(atob(savedSession));
-                setUser({ username: session.username });
+        if (status === 'authenticated' && session?.user) {
+            const role = (session.user as any).role?.toLowerCase();
+            if (role === 'superadmin') {
+                setUser({ username: session.user.email || 'Admin' });
                 setIsAdmin(true);
-            } catch (e) {
-                console.error('Failed to restore session:', e);
-                localStorage.removeItem('platform_admin_session');
+            } else {
+                // Not a superadmin, but authenticated
+                setIsAdmin(false);
+                setUser(null);
             }
+        } else {
+            setIsAdmin(false);
+            setUser(null);
         }
-        setLoading(false);
-    }, []);
+    }, [session, status]);
 
     const signIn = async (username: string, password: string) => {
-        setLoading(true);
-        try {
-            const result = await verifyPlatformAdmin({
-                p_username: username,
-                p_password: password
-            });
+        const result = await nextAuthSignIn('credentials', {
+            email: username,
+            password: password,
+            redirect: false
+        });
 
-            if (!result.success) {
-                throw new Error(result.error || 'Verification failed');
-            }
-
-            if (result.data) {
-                const sessionData = { username, password };
-                localStorage.setItem('platform_admin_session', btoa(JSON.stringify(sessionData)));
-                setUser({ username });
-                setIsAdmin(true);
-                return;
-            } else {
-                throw new Error('Invalid credentials');
-            }
-        } finally {
-            setLoading(false);
+        if (result?.error) {
+            throw new Error(result.error);
         }
+        
+        // NextAuth will update the session, and the useEffect above will handle the state
     };
 
     const signOut = async () => {
-        localStorage.removeItem('platform_admin_session');
-        setUser(null);
-        setIsAdmin(false);
+        await nextAuthSignOut({ redirect: true, callbackUrl: '/admin_login' });
     };
 
-
     return (
-        <AuthContext.Provider value={{ user, isAdmin, loading, signIn, signOut }}>
+        <AuthContext.Provider value={{ user, isAdmin, loading: status === 'loading', signIn, signOut }}>
             {children}
         </AuthContext.Provider>
     );

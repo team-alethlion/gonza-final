@@ -98,6 +98,60 @@ async function main() {
 
     console.log('✓ Created roles: superadmin, admin, manager');
 
+    // Create Default Packages
+    console.log('Creating default packages...');
+    const packages = await Promise.all([
+        prisma.package.upsert({
+            where: { name: 'Starter' },
+            update: {},
+            create: {
+                name: 'Starter',
+                description: 'Perfect for small shops starting out.',
+                monthlyPrice: 50000,
+                yearlyPrice: 500000,
+                maxUsers: 2,
+                maxProducts: 50,
+                maxSalesPerMonth: 200,
+                maxCustomers: 100,
+                hasFreeTrial: true,
+                trialDays: 14,
+                isDefault: true
+            }
+        }),
+        prisma.package.upsert({
+            where: { name: 'Professional' },
+            update: {},
+            create: {
+                name: 'Professional',
+                description: 'Everything you need to grow your retail business.',
+                monthlyPrice: 120000,
+                yearlyPrice: 1200000,
+                maxUsers: 10,
+                maxProducts: 1000,
+                maxSalesPerMonth: 5000,
+                maxCustomers: 2000,
+                hasFreeTrial: true,
+                trialDays: 14
+            }
+        }),
+        prisma.package.upsert({
+            where: { name: 'Enterprise' },
+            update: {},
+            create: {
+                name: 'Enterprise',
+                description: 'Unlimited power for large scale operations.',
+                monthlyPrice: 350000,
+                yearlyPrice: 3500000,
+                unlimitedUsers: true,
+                unlimitedProducts: true,
+                unlimitedSales: true,
+                unlimitedCustomers: true,
+                hasFreeTrial: false
+            }
+        })
+    ]);
+    console.log(`✓ Created ${packages.length} default packages`);
+
     // Create Users
     console.log('Creating users...');
     const hashedPassword = await bcrypt.hash('password123', 10);
