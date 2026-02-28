@@ -49,7 +49,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
-  const { locationLimit } = useOnboarding();
+  const { locationLimit } = useOnboarding(currentBusiness?.id);
 
 
   const getStorageKey = () => user ? `selected_business_${user.id}` : null;

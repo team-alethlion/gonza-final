@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import {
     getOnboardingStatusAction,
@@ -27,8 +26,7 @@ export interface OnboardingData {
 
 const ONBOARDING_QUERY_KEY = 'businessOnboarding';
 
-export const useOnboarding = () => {
-    const { currentBusiness } = useBusiness();
+export const useOnboarding = (currentBusinessId?: string | null) => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
@@ -38,14 +36,14 @@ export const useOnboarding = () => {
         isLoading: isOnboardingLoading,
         refetch: refetchOnboarding,
     } = useQuery({
-        queryKey: [ONBOARDING_QUERY_KEY, currentBusiness?.id],
+        queryKey: [ONBOARDING_QUERY_KEY, currentBusinessId],
         queryFn: async (): Promise<OnboardingData | null> => {
-            if (!currentBusiness?.id || !user?.id) return null;
+            if (!currentBusinessId || !user?.id) return null;
 
-            const data = await getOnboardingStatusAction(currentBusiness.id);
+            const data = await getOnboardingStatusAction(currentBusinessId);
             return data as unknown as OnboardingData | null;
         },
-        enabled: !!currentBusiness?.id && !!user?.id,
+        enabled: !!currentBusinessId && !!user?.id,
         staleTime: 5 * 60_000,
         gcTime: 30 * 60_000,
         refetchOnWindowFocus: false,
@@ -81,13 +79,13 @@ export const useOnboarding = () => {
     // Save (upsert) onboarding data
     const saveOnboarding = useCallback(
         async (formData: Omit<OnboardingData, 'id' | 'user_id' | 'location_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
-            if (!currentBusiness?.id || !user?.id) {
+            if (!currentBusinessId || !user?.id) {
                 console.error('useOnboarding: No business or user found');
                 return false;
             }
 
             try {
-                const result = await upsertBusinessSettingsAction(currentBusiness.id, user.id, formData);
+                const result = await upsertBusinessSettingsAction(currentBusinessId, user.id, formData);
 
                 if (!result.success) {
                     console.error('Error saving onboarding data:', result.error);
@@ -95,7 +93,7 @@ export const useOnboarding = () => {
                 }
 
                 // Invalidate cache so RequiredSetupGate re-checks
-                queryClient.invalidateQueries({ queryKey: [ONBOARDING_QUERY_KEY, currentBusiness.id] });
+                queryClient.invalidateQueries({ queryKey: [ONBOARDING_QUERY_KEY, currentBusinessId] });
                 queryClient.invalidateQueries({ queryKey: ['user-onboarding-complete', user.id] });
 
                 return true;
@@ -104,7 +102,7 @@ export const useOnboarding = () => {
                 return false;
             }
         },
-        [currentBusiness?.id, user?.id, queryClient]
+        [currentBusinessId, user?.id, queryClient]
     );
 
     return {

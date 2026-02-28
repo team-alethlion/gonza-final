@@ -55,7 +55,7 @@ const BillingHistory = () => {
         isFrozen,
         isLoading: isSubscriptionLoading,
         refetch: refetchOnboarding
-    } = useOnboarding();
+    } = useOnboarding(currentBusiness?.id);
 
     const { data: rawPayments, isLoading: isPaymentsLoading } = useQuery({
         queryKey: ['subscription-payments', user?.id],

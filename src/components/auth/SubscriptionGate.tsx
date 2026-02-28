@@ -14,9 +14,9 @@ interface SubscriptionGateProps {
 }
 
 export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ children }) => {
-    const { daysRemaining, billingAmount, billingDuration, isLoading, isFrozen, refetch } = useOnboarding();
-    const { signOut, user } = useAuth();
+    const { user, signOut } = useAuth();
     const { currentBusiness } = useBusiness();
+    const { daysRemaining, billingAmount, billingDuration, isLoading, isFrozen, refetch } = useOnboarding(currentBusiness?.id);
     const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
     const [pesapalRedirectUrl, setPesapalRedirectUrl] = useState<string | null>(null);
     const [latestPayment, setLatestPayment] = useState<any>(null);

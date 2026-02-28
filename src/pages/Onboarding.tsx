@@ -14,6 +14,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getPackagesAction } from '@/app/actions/packages';
 import {
@@ -45,7 +46,8 @@ const BUSINESS_SIZES = [
 const Onboarding = () => {
     const router = useRouter();
     const { user, signOut } = useAuth();
-    const { onboarding, isLoading: onboardingLoading, isCompleted, saveOnboarding } = useOnboarding();
+    const { currentBusiness } = useBusiness();
+    const { onboarding, isLoading: onboardingLoading, isCompleted, saveOnboarding } = useOnboarding(currentBusiness?.id);
     const { settings, isLoading: settingsLoading, updateSettings } = useBusinessSettings();
 
     const [currentStep, setCurrentStep] = useState(1);

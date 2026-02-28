@@ -13,9 +13,9 @@ interface RequiredSetupGateProps {
 }
 
 export const RequiredSetupGate: React.FC<RequiredSetupGateProps> = ({ children }) => {
-    const { businessLocations, isLoading: businessLoading, createBusiness } = useBusiness();
+    const { businessLocations, currentBusiness, isLoading: businessLoading, createBusiness } = useBusiness();
     const { profiles, isLoading: profilesLoading } = useProfiles();
-    const { isCompleted: onboardingCompleted, isFrozen, daysRemaining, isLoading: onboardingLoading } = useOnboarding();
+    const { isCompleted: onboardingCompleted, isFrozen, daysRemaining, isLoading: onboardingLoading } = useOnboarding(currentBusiness?.id);
     const { user, loading: authLoading, signOut } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
@@ -45,7 +45,7 @@ export const RequiredSetupGate: React.FC<RequiredSetupGateProps> = ({ children }
                 console.log('[Gate Action]: Auto-creating business for user:', user.id);
                 setIsAutomating(true);
                 try {
-                    const businessName = user.user_metadata?.business_name || 'My Business';
+                    const businessName = (user as any).user_metadata?.business_name || 'My Business';
                     await createBusiness(businessName);
                     toast.success('Your business system is ready!');
                 } catch (error) {
