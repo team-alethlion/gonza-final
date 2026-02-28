@@ -13,6 +13,8 @@ import NetworkStatusIndicator from "./NetworkStatusIndicator";
 import { ProfileSelectionOverlay } from "./profiles/ProfileSelectionOverlay";
 import { PinEntryOverlay } from "./profiles/PinEntryOverlay";
 import { FirstTimePinSetup } from "./profiles/FirstTimePinSetup";
+import { useAuth } from "./auth/AuthProvider";
+import { useUserHeartbeat } from "@/hooks/useUserHeartbeat";
 
 interface AgencyLayoutProps {
   children: React.ReactNode;
@@ -20,6 +22,10 @@ interface AgencyLayoutProps {
 
 const AgencyLayout = ({ children }: AgencyLayoutProps) => {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  
+  // Track user activity
+  useUserHeartbeat(user?.id);
 
   return (
     <SidebarProvider>

@@ -89,7 +89,7 @@ export async function getPlatformUserSummary() {
                     billing_duration: agency?.subscriptionStatus || 'trial',
                     days_remaining: daysRemaining,
                     next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
-                    last_active_at: branch.updatedAt.toISOString(),
+                    last_active_at: (user.lastSeen || branch.updatedAt || branch.createdAt).toISOString(),
                     created_at: branch.createdAt.toISOString()
                 };
             });
@@ -194,7 +194,7 @@ export async function getPlatformUserDetail(userId: string) {
                 billing_duration: agency?.subscriptionStatus || 'trial',
                 days_remaining: daysRemaining,
                 next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
-                last_active_at: branch.updatedAt.toISOString(),
+                last_active_at: (user.lastSeen || branch.updatedAt || branch.createdAt).toISOString(),
                 created_at: branch.createdAt.toISOString()
             };
         });
