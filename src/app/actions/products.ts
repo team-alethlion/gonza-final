@@ -6,6 +6,13 @@ import { Prisma } from '@prisma/client';
 import { Product, ProductFormData, mapDbProductToProduct, mapProductToDbProduct } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
+import { z } from 'zod';
+
+// Validation for bulk update
+const bulkUpdateSchema = z.array(z.object({
+  id: z.string(),
+  updated: z.record(z.any())
+})).max(100, "Maximum 100 products can be updated at once");
 
 // We implement server actions for the products here
 
@@ -472,8 +479,11 @@ export async function updateProductsBulkAction(
   if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return false;
 
   try {
+    // Validate updates array length and structure
+    const validatedUpdates = bulkUpdateSchema.parse(updates);
+
     // Prisma transaction for bulk updates
-    const updatePromises = updates.map(u =>
+    const updatePromises = validatedUpdates.map(u =>
       db.product.update({
         where: { id: u.id, branchId: businessId },
         data: {
@@ -494,6 +504,10 @@ export async function updateProductsBulkAction(
     await db.$transaction(updatePromises);
     return true;
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('Validation error for bulk update:', error.errors);
+      return false;
+    }
     console.error('Error performing bulk update:', error);
     return false;
   }

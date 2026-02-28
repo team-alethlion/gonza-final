@@ -3,6 +3,25 @@
 
 import { db, PaymentStatus, ActivityType, ActivityModule } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const cashTransactionSchema = z.object({
+    userId: z.string().min(1),
+    locationId: z.string().min(1),
+    accountId: z.string().min(1),
+    amount: z.number().positive(),
+    transactionType: z.string(),
+    toAccountId: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    description: z.string().optional().nullable(),
+    personInCharge: z.string().optional().nullable(),
+    tags: z.array(z.string()).optional(),
+    date: z.string().or(z.date()).optional(),
+    paymentMethod: z.string().optional().nullable(),
+    receiptImage: z.string().optional().nullable()
+});
+
+const bulkCashTransactionSchema = z.array(cashTransactionSchema).max(100, "Maximum 100 transactions can be created at once");
 
 // --- EXPENSES ---
 
@@ -58,12 +77,18 @@ export async function createExpenseAction(data: ExpenseInput, linkToCash: boolea
 
                 // Update expense with transaction reference
                 await tx.expense.update({
-                    where: { id: expense.id },
+                    where: { id: expense.id, branchId: data.locationId },
                     data: { cashTransactionId: cashTx.id }
                 });
             }
 
-            return expense;
+            return {
+                ...expense,
+                amount: Number(expense.amount),
+                createdAt: expense.createdAt.toISOString(),
+                updatedAt: expense.updatedAt.toISOString(),
+                date: expense.date.toISOString()
+            };
         });
 
         revalidatePath('/finance');
@@ -85,6 +110,7 @@ export async function getExpensesAction(locationId: string) {
             success: true,
             data: expenses.map((e: any) => ({
                 ...e,
+                amount: Number(e.amount),
                 created_at: e.createdAt.toISOString(),
                 updated_at: e.updatedAt.toISOString(),
                 payment_method: e.paymentMethod,
@@ -100,12 +126,12 @@ export async function getExpensesAction(locationId: string) {
     }
 }
 
-export async function updateExpenseAction(id: string, updates: any, currentExpense: any) {
+export async function updateExpenseAction(id: string, branchId: string, updates: any, currentExpense: any) {
     try {
         const result = await db.$transaction(async (tx: any) => {
             // Update expense
             const updatedExpense = await tx.expense.update({
-                where: { id },
+                where: { id, branchId },
                 data: {
                     amount: updates.amount,
                     description: updates.description,
@@ -126,7 +152,7 @@ export async function updateExpenseAction(id: string, updates: any, currentExpen
                 const cashTx = await tx.cashTransaction.create({
                     data: {
                         userId: currentExpense.userId,
-                        branchId: currentExpense.branchId || currentExpense.locationId,
+                        branchId: branchId,
                         accountId: updates.cashAccountId,
                         amount: updates.amount || currentExpense.amount,
                         transactionType: 'cash_out',
@@ -139,13 +165,13 @@ export async function updateExpenseAction(id: string, updates: any, currentExpen
                     }
                 });
                 await tx.expense.update({
-                    where: { id },
+                    where: { id, branchId },
                     data: { cashTransactionId: cashTx.id }
                 });
             } else if (shouldLinkToCash && wasLinkedToCash) {
                 // Update existing cash transaction
                 await tx.cashTransaction.update({
-                    where: { id: currentExpense.cashTransactionId },
+                    where: { id: currentExpense.cashTransactionId, branchId: branchId },
                     data: {
                         accountId: updates.cashAccountId,
                         amount: updates.amount || currentExpense.amount,
@@ -160,10 +186,10 @@ export async function updateExpenseAction(id: string, updates: any, currentExpen
             } else if (!shouldLinkToCash && wasLinkedToCash) {
                 // Delete existing cash transaction
                 await tx.cashTransaction.delete({
-                    where: { id: currentExpense.cashTransactionId }
+                    where: { id: currentExpense.cashTransactionId, branchId: branchId }
                 });
                 await tx.expense.update({
-                    where: { id },
+                    where: { id, branchId },
                     data: { cashTransactionId: null }
                 });
             }
@@ -179,22 +205,24 @@ export async function updateExpenseAction(id: string, updates: any, currentExpen
     }
 }
 
-export async function deleteExpenseAction(id: string) {
+export async function deleteExpenseAction(id: string, branchId: string) {
     try {
         await db.$transaction(async (tx: any) => {
             const expense = await tx.expense.findUnique({
-                where: { id },
+                where: { id, branchId },
                 select: { cashTransactionId: true }
             });
 
-            if (expense?.cashTransactionId) {
+            if (!expense) throw new Error("Expense not found or unauthorized");
+
+            if (expense.cashTransactionId) {
                 await tx.cashTransaction.delete({
-                    where: { id: expense.cashTransactionId }
+                    where: { id: expense.cashTransactionId, branchId }
                 });
             }
 
             await tx.expense.delete({
-                where: { id }
+                where: { id, branchId }
             });
         });
 
@@ -208,10 +236,13 @@ export async function deleteExpenseAction(id: string) {
 
 // --- INSTALLMENT PAYMENTS ---
 
-export async function getInstallmentPaymentsAction(saleId: string) {
+export async function getInstallmentPaymentsAction(saleId: string, branchId: string) {
     try {
         const payments = await db.installmentPayment.findMany({
-            where: { saleId },
+            where: { 
+                saleId,
+                sale: { branchId } // Verify through relation
+            },
             orderBy: { paymentDate: 'desc' }
         });
 
@@ -242,13 +273,13 @@ export async function createInstallmentPaymentAction(data: any) {
 
             if (data.accountId && data.locationId && !cashTxId) {
                 const sale = await tx.sale.findUnique({
-                    where: { id: data.saleId },
-                    select: { customerName: true, receiptNumber: true }
+                    where: { id: data.saleId, branchId: data.locationId },
+                    select: { customerName: true, saleNumber: true }
                 });
 
-                const description = sale
-                    ? `Installment payment for ${sale.customerName} - Receipt #${sale.receiptNumber}`
-                    : `Installment payment for sale`;
+                if (!sale) throw new Error("Sale not found or unauthorized");
+
+                const description = `Installment payment for ${sale.customerName} - Receipt #${sale.saleNumber}`;
 
                 const cashTx = await tx.cashTransaction.create({
                     data: {
@@ -276,7 +307,13 @@ export async function createInstallmentPaymentAction(data: any) {
                 }
             });
 
-            return payment;
+            return {
+                ...payment,
+                amount: Number(payment.amount),
+                paymentDate: payment.paymentDate.toISOString(),
+                createdAt: payment.createdAt.toISOString(),
+                updatedAt: payment.updatedAt.toISOString()
+            };
         });
 
         revalidatePath('/finance');
@@ -287,15 +324,17 @@ export async function createInstallmentPaymentAction(data: any) {
     }
 }
 
-export async function updateInstallmentPaymentAction(id: string, updates: any) {
+export async function updateInstallmentPaymentAction(id: string, branchId: string, updates: any) {
     try {
         const result = await db.$transaction(async (tx: any) => {
             const current = await tx.installmentPayment.findUnique({
                 where: { id },
-                select: { cashTransactionId: true }
+                include: { sale: { select: { branchId: true } } }
             });
 
-            if (!current) throw new Error("Payment not found");
+            if (!current || current.sale.branchId !== branchId) {
+                throw new Error("Payment not found or unauthorized");
+            }
 
             const updated = await tx.installmentPayment.update({
                 where: { id },
@@ -308,7 +347,7 @@ export async function updateInstallmentPaymentAction(id: string, updates: any) {
 
             if (current.cashTransactionId) {
                 await tx.cashTransaction.update({
-                    where: { id: current.cashTransactionId },
+                    where: { id: current.cashTransactionId, branchId },
                     data: {
                         amount: updates.amount,
                         date: updates.paymentDate ? new Date(updates.paymentDate) : undefined
@@ -316,7 +355,13 @@ export async function updateInstallmentPaymentAction(id: string, updates: any) {
                 });
             }
 
-            return updated;
+            return {
+                ...updated,
+                amount: Number(updated.amount),
+                paymentDate: updated.paymentDate.toISOString(),
+                createdAt: updated.createdAt.toISOString(),
+                updatedAt: updated.updatedAt.toISOString()
+            };
         });
 
         revalidatePath('/finance');
@@ -327,17 +372,21 @@ export async function updateInstallmentPaymentAction(id: string, updates: any) {
     }
 }
 
-export async function deleteInstallmentPaymentAction(id: string) {
+export async function deleteInstallmentPaymentAction(id: string, branchId: string) {
     try {
         await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id },
-                select: { cashTransactionId: true }
+                include: { sale: { select: { branchId: true } } }
             });
 
-            if (payment?.cashTransactionId) {
+            if (!payment || payment.sale.branchId !== branchId) {
+                throw new Error("Payment not found or unauthorized");
+            }
+
+            if (payment.cashTransactionId) {
                 await tx.cashTransaction.delete({
-                    where: { id: payment.cashTransactionId }
+                    where: { id: payment.cashTransactionId, branchId }
                 });
             }
 
@@ -354,7 +403,7 @@ export async function deleteInstallmentPaymentAction(id: string) {
     }
 }
 
-export async function linkInstallmentToCashAction(paymentId: string, accountId: string, locationId: string, userId: string) {
+export async function linkInstallmentToCashAction(paymentId: string, branchId: string, accountId: string, locationId: string, userId: string) {
     try {
         const result = await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
@@ -362,11 +411,11 @@ export async function linkInstallmentToCashAction(paymentId: string, accountId: 
                 include: { sale: true }
             });
 
-            if (!payment) throw new Error("Payment not found");
+            if (!payment || payment.sale.branchId !== branchId) throw new Error("Payment not found or unauthorized");
             if (payment.cashTransactionId) throw new Error("Payment already linked");
 
             const description = payment.sale
-                ? `Installment payment for ${payment.sale.customerName} - Receipt #${payment.sale.receiptNumber}`
+                ? `Installment payment for ${payment.sale.customerName} - Receipt #${payment.sale.saleNumber}`
                 : `Installment payment #${paymentId.substring(0, 8)}`;
 
             const cashTx = await tx.cashTransaction.create({
@@ -398,18 +447,19 @@ export async function linkInstallmentToCashAction(paymentId: string, accountId: 
     }
 }
 
-export async function unlinkInstallmentFromCashAction(paymentId: string) {
+export async function unlinkInstallmentFromCashAction(paymentId: string, branchId: string) {
     try {
         await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
-                select: { cashTransactionId: true }
+                include: { sale: { select: { branchId: true } } }
             });
 
-            if (!payment?.cashTransactionId) throw new Error("Payment not linked");
+            if (!payment || payment.sale.branchId !== branchId) throw new Error("Payment not found or unauthorized");
+            if (!payment.cashTransactionId) throw new Error("Payment not linked");
 
             await tx.cashTransaction.delete({
-                where: { id: payment.cashTransactionId }
+                where: { id: payment.cashTransactionId, branchId }
             });
 
             await tx.installmentPayment.update({
@@ -469,10 +519,10 @@ export async function createExpenseCategoryAction(data: any) {
     }
 }
 
-export async function deleteExpenseCategoryAction(id: string) {
+export async function deleteExpenseCategoryAction(id: string, branchId: string) {
     try {
         await db.expenseCategory.delete({
-            where: { id }
+            where: { id, branchId }
         });
 
         revalidatePath('/finance');
@@ -485,17 +535,23 @@ export async function deleteExpenseCategoryAction(id: string) {
 
 export async function createDefaultExpenseCategoriesAction(userId: string, locationId: string, categoryNames: string[]) {
     try {
-        const data = categoryNames.map(name => ({
-            userId,
-            branchId: locationId,
-            name,
-            isDefault: true
-        }));
-
-        await db.expenseCategory.createMany({
-            data,
-            skipDuplicates: true
-        });
+        for (const name of categoryNames) {
+            await db.expenseCategory.upsert({
+                where: {
+                    branchId_name: {
+                        branchId: locationId,
+                        name: name
+                    }
+                },
+                update: {}, // Do nothing if it exists
+                create: {
+                    userId,
+                    branchId: locationId,
+                    name,
+                    isDefault: true
+                }
+            });
+        }
 
         revalidatePath('/finance');
         return { success: true };
@@ -553,10 +609,10 @@ export async function createCashAccountAction(data: any) {
     }
 }
 
-export async function updateCashAccountAction(id: string, updates: any) {
+export async function updateCashAccountAction(id: string, branchId: string, updates: any) {
     try {
         const result = await db.cashAccount.update({
-            where: { id },
+            where: { id, branchId },
             data: {
                 name: updates.name,
                 description: updates.description,
@@ -593,7 +649,7 @@ export async function deleteCashAccountAction(id: string, locationId: string) {
             }
 
             await tx.cashAccount.delete({
-                where: { id, locationId }
+                where: { id, branchId: locationId }
             });
 
             return { success: true, hasTransactions: false };
@@ -645,24 +701,29 @@ export async function deleteCashAccountWithTransactionsAction(id: string, locati
 export async function getCashAccountBalanceAction(accountId: string, locationId: string) {
     try {
         const account = await db.cashAccount.findUnique({
-            where: { id: accountId },
+            where: { id: accountId, branchId: locationId },
             select: { initialBalance: true }
         });
 
         if (!account) return { success: false, error: 'Account not found' };
 
-        const transactions = await db.cashTransaction.findMany({
+        // Efficiently aggregate sums by transaction type in the database
+        const aggregates = await db.cashTransaction.groupBy({
+            by: ['transactionType'],
             where: { accountId, branchId: locationId },
-            select: { amount: true, transactionType: true }
+            _sum: {
+                amount: true
+            }
         });
 
         let balance = Number(account.initialBalance);
-        for (const tx of transactions) {
-            const amount = Number(tx.amount);
-            if (tx.transactionType === 'cash_in' || tx.transactionType === 'transfer_in') {
-                balance += amount;
-            } else if (tx.transactionType === 'cash_out' || tx.transactionType === 'transfer_out') {
-                balance -= amount;
+
+        for (const agg of aggregates) {
+            const sum = Number(agg._sum.amount || 0);
+            if (agg.transactionType === 'cash_in' || agg.transactionType === 'transfer_in') {
+                balance += sum;
+            } else if (agg.transactionType === 'cash_out' || agg.transactionType === 'transfer_out') {
+                balance -= sum;
             }
         }
 
@@ -675,30 +736,37 @@ export async function getCashAccountBalanceAction(accountId: string, locationId:
 
 // --- CASH TRANSACTIONS ---
 
-export async function getCashTransactionsAction(locationId: string, accountId?: string) {
+export async function getCashTransactionsAction(locationId: string, accountId?: string, skip: number = 0, take: number = 50) {
     try {
         const where: any = { branchId: locationId };
         if (accountId) where.accountId = accountId;
 
-        const transactions = await db.cashTransaction.findMany({
-            where,
-            orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
-        });
+        const [transactions, count] = await Promise.all([
+            db.cashTransaction.findMany({
+                where,
+                orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+                skip,
+                take
+            }),
+            db.cashTransaction.count({ where })
+        ]);
 
         return {
             success: true,
             data: transactions.map((t: any) => ({
                 ...t,
+                amount: Number(t.amount),
                 created_at: t.createdAt.toISOString(),
                 updated_at: t.updatedAt.toISOString(),
                 user_id: t.userId,
                 account_id: t.accountId,
-                location_id: t.locationId,
+                location_id: t.branchId,
                 transaction_type: t.transactionType,
                 person_in_charge: t.personInCharge,
                 payment_method: t.paymentMethod,
                 receipt_image: t.receiptImage
-            }))
+            })),
+            count
         };
     } catch (error: any) {
         console.error('Error fetching cash transactions:', error);
@@ -713,7 +781,7 @@ export async function createCashTransactionAction(data: any) {
                 const txOut = await tx.cashTransaction.create({
                     data: {
                         userId: data.userId,
-                        locationId: data.locationId,
+                        branchId: data.locationId,
                         accountId: data.accountId,
                         amount: data.amount,
                         transactionType: 'transfer_out',
@@ -726,7 +794,7 @@ export async function createCashTransactionAction(data: any) {
                 const txIn = await tx.cashTransaction.create({
                     data: {
                         userId: data.userId,
-                        locationId: data.locationId,
+                        branchId: data.locationId,
                         accountId: data.toAccountId,
                         amount: data.amount,
                         transactionType: 'transfer_in',
@@ -766,10 +834,10 @@ export async function createCashTransactionAction(data: any) {
     }
 }
 
-export async function updateCashTransactionAction(id: string, updates: any) {
+export async function updateCashTransactionAction(id: string, branchId: string, updates: any) {
     try {
         const result = await db.cashTransaction.update({
-            where: { id },
+            where: { id, branchId },
             data: {
                 accountId: updates.accountId,
                 amount: updates.amount,
@@ -792,10 +860,10 @@ export async function updateCashTransactionAction(id: string, updates: any) {
     }
 }
 
-export async function findCashTransactionAction(id: string) {
+export async function findCashTransactionAction(id: string, branchId: string) {
     try {
         const transaction = await db.cashTransaction.findUnique({
-            where: { id },
+            where: { id, branchId },
             select: { accountId: true }
         });
 
@@ -809,8 +877,12 @@ export async function findCashTransactionAction(id: string) {
 export async function deleteCashTransactionAction(id: string, locationId: string) {
     try {
         await db.$transaction(async (tx: any) => {
+            // Verify ownership through where clause in updateMany/delete
             await tx.installmentPayment.updateMany({
-                where: { cashTransactionId: id },
+                where: { 
+                    cashTransactionId: id,
+                    sale: { branchId: locationId }
+                },
                 data: { cashTransactionId: null }
             });
 
@@ -843,9 +915,12 @@ export async function getAccountOpeningBalanceAction(accountId: string, location
 
 export async function createBulkCashTransactionsAction(transactions: any[]) {
     try {
+        // Validate input data
+        const validatedTransactions = bulkCashTransactionSchema.parse(transactions);
+
         const result = await db.$transaction(async (tx: any) => {
             const created = [];
-            for (const data of transactions) {
+            for (const data of validatedTransactions) {
                 if (data.transactionType === 'transfer' && data.toAccountId) {
                     created.push(await tx.cashTransaction.create({
                         data: {
@@ -854,7 +929,7 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
                             accountId: data.accountId,
                             amount: data.amount,
                             transactionType: 'transfer_out',
-                            description: data.description,
+                            description: data.description || '',
                             date: data.date ? new Date(data.date) : new Date(),
                             category: data.category || 'Transfer'
                         }
@@ -866,7 +941,7 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
                             accountId: data.toAccountId,
                             amount: data.amount,
                             transactionType: 'transfer_in',
-                            description: data.description,
+                            description: data.description || '',
                             date: data.date ? new Date(data.date) : new Date(),
                             category: data.category || 'Transfer'
                         }
@@ -879,13 +954,13 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
                             accountId: data.accountId,
                             amount: data.amount,
                             transactionType: data.transactionType,
-                            category: data.category,
-                            description: data.description,
-                            personInCharge: data.personInCharge,
-                            tags: data.tags,
+                            category: data.category || null,
+                            description: data.description || null,
+                            personInCharge: data.personInCharge || null,
+                            tags: data.tags || [],
                             date: data.date ? new Date(data.date) : new Date(),
-                            paymentMethod: data.paymentMethod,
-                            receiptImage: data.receiptImage
+                            paymentMethod: data.paymentMethod || null,
+                            receiptImage: data.receiptImage || null
                         }
                     }));
                 }
@@ -896,6 +971,10 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
         revalidatePath('/finance');
         return { success: true, data: result };
     } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            console.error('Validation error for bulk transactions:', error.errors);
+            return { success: false, error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` };
+        }
         console.error('Error creating bulk transactions:', error);
         return { success: false, error: error.message };
     }

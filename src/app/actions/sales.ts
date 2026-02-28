@@ -3,6 +3,70 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const saleItemSchema = z.object({
+    productId: z.string().optional().nullable(),
+    productName: z.string().min(1, "Product name is required"),
+    quantity: z.number().positive("Quantity must be positive"),
+    price: z.number().nonnegative("Price cannot be negative"),
+    cost: z.number().nonnegative("Cost cannot be negative"),
+    discountType: z.string().optional().nullable(),
+    discountAmount: z.number().optional().nullable(),
+    discountPercentage: z.number().optional().nullable()
+});
+
+const createReceiptSchema = z.object({
+    receiptNumber: z.string().min(1, "Receipt number is required"),
+    customerName: z.string().optional().nullable(),
+    customerId: z.string().optional().nullable(),
+    date: z.string().or(z.date()),
+    items: z.array(saleItemSchema).min(1, "At least one item is required").max(100, "Maximum 100 items per sale"),
+    paymentStatus: z.string(),
+    amountPaid: z.number().nonnegative().optional().default(0),
+    amountDue: z.number().nonnegative().optional().default(0),
+    cashAccountId: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    taxRate: z.number().nonnegative().optional().default(0)
+});
+
+function calculateSaleFinancials(items: any[], taxRate: number) {
+    let subtotal = 0;
+    let totalCost = 0;
+    let totalDiscount = 0;
+
+    if (!items || !Array.isArray(items)) {
+        return { subtotal: 0, total: 0, totalCost: 0, profit: 0, discount: 0, taxAmount: 0 };
+    }
+
+    items.forEach((item: any) => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        const cost = Number(item.cost) || 0;
+        const itemSubtotal = price * qty;
+        
+        const discountAmount = item.discountType === 'amount'
+            ? (Number(item.discountAmount) || 0)
+            : (itemSubtotal * (Number(item.discountPercentage) || 0)) / 100;
+        
+        subtotal += (itemSubtotal - discountAmount);
+        totalDiscount += discountAmount;
+        totalCost += cost * qty;
+    });
+
+    const taxAmount = subtotal * (Number(taxRate || 0) / 100);
+    const total = subtotal + taxAmount;
+    const profit = total - totalCost;
+
+    return {
+        subtotal,
+        total,
+        totalCost,
+        profit,
+        discount: totalDiscount,
+        taxAmount
+    };
+}
 
 export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'desc' = 'desc', pageSize?: number) {
     try {
@@ -36,7 +100,7 @@ export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'des
             customer_id: item.customerId,
             items: item.items as any, // jsonb type
             payment_status: item.paymentStatus,
-            profit: 0, // Profit not stored directly
+            profit: Number(item.profit || 0),
             date: item.date.toISOString(),
             tax_rate: item.taxRate ? Number(item.taxRate) : 0,
             created_at: item.createdAt.toISOString(),
@@ -45,11 +109,56 @@ export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'des
             amount_paid: Number(item.amountPaid),
             amount_due: Number(item.balance),
             category_id: item.categoryId,
-            notes: item.notes
+            notes: item.notes,
+            total: Number(item.total || 0),
+            total_cost: Number(item.totalCost || 0),
+            subtotal: Number(item.subtotal || 0),
+            discount: Number(item.discount || 0),
+            tax_amount: Number(item.taxAmount || 0)
         }));
     } catch (error) {
         console.error('Error fetching sales:', error);
         return [];
+    }
+}
+
+async function processSaleInventory(tx: any, items: any[], branchId: string, userId: string, receiptNumber: string, date: Date) {
+    for (const item of items) {
+        if (!item.productId) continue;
+
+        const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { stock: true, name: true }
+        });
+
+        if (!product) continue;
+
+        const quantitySold = Number(item.quantity) || 0;
+        const previousStock = Number(product.stock);
+        const newStock = previousStock - quantitySold;
+
+        // 1. Update Product Stock Atomically
+        await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: quantitySold } }
+        });
+
+        // 2. Create Product History Entry
+        await tx.productHistory.create({
+            data: {
+                userId,
+                locationId: branchId,
+                productId: item.productId,
+                oldStock: previousStock,
+                newStock: newStock,
+                type: 'SALE',
+                changeReason: 'SALE',
+                reason: `Sale #${receiptNumber}`,
+                referenceId: receiptNumber,
+                referenceType: 'SALE',
+                createdAt: date
+            }
+        });
     }
 }
 
@@ -65,19 +174,62 @@ export async function deleteSaleAction(id: string, businessId: string) {
         }
 
         await db.$transaction(async (tx) => {
-            // Delete installments
+            // 1. Restore Stock if it wasn't a quote
+            if (sale.paymentStatus !== 'QUOTE') {
+                const items = sale.items as any[];
+                if (items && Array.isArray(items)) {
+                    for (const item of items) {
+                        if (!item.productId) continue;
+
+                        const product = await tx.product.findUnique({
+                            where: { id: item.productId },
+                            select: { stock: true }
+                        });
+
+                        if (product) {
+                            const quantityToRestore = Number(item.quantity) || 0;
+                            const previousStock = Number(product.stock);
+                            const newStock = previousStock + quantityToRestore;
+
+                            // Atomic increment
+                            await tx.product.update({
+                                where: { id: item.productId },
+                                data: { stock: { increment: quantityToRestore } }
+                            });
+
+                            // History entry for restoration
+                            await tx.productHistory.create({
+                                data: {
+                                    userId: sale.userId,
+                                    locationId: sale.branchId,
+                                    productId: item.productId,
+                                    oldStock: previousStock,
+                                    newStock: newStock,
+                                    type: 'RETURN_IN',
+                                    changeReason: 'SALE_CANCELLED',
+                                    reason: `Cancelled Sale #${sale.saleNumber}`,
+                                    referenceId: sale.saleNumber,
+                                    referenceType: 'SALE_CANCEL'
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 2. Delete installments
             await tx.installmentPayment.deleteMany({
                 where: { saleId: id }
             });
 
-            // Delete associated cash transaction
+            // 3. Delete associated cash transaction
             if (sale.cashTransactionId) {
                 await tx.cashTransaction.delete({
                     where: { id: sale.cashTransactionId }
                 });
             }
 
-            // Delete the sale itself
+            // 4. Delete the sale itself
             await tx.sale.delete({
                 where: { id }
             });
@@ -95,9 +247,11 @@ export async function deleteSaleAction(id: string, businessId: string) {
                 items: sale.items as any,
                 amountPaid: Number(sale.amountPaid),
                 amountDue: Number(sale.balance),
-                profit: 0,
+                profit: Number(sale.profit || 0),
                 taxRate: Number(sale.taxRate),
-                notes: sale.notes
+                notes: sale.notes,
+                total: Number(sale.total || 0),
+                totalCost: Number(sale.totalCost || 0)
             }
         };
     } catch (error: any) {
@@ -108,12 +262,13 @@ export async function deleteSaleAction(id: string, businessId: string) {
 
 export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updateId?: string) {
     try {
-        // Map PaymentStatus if needed
         let status = saleDbData.payment_status;
         if (status === 'NOT PAID') status = 'UNPAID';
         else if (status === 'Installment Sale') status = 'INSTALLMENT';
         else if (status === 'Paid') status = 'PAID';
         else if (status === 'Quote') status = 'QUOTE';
+
+        const financials = calculateSaleFinancials(saleDbData.items, saleDbData.tax_rate);
 
         const prismaData: any = {
             userId: saleDbData.user_id,
@@ -132,22 +287,77 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
             balance: saleDbData.amount_due,
             categoryId: saleDbData.category_id,
             notes: saleDbData.notes,
-            subtotal: 0, // Placeholder
-            total: 0,     // Placeholder
+            subtotal: financials.subtotal,
+            discount: financials.discount,
+            taxAmount: financials.taxAmount,
+            total: financials.total,
+            totalCost: financials.totalCost,
+            profit: financials.profit,
         };
 
-        if (isUpdate && updateId) {
-            const updated = await db.sale.update({
-                where: { id: updateId },
-                data: prismaData
-            });
-            return { success: true, data: updated };
-        } else {
-            const created = await db.sale.create({
-                data: prismaData
-            });
-            return { success: true, data: created };
-        }
+        const result = await db.$transaction(async (tx) => {
+            let sale;
+            if (isUpdate && updateId) {
+                const existingSale = await tx.sale.findUnique({
+                    where: { id: updateId },
+                    select: { items: true, paymentStatus: true }
+                });
+
+                if (!existingSale) throw new Error("Existing sale not found");
+
+                sale = await tx.sale.update({
+                    where: { id: updateId },
+                    data: prismaData
+                });
+
+                // Adjust inventory for updates
+                if (existingSale.paymentStatus !== 'QUOTE' || status !== 'QUOTE') {
+                    const oldItems = (existingSale.items as any[]) || [];
+                    const newItems = (saleDbData.items as any[]) || [];
+
+                    if (existingSale.paymentStatus !== 'QUOTE') {
+                        for (const item of oldItems) {
+                            if (item.productId) {
+                                await tx.product.update({
+                                    where: { id: item.productId },
+                                    data: { stock: { increment: Number(item.quantity) || 0 } }
+                                });
+                            }
+                        }
+                    }
+
+                    if (status !== 'QUOTE') {
+                        await processSaleInventory(tx, newItems, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
+                    }
+                }
+            } else {
+                sale = await tx.sale.create({
+                    data: prismaData
+                });
+
+                if (status !== 'QUOTE') {
+                    await processSaleInventory(tx, saleDbData.items, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
+                }
+            }
+            return sale;
+        });
+
+        return { 
+            success: true, 
+            data: {
+                ...result,
+                amountPaid: Number(result.amountPaid),
+                balance: Number(result.balance),
+                taxRate: Number(result.taxRate),
+                subtotal: Number(result.subtotal),
+                total: Number(result.total),
+                totalCost: Number(result.totalCost),
+                profit: Number(result.profit),
+                date: result.date.toISOString(),
+                createdAt: result.createdAt.toISOString(),
+                updatedAt: result.updatedAt.toISOString()
+            } 
+        };
     } catch (error: any) {
         console.error('Error upserting sale:', error);
         return { success: false, error: error.message || 'Failed to preserve sale' };
@@ -156,36 +366,73 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
 
 export async function createReceiptAction(saleData: any, businessId: string, userId: string) {
     try {
-        let status = saleData.paymentStatus;
+        // Validate input data
+        const validatedData = createReceiptSchema.parse(saleData);
+
+        let status = validatedData.paymentStatus;
         if (status === 'NOT PAID') status = 'UNPAID';
         else if (status === 'Installment Sale') status = 'INSTALLMENT';
         else if (status === 'Paid') status = 'PAID';
         else if (status === 'Quote') status = 'QUOTE';
 
-        const created = await db.sale.create({
-            data: {
-                userId: userId,
-                branchId: businessId,
-                saleNumber: saleData.receiptNumber,
-                customerName: saleData.customerName,
-                customerId: saleData.customerId,
-                date: new Date(saleData.date),
-                items: saleData.items,
-                paymentStatus: status,
-                amountPaid: saleData.amountPaid || 0,
-                balance: saleData.amountDue || 0,
-                cashAccountId: saleData.cashAccountId,
-                notes: saleData.notes,
-                subtotal: 0,
-                total: 0,
+        const financials = calculateSaleFinancials(validatedData.items, validatedData.taxRate);
+        const saleDate = new Date(validatedData.date);
+
+        const result = await db.$transaction(async (tx) => {
+            const created = await tx.sale.create({
+                data: {
+                    userId: userId,
+                    branchId: businessId,
+                    saleNumber: validatedData.receiptNumber,
+                    customerName: validatedData.customerName,
+                    customerId: validatedData.customerId,
+                    date: saleDate,
+                    items: validatedData.items,
+                    paymentStatus: status,
+                    amountPaid: validatedData.amountPaid || 0,
+                    balance: validatedData.amountDue || 0,
+                    cashAccountId: validatedData.cashAccountId,
+                    notes: validatedData.notes,
+                    taxRate: validatedData.taxRate || 0,
+                    subtotal: financials.subtotal,
+                    discount: financials.discount,
+                    taxAmount: financials.taxAmount,
+                    total: financials.total,
+                    totalCost: financials.totalCost,
+                    profit: financials.profit,
+                }
+            });
+
+            if (status !== 'QUOTE') {
+                await processSaleInventory(tx, validatedData.items, businessId, userId, validatedData.receiptNumber, saleDate);
             }
+            return created;
         });
 
         revalidatePath('/sales');
         revalidatePath('/customers');
 
-        return { success: true, data: created };
+        return { 
+            success: true, 
+            data: {
+                ...result,
+                amountPaid: Number(result.amountPaid),
+                balance: Number(result.balance),
+                taxRate: Number(result.taxRate),
+                subtotal: Number(result.subtotal),
+                total: Number(result.total),
+                totalCost: Number(result.totalCost),
+                profit: Number(result.profit),
+                date: result.date.toISOString(),
+                createdAt: result.createdAt.toISOString(),
+                updatedAt: result.updatedAt.toISOString()
+            } 
+        };
     } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            console.error('Validation error for receipt:', error.errors);
+            return { success: false, error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` };
+        }
         console.error('Error creating receipt:', error);
         return { success: false, error: error.message || 'Failed to create receipt' };
     }
@@ -293,7 +540,18 @@ export async function getSalesGoalAction(userId: string, branchId: string, month
         const goal = await db.salesGoal.findFirst({
             where: { userId, branchId, period: `${year}-${String(month).padStart(2, '0')}` }
         });
-        return { success: true, data: goal };
+        return { 
+            success: true, 
+            data: goal ? {
+                ...goal,
+                target: Number(goal.target),
+                current: Number(goal.current),
+                startDate: goal.startDate.toISOString(),
+                endDate: goal.endDate.toISOString(),
+                createdAt: goal.createdAt.toISOString(),
+                updatedAt: goal.updatedAt.toISOString()
+            } : null
+        };
     } catch (error: any) {
         console.error('Error fetching sales goal:', error);
         return { success: false, error: error.message };
@@ -342,17 +600,18 @@ export async function upsertSalesGoalAction(
 
 export async function getPeriodSalesAction(branchId: string, startDate: Date, endDate: Date) {
     try {
-        const sales = await db.sale.findMany({
+        const aggregate = await db.sale.aggregate({
             where: {
                 branchId,
                 date: { gte: startDate, lte: endDate },
                 paymentStatus: { not: 'QUOTE' }
             },
-            select: { amountPaid: true }
+            _sum: {
+                amountPaid: true
+            }
         });
 
-        const total = sales.reduce((sum, sale) => sum + Number(sale.amountPaid || 0), 0);
-        return { success: true, data: total };
+        return { success: true, data: Number(aggregate._sum.amountPaid || 0) };
     } catch (error: any) {
         console.error('Error fetching period sales:', error);
         return { success: false, error: error.message };

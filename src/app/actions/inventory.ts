@@ -3,6 +3,25 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+// Validation schema for requisition items
+const requisitionItemSchema = z.object({
+    productName: z.string().min(1, "Product name is required"),
+    sku: z.string().optional().nullable(),
+    quantity: z.number().positive("Quantity must be positive")
+});
+
+// Validation schema for the entire requisition
+const createRequisitionSchema = z.object({
+    branchId: z.string().min(1, "Branch ID is required"),
+    userId: z.string().min(1, "User ID is required"),
+    requisitionNumber: z.string().min(1, "Requisition number is required"),
+    title: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    priority: z.string().optional().default("NORMAL"),
+    items: z.array(requisitionItemSchema).min(1, "At least one item is required").max(100, "Maximum 100 items per requisition")
+});
 
 // --- STOCK HISTORY ---
 
@@ -333,19 +352,22 @@ export async function getRequisitionsAction(branchId: string) {
 
 export async function createRequisitionAction(data: any) {
     try {
+        // Validate input data
+        const validatedData = createRequisitionSchema.parse(data);
+
         const result = await db.requisition.create({
             data: {
-                branchId: data.branchId,
-                userId: data.userId,
-                requisitionNumber: data.requisitionNumber,
-                title: data.title,
-                notes: data.notes,
+                branchId: validatedData.branchId,
+                userId: validatedData.userId,
+                requisitionNumber: validatedData.requisitionNumber,
+                title: validatedData.title || '',
+                notes: validatedData.notes || null,
                 status: 'PENDING',
-                priority: data.priority || 'NORMAL',
+                priority: validatedData.priority || 'NORMAL',
                 items: {
-                    create: data.items.map((item: any) => ({
+                    create: validatedData.items.map((item: any) => ({
                         productName: item.productName,
-                        sku: item.sku,
+                        sku: item.sku || null,
                         quantity: Number(item.quantity)
                     }))
                 }
@@ -355,6 +377,10 @@ export async function createRequisitionAction(data: any) {
         revalidatePath('/inventory/requisitions');
         return { success: true, data: result };
     } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            console.error('Validation error for requisition:', error.errors);
+            return { success: false, error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` };
+        }
         console.error('Error creating requisition:', error);
         return { success: false, error: error.message };
     }
