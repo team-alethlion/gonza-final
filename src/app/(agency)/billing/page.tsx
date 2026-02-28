@@ -22,7 +22,8 @@ import {
     Check,
     ArrowRightLeft,
     Box,
-    Loader2
+    Loader2,
+    Users as UsersIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -201,7 +202,7 @@ const BillingHistory = () => {
                 </div>
                 <div className="flex items-center flex-wrap gap-3">
                     <button
-                        onClick={handleRenew}
+                        onClick={() => handleRenew()}
                         disabled={isInitiatingPayment}
                         className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50"
                     >
@@ -311,12 +312,13 @@ const BillingHistory = () => {
                                 </div>
 
                                 <div className="space-y-3 mb-8 pt-6 border-t border-slate-50">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-5 h-5 rounded-md bg-slate-50 flex items-center justify-center">
-                                            <Users className="w-3 h-3 text-slate-400" />
-                                        </div>
-                                        <span className="text-xs text-slate-600">{pkg.unlimitedUsers ? 'Unlimited' : `Up to ${pkg.maxUsers}`} Team Members</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-5 h-5 rounded-md bg-slate-50 flex items-center justify-center">
+                                        <UsersIcon className="w-3 h-3 text-slate-400" />
                                     </div>
+                                    <span className="text-xs text-slate-600">{pkg.unlimitedUsers ? 'Unlimited' : `Up to ${pkg.maxUsers}`} Team Members</span>
+                                </div>
+
                                     <div className="flex items-center gap-3">
                                         <div className="w-5 h-5 rounded-md bg-slate-50 flex items-center justify-center">
                                             <Box className="w-3 h-3 text-slate-400" />

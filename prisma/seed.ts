@@ -173,7 +173,7 @@ async function main() {
                     email: 'superadmin@gonzasystems.com',
                     password: adminPassword,
                     name: 'Gonza Super Admin',
-                    status: 'active',
+                    status: 'ACTIVE',
                     passwordResetRequired: false
                 }
             });
@@ -185,7 +185,7 @@ async function main() {
                     name: 'Gonza Super Admin',
                     roleId: superAdminRole.id,
                     emailVerified: new Date(),
-                    status: 'active',
+                    status: 'ACTIVE',
                     passwordResetRequired: false
                 }
             });
