@@ -4,6 +4,7 @@
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { PaymentStatus } from '@prisma/client';
 
 const saleItemSchema = z.object({
     productId: z.string().optional().nullable(),
@@ -18,7 +19,7 @@ const saleItemSchema = z.object({
 
 const createReceiptSchema = z.object({
     receiptNumber: z.string().min(1, "Receipt number is required"),
-    customerName: z.string().optional().nullable(),
+    customerName: z.string().optional().nullable().default(""),
     customerId: z.string().optional().nullable(),
     date: z.string().or(z.date()),
     items: z.array(saleItemSchema).min(1, "At least one item is required").max(100, "Maximum 100 items per sale"),
@@ -279,7 +280,7 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
             customerPhone: saleDbData.customer_contact,
             customerId: saleDbData.customer_id,
             items: saleDbData.items,
-            paymentStatus: status,
+            paymentStatus: status as PaymentStatus,
             date: new Date(saleDbData.date),
             taxRate: saleDbData.tax_rate,
             cashTransactionId: saleDbData.cash_transaction_id,
@@ -384,15 +385,15 @@ export async function createReceiptAction(saleData: any, businessId: string, use
                     userId: userId,
                     branchId: businessId,
                     saleNumber: validatedData.receiptNumber,
-                    customerName: validatedData.customerName,
-                    customerId: validatedData.customerId,
+                    customerName: validatedData.customerName || "",
+                    customerId: validatedData.customerId || null,
                     date: saleDate,
                     items: validatedData.items,
-                    paymentStatus: status,
+                    paymentStatus: status as PaymentStatus,
                     amountPaid: validatedData.amountPaid || 0,
                     balance: validatedData.amountDue || 0,
-                    cashAccountId: validatedData.cashAccountId,
-                    notes: validatedData.notes,
+                    cashAccountId: validatedData.cashAccountId || null,
+                    notes: validatedData.notes || null,
                     taxRate: validatedData.taxRate || 0,
                     subtotal: financials.subtotal,
                     discount: financials.discount,
