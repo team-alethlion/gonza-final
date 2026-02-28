@@ -58,7 +58,7 @@ model User {
   password              String? // Null for OAuth-only users
   emailVerified         DateTime? // Changed from Boolean to DateTime for NextAuth
   passwordResetRequired Boolean?  @default(false)
-  status                String?   @default("active") // "active", "suspended", "expired"
+  status                UserStatus @default(ACTIVE)
   image                 String? // Profile picture URL
   roleId                String
   role                  Role      @relation(fields: [roleId], references: [id])
@@ -106,7 +106,6 @@ model User {
   receivedPayments InstallmentPayment[] @relation("PaymentReceiver")
   salesGoals       SalesGoal[]
 
-  isActive      Boolean        @default(true)
   pin           String? // 4-digit security PIN for switching profiles
   notifications Notification[]
 
@@ -206,8 +205,8 @@ model Package {
   description  String?
   
   // Pricing
-  monthlyPrice Float   @default(0)
-  yearlyPrice  Float   @default(0)
+  monthlyPrice Decimal @default(0) @db.Decimal(15, 2)
+  yearlyPrice  Decimal @default(0) @db.Decimal(15, 2)
   
   // Quotas
   maxUsers       Int     @default(5)
@@ -232,6 +231,13 @@ model Package {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  EXPIRED
 }
 
 model SystemConfig {

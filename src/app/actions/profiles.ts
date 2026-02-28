@@ -3,9 +3,19 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 // Profiles Server Actions (Using the User model from Prisma Auth map)
 export async function getProfilesAction(branchId: string) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    
+    const userBranchId = (session.user as any).branchId;
+    if (userBranchId && userBranchId !== branchId) {
+        const role = (session.user as any).role?.toLowerCase();
+        if (role !== 'superadmin') throw new Error("Unauthorized: Branch mismatch");
+    }
+
     try {
         const branch = await db.branch.findUnique({
             where: { id: branchId },
@@ -16,7 +26,7 @@ export async function getProfilesAction(branchId: string) {
             where: {
                 OR: [
                     { branchId: branchId },
-                    { id: branch?.adminId }
+                    { id: branch?.adminId },
                 ]
             },
             include: {
@@ -51,7 +61,7 @@ export async function getProfilesAction(branchId: string) {
                     return acc;
                 }, {})
             } : undefined,
-            is_active: u.isActive,
+            is_active: u.status === 'ACTIVE',
             sms_credits: u.credits,
             created_by: u.agencyId || u.id,
             created_at: u.createdAt.toISOString(),
@@ -64,13 +74,23 @@ export async function getProfilesAction(branchId: string) {
 }
 
 export async function createProfileAction(branchId: string, profileData: any) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    if ((session.user as any).branchId && (session.user as any).branchId !== branchId) throw new Error("Unauthorized");
+
     try {
         // We'll need a default role if not provided
         let roleId = profileData.role_id;
 
         if (!roleId) {
             const defaultRole = await db.role.findFirst({
-                where: { name: profileData.role || 'Staff' }
+                where: { 
+                    name: profileData.role || 'Staff',
+                    OR: [
+                        { branchId: branchId },
+                        { branchId: null }
+                    ]
+                }
             });
             roleId = defaultRole?.id;
         }
@@ -80,7 +100,7 @@ export async function createProfileAction(branchId: string, profileData: any) {
                 email: profileData.email,
                 name: profileData.profile_name,
                 pin: profileData.pin,
-                isActive: profileData.is_active !== undefined ? profileData.is_active : true,
+                status: profileData.is_active !== undefined ? (profileData.is_active ? 'ACTIVE' : 'INACTIVE') : 'ACTIVE',
                 roleId: roleId,
                 branchId: branchId
             }
@@ -94,17 +114,25 @@ export async function createProfileAction(branchId: string, profileData: any) {
     }
 }
 
-export async function updateProfileAction(userId: string, updateData: any) {
+export async function updateProfileAction(userId: string, branchId: string, updateData: any) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    
+    // Authorization check
+    if ((session.user as any).branchId && (session.user as any).branchId !== branchId) {
+        if ((session.user as any).role?.toLowerCase() !== 'superadmin') throw new Error("Unauthorized");
+    }
+
     try {
         const data: any = {};
         if (updateData.profile_name !== undefined) data.name = updateData.profile_name;
         if (updateData.email !== undefined) data.email = updateData.email;
         if (updateData.pin !== undefined) data.pin = updateData.pin;
-        if (updateData.is_active !== undefined) data.isActive = updateData.is_active;
+        if (updateData.is_active !== undefined) data.status = updateData.is_active ? 'ACTIVE' : 'INACTIVE';
         if (updateData.role_id !== undefined) data.roleId = updateData.role_id;
 
         const updatedUser = await db.user.update({
-            where: { id: userId },
+            where: { id: userId, branchId: branchId },
             data: data
         });
 
@@ -116,10 +144,14 @@ export async function updateProfileAction(userId: string, updateData: any) {
     }
 }
 
-export async function deleteProfileAction(userId: string) {
+export async function deleteProfileAction(userId: string, branchId: string) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    if ((session.user as any).branchId && (session.user as any).branchId !== branchId) throw new Error("Unauthorized");
+
     try {
         await db.user.delete({
-            where: { id: userId }
+            where: { id: userId, branchId: branchId }
         });
 
         revalidatePath('/profiles');
@@ -163,8 +195,11 @@ export async function getRolesAction(branchId: string) {
 }
 
 export async function upsertRoleAction(branchId: string, roleData: any) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    if ((session.user as any).branchId && (session.user as any).branchId !== branchId) throw new Error("Unauthorized");
+
     try {
-        // Flatten permissions map to flat array like "sales:view"
         const flatPermissions: string[] = [];
         if (roleData.permissions) {
             Object.keys(roleData.permissions).forEach(module => {
@@ -174,7 +209,6 @@ export async function upsertRoleAction(branchId: string, roleData: any) {
             });
         }
 
-        // Make sure all these permissions exist in the DB, create them if not
         const permissionRecords = await Promise.all(
             flatPermissions.map(async (name) => {
                 let perm = await db.permission.findUnique({ where: { name } });
@@ -190,7 +224,7 @@ export async function upsertRoleAction(branchId: string, roleData: any) {
         if (roleData.id) {
             // Update
             upserted = await db.role.update({
-                where: { id: roleData.id },
+                where: { id: roleData.id, branchId: branchId },
                 data: {
                     name: roleData.name,
                     description: roleData.description,
@@ -221,10 +255,14 @@ export async function upsertRoleAction(branchId: string, roleData: any) {
     }
 }
 
-export async function deleteRoleAction(roleId: string) {
+export async function deleteRoleAction(roleId: string, branchId: string) {
+    const session = await auth();
+    if (!session || !session.user) throw new Error("Unauthorized");
+    if ((session.user as any).branchId && (session.user as any).branchId !== branchId) throw new Error("Unauthorized");
+
     try {
         await db.role.delete({
-            where: { id: roleId }
+            where: { id: roleId, branchId: branchId }
         });
         revalidatePath('/profiles');
         return { success: true };

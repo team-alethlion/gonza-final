@@ -94,7 +94,6 @@ export async function getAccountStatusAction(userId: string) {
             where: { id: userId },
             select: {
                 status: true,
-                isActive: true,
                 createdAt: true,
                 agency: {
                     select: {
@@ -110,7 +109,7 @@ export async function getAccountStatusAction(userId: string) {
 
         if (!user) return null;
 
-        const isFrozen = user.status === 'suspended' || user.status === 'expired' || !user.isActive;
+        const isFrozen = user.status === 'SUSPENDED' || user.status === 'EXPIRED' || user.status === 'INACTIVE';
         const agency = user.agency;
         const now = new Date();
 
