@@ -3,6 +3,7 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { getPesapalToken } from '@/lib/pesapal';
 
 export async function getSubscriptionPaymentsAction(userId: string) {
     try {
@@ -35,33 +36,6 @@ export async function getSubscriptionPaymentsAction(userId: string) {
 }
 
 // --- PESAPAL INTEGRATION UTILS ---
-async function getPesapalToken() {
-    const pesapalUrl = process.env.PESAPAL_BASE_URL;
-    const consumerKey = process.env.PESAPAL_CONSUMER_KEY;
-    const consumerSecret = process.env.PESAPAL_CONSUMER_SECRET;
-
-    if (!pesapalUrl || !consumerKey || !consumerSecret) {
-        throw new Error("Missing Pesapal environment variables");
-    }
-
-    const response = await fetch(`${pesapalUrl}/api/Auth/RequestToken`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-            consumer_key: consumerKey,
-            consumer_secret: consumerSecret,
-        }),
-    });
-
-    const data = await response.json();
-    if (!data.token) {
-        throw new Error(`Failed to get PesaPal token: ${JSON.stringify(data)}`);
-    }
-    return data.token;
-}
 
 async function getOrRegisterIPN(token: string): Promise<string> {
     const pesapalUrl = process.env.PESAPAL_BASE_URL;

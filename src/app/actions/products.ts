@@ -2,8 +2,10 @@
 "use server";
 
 import { db } from '../../../prisma/db';
+import { Prisma } from '@prisma/client';
 import { Product, ProductFormData, mapDbProductToProduct, mapProductToDbProduct } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 // We implement server actions for the products here
 
@@ -24,13 +26,16 @@ export async function getProductsAction({
   category?: string;
   stockStatus?: 'inStock' | 'outOfStock' | 'lowStock' | 'all';
 }) {
-  if (!userId || !businessId) return { products: [], count: 0 };
+  const session = await auth();
+  if (!session || !session.user) return { products: [], count: 0 };
+  
+  const userBranchId = (session.user as any).branchId;
+  if (userBranchId && userBranchId !== businessId) return { products: [], count: 0 };
 
   const skip = (page - 1) * pageSize;
   const take = pageSize;
 
   const whereClause: any = {
-    userId: userId,
     branchId: businessId,
   };
 
@@ -43,7 +48,7 @@ export async function getProductsAction({
     ];
   }
 
-  if (category) {
+  if (category && category !== 'all') {
     whereClause.category = { name: category };
   }
 
@@ -51,16 +56,64 @@ export async function getProductsAction({
     whereClause.stock = 0;
   } else if (stockStatus === 'inStock') {
     whereClause.stock = { gt: 0 };
-  } else if (stockStatus === 'lowStock') {
-    // Handling lowStock is complex because minStock is compared locally or using direct SQL in Prisma
-    // For now, we will handle it with Prisma's raw query or by filtering in memory if necessary
-    // Fortunately, since PRISMA 5.0, column comparison still needs raw queries or we can fetch and filter if small
-    // Here we'll fetch them all if lowStock is enabled, or add a generated column. 
-    // We will do a basic fetch and filter later if needed.
   }
 
   try {
-    const [productsData, totalCount] = await Promise.all([
+    let productsData: any[];
+    let totalCount: number;
+
+    if (stockStatus === 'lowStock') {
+      const searchPattern = search ? `%${search}%` : null;
+      const categoryFilter = category !== 'all' ? category : null;
+
+      const countResult: any[] = await db.$queryRaw`
+        SELECT COUNT(*)::integer as count
+        FROM "Product" p
+        LEFT JOIN "Category" c ON p."categoryId" = c.id
+        WHERE p."branchId" = ${businessId}
+          AND p.stock > 0 AND p.stock <= p."minStock"
+          AND (${searchPattern} IS NULL OR p.name ILIKE ${searchPattern} OR p.sku ILIKE ${searchPattern})
+          AND (${categoryFilter} IS NULL OR c.name = ${categoryFilter})
+      `;
+      totalCount = countResult[0].count;
+
+      productsData = await db.$queryRaw`
+        SELECT 
+          p.*,
+          c.name as "categoryName",
+          s.name as "supplierName"
+        FROM "Product" p
+        LEFT JOIN "Category" c ON p."categoryId" = c.id
+        LEFT JOIN "Supplier" s ON p."supplierId" = s.id
+        WHERE p."branchId" = ${businessId}
+          AND p.stock > 0 AND p.stock <= p."minStock"
+          AND (${searchPattern} IS NULL OR p.name ILIKE ${searchPattern} OR p.sku ILIKE ${searchPattern})
+          AND (${categoryFilter} IS NULL OR c.name = ${categoryFilter})
+        ORDER BY p."createdAt" DESC, p.id DESC
+        LIMIT ${take}
+        OFFSET ${skip}
+      `;
+
+      const formattedProducts = productsData.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        category: p.categoryName || 'Uncategorized',
+        quantity: Number(p.stock),
+        costPrice: Number(p.costPrice),
+        sellingPrice: Number(p.sellingPrice),
+        supplier: p.supplierName,
+        imageUrl: p.image,
+        barcode: p.barcode,
+        itemNumber: p.sku || '',
+        minimumStock: Number(p.minStock),
+        createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : new Date(p.createdAt).toISOString(),
+      }));
+
+      return { products: formattedProducts, count: totalCount };
+    }
+
+    const [data, count] = await Promise.all([
       db.product.findMany({
         where: whereClause,
         skip,
@@ -74,29 +127,24 @@ export async function getProductsAction({
       db.product.count({ where: whereClause })
     ]);
 
-    // Map the Prisma product model back to the application's Product type
-    let formattedProducts = productsData.map((p: any) => {
-      // Assuming mapping exists, we will map it
+    totalCount = count;
+    const formattedProducts = data.map((p: any) => {
       return {
         id: p.id,
         name: p.name,
         description: p.description || '',
         category: p.category?.name || 'Uncategorized',
-        quantity: p.stock,
-        costPrice: p.costPrice,
-        sellingPrice: p.sellingPrice,
+        quantity: Number(p.stock),
+        costPrice: Number(p.costPrice),
+        sellingPrice: Number(p.sellingPrice),
         supplier: p.supplier?.name,
         imageUrl: p.image,
         barcode: p.barcode,
         itemNumber: p.sku || '',
-        minimumStock: p.minStock,
-        createdAt: p.createdAt,
+        minimumStock: Number(p.minStock),
+        createdAt: p.createdAt.toISOString(),
       };
     });
-
-    if (stockStatus === 'lowStock') {
-      formattedProducts = formattedProducts.filter((p: any) => p.quantity > 0 && p.quantity <= p.minimumStock);
-    }
 
     return { products: formattedProducts as any[], count: totalCount };
   } catch (error) {
@@ -106,12 +154,13 @@ export async function getProductsAction({
 }
 
 export async function getAllProductsAction(userId: string, businessId: string) {
-  if (!userId || !businessId) return [];
+  const session = await auth();
+  if (!session || !session.user) return [];
+  if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return [];
 
   try {
     const productsData = await db.product.findMany({
       where: {
-        userId: userId,
         branchId: businessId,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -142,17 +191,17 @@ export async function getAllProductsAction(userId: string, businessId: string) {
   }
 }
 
-export async function getProductsByIdsAction(ids: string[], businessId?: string) {
-  try {
-    const where: any = {
-      id: { in: ids }
-    };
-    if (businessId) {
-      where.branchId = businessId;
-    }
+export async function getProductsByIdsAction(ids: string[], businessId: string) {
+  const session = await auth();
+  if (!session || !session.user) return [];
+  if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return [];
 
+  try {
     const products = await db.product.findMany({
-      where,
+      where: {
+        id: { in: ids },
+        branchId: businessId
+      },
       include: {
         category: true,
         supplier: true,
@@ -164,15 +213,15 @@ export async function getProductsByIdsAction(ids: string[], businessId?: string)
       name: p.name,
       description: p.description || '',
       category: p.category?.name || 'Uncategorized',
-      quantity: p.stock,
-      costPrice: p.costPrice,
-      sellingPrice: p.sellingPrice,
+      quantity: Number(p.stock),
+      costPrice: Number(p.costPrice),
+      sellingPrice: Number(p.sellingPrice),
       supplier: p.supplier?.name,
       imageUrl: p.image,
       barcode: p.barcode,
       itemNumber: p.sku || '',
-      minimumStock: p.minStock,
-      createdAt: p.createdAt,
+      minimumStock: Number(p.minStock),
+      createdAt: p.createdAt.toISOString(),
     }));
   } catch (error) {
     console.error('Error fetching products by ids:', error);
@@ -180,21 +229,81 @@ export async function getProductsByIdsAction(ids: string[], businessId?: string)
   }
 }
 
+export async function getProductsDeltaAction(businessId: string, since?: number) {
+  const session = await auth();
+  if (!session || !session.user) return { success: false, error: 'Unauthorized' };
+  if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return { success: false, error: 'Unauthorized' };
+
+  try {
+    const where: any = {
+      branchId: businessId,
+    };
+
+    if (since) {
+      where.updatedAt = {
+        gt: new Date(since),
+      };
+    }
+
+    const products = await db.product.findMany({
+      where,
+      include: {
+        category: true,
+        supplier: true,
+      },
+    });
+
+    const formattedProducts = products.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description || '',
+      category: p.category?.name || 'Uncategorized',
+      quantity: Number(p.stock),
+      costPrice: Number(p.costPrice),
+      sellingPrice: Number(p.sellingPrice),
+      supplier: p.supplier?.name,
+      imageUrl: p.image,
+      barcode: p.barcode,
+      manufacturerBarcode: p.manufacturerBarcode || null,
+      itemNumber: p.sku || '',
+      minimumStock: Number(p.minStock),
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    }));
+
+    return { success: true, products: formattedProducts };
+  } catch (error: any) {
+    console.error('Error fetching product delta:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function createProductAction(data: any) {
+  const session = await auth();
+  if (!session || !session.user) return null;
+  if ((session.user as any).branchId && (session.user as any).branchId !== data.businessId) return null;
+
   try {
     const result = await db.$transaction(async (tx: any) => {
-      // 1. Generate next SKU/itemNumber for this branch
-      const lastProduct = await tx.product.findFirst({
-        where: { branchId: data.businessId },
-        orderBy: { sku: 'desc' },
-        select: { sku: true }
+      // 1. Generate next SKU/itemNumber atomically
+      const counter = await tx.branchCounter.upsert({
+        where: {
+          branchId_type: {
+            branchId: data.businessId,
+            type: 'product'
+          }
+        },
+        update: {
+          count: { increment: 1 }
+        },
+        create: {
+          branchId: data.businessId,
+          type: 'product',
+          count: 1
+        }
       });
 
-      let nextSku = "PROD-0001";
-      if (lastProduct && lastProduct.sku) {
-        const currentNumber = parseInt(lastProduct.sku.replace("PROD-", "")) || 0;
-        nextSku = `PROD-${(currentNumber + 1).toString().padStart(4, '0')}`;
-      }
+      const nextSku = `PROD-${counter.count.toString().padStart(4, '0')}`;
 
       // 2. Create the product
       const product = await tx.product.create({
@@ -225,6 +334,7 @@ export async function createProductAction(data: any) {
         await tx.productHistory.create({
           data: {
             userId: data.userId,
+            locationId: data.businessId,
             productId: product.id,
             type: 'CREATED',
             oldStock: 0,
@@ -244,15 +354,15 @@ export async function createProductAction(data: any) {
       name: result.name,
       description: result.description || '',
       category: result.category?.name || 'Uncategorized',
-      quantity: result.stock,
-      costPrice: result.costPrice,
-      sellingPrice: result.sellingPrice,
+      quantity: Number(result.stock),
+      costPrice: Number(result.costPrice),
+      sellingPrice: Number(result.sellingPrice),
       supplier: result.supplier?.name,
       imageUrl: result.image,
       barcode: result.barcode,
       itemNumber: result.sku || '',
-      minimumStock: result.minStock,
-      createdAt: result.createdAt,
+      minimumStock: Number(result.minStock),
+      createdAt: result.createdAt.toISOString(),
     };
   } catch (error) {
     console.error('Error creating product:', error);
@@ -260,12 +370,16 @@ export async function createProductAction(data: any) {
   }
 }
 
-export async function updateProductAction(id: string, updates: any) {
+export async function updateProductAction(id: string, branchId: string, updates: any) {
+  const session = await auth();
+  if (!session || !session.user) return null;
+  if ((session.user as any).branchId && (session.user as any).branchId !== branchId) return null;
+
   try {
     const result = await db.$transaction(async (tx: any) => {
       // 1. Get current product state
       const current = await tx.product.findUnique({
-        where: { id },
+        where: { id, branchId: branchId },
         select: { stock: true, name: true }
       });
 
@@ -273,7 +387,7 @@ export async function updateProductAction(id: string, updates: any) {
 
       // 2. Perform update
       const updated = await tx.product.update({
-        where: { id },
+        where: { id, branchId: branchId },
         data: {
           name: updates.name,
           description: updates.description,
@@ -303,6 +417,7 @@ export async function updateProductAction(id: string, updates: any) {
         await tx.productHistory.create({
           data: {
             userId: updates.userId,
+            locationId: branchId,
             productId: updated.id,
             type: updates.isFromSale ? 'SALE' : (updates.quantity > current.stock ? 'RESTOCK' : 'ADJUSTMENT'),
             oldStock: current.stock,
@@ -314,7 +429,15 @@ export async function updateProductAction(id: string, updates: any) {
         });
       }
 
-      return updated;
+      return {
+        ...updated,
+        stock: Number(updated.stock),
+        minStock: Number(updated.minStock),
+        costPrice: Number(updated.costPrice),
+        sellingPrice: Number(updated.sellingPrice),
+        createdAt: updated.createdAt.toISOString(),
+        updatedAt: updated.updatedAt.toISOString()
+      };
     });
 
     return result;
@@ -324,12 +447,15 @@ export async function updateProductAction(id: string, updates: any) {
   }
 }
 
-export async function deleteProductAction(id: string) {
+export async function deleteProductAction(id: string, branchId: string) {
+  const session = await auth();
+  if (!session || !session.user) return false;
+  if ((session.user as any).branchId && (session.user as any).branchId !== branchId) return false;
+
   try {
     await db.product.delete({
-      where: { id }
+      where: { id, branchId: branchId }
     });
-    // revalidatePath('/inventory/products');
     return true;
   } catch (error) {
     console.error('Error deleting product:', error);
@@ -341,11 +467,15 @@ export async function updateProductsBulkAction(
   updates: Array<{ id: string; updated: Partial<any> }>,
   businessId: string
 ) {
+  const session = await auth();
+  if (!session || !session.user) return false;
+  if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return false;
+
   try {
     // Prisma transaction for bulk updates
     const updatePromises = updates.map(u =>
       db.product.update({
-        where: { id: u.id },
+        where: { id: u.id, branchId: businessId },
         data: {
           ...(u.updated.name && { name: u.updated.name }),
           ...(u.updated.description !== undefined && { description: u.updated.description }),
@@ -410,10 +540,10 @@ export async function createProductCategoryAction(locationId: string, userId: st
   }
 }
 
-export async function updateProductCategoryAction(id: string, name: string) {
+export async function updateProductCategoryAction(id: string, branchId: string, name: string) {
   try {
     const category = await db.category.update({
-      where: { id },
+      where: { id, branchId: branchId },
       data: { name }
     });
 
@@ -425,11 +555,11 @@ export async function updateProductCategoryAction(id: string, name: string) {
   }
 }
 
-export async function deleteProductCategoryAction(id: string) {
+export async function deleteProductCategoryAction(id: string, branchId: string) {
   try {
     // Check if any products are using this category
     const usageCount = await db.product.count({
-      where: { categoryId: id }
+      where: { categoryId: id, branchId: branchId }
     });
 
     if (usageCount > 0) {
@@ -440,7 +570,7 @@ export async function deleteProductCategoryAction(id: string) {
     }
 
     await db.category.delete({
-      where: { id }
+      where: { id, branchId: branchId }
     });
 
     revalidatePath('/inventory');
@@ -454,41 +584,31 @@ export async function deleteProductCategoryAction(id: string) {
 // --- PRODUCT STATS ---
 
 export async function getProductStatsAction(businessId: string) {
+  const session = await auth();
+  if (!session || !session.user) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
+  if ((session.user as any).branchId && (session.user as any).branchId !== businessId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
+
   if (!businessId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
 
   try {
-    const products = await db.product.findMany({
-      where: { branchId: businessId },
-      select: {
-        stock: true,
-        costPrice: true,
-        sellingPrice: true,
-        minStock: true,
-      }
-    });
+    const stats = await db.$queryRaw`
+      SELECT 
+        COALESCE(SUM(CAST(stock AS DECIMAL) * CAST("costPrice" AS DECIMAL)), 0) as "costValue",
+        COALESCE(SUM(CAST(stock AS DECIMAL) * CAST("sellingPrice" AS DECIMAL)), 0) as "stockValue",
+        CAST(COUNT(CASE WHEN stock <= 0 THEN 1 END) AS INTEGER) as "outOfStock",
+        CAST(COUNT(CASE WHEN stock > 0 AND stock <= "minStock" THEN 1 END) AS INTEGER) as "lowStock"
+      FROM "Product"
+      WHERE "branchId" = ${businessId}
+    `;
 
-    let costValue = 0;
-    let lowStock = 0;
-    let outOfStock = 0;
-    let stockValue = 0;
+    const result = (stats as any)[0];
 
-    products.forEach((p: any) => {
-      const qty = Number(p.stock) || 0;
-      const cost = Number(p.costPrice) || 0;
-      const selling = Number(p.sellingPrice) || 0;
-      const minStock = Number(p.minStock) || 0;
-
-      costValue += cost * qty;
-      stockValue += selling * qty;
-
-      if (qty === 0) {
-        outOfStock++;
-      } else if (qty > 0 && qty <= minStock) {
-        lowStock++;
-      }
-    });
-
-    return { costValue, lowStock, outOfStock, stockValue };
+    return {
+      costValue: Number(result.costValue),
+      stockValue: Number(result.stockValue),
+      outOfStock: Number(result.outOfStock),
+      lowStock: Number(result.lowStock)
+    };
   } catch (error) {
     console.error('Error fetching product stats:', error);
     return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
@@ -498,6 +618,10 @@ export async function getProductStatsAction(businessId: string) {
 // --- BARCODE LOOKUP ---
 
 export async function lookupProductByBarcodeAction(code: string, branchId: string) {
+  const session = await auth();
+  if (!session || !session.user) return null;
+  if ((session.user as any).branchId && (session.user as any).branchId !== branchId) return null;
+
   if (!code || !branchId) return null;
   try {
     const lowerCode = code.toLowerCase();
@@ -508,33 +632,32 @@ export async function lookupProductByBarcodeAction(code: string, branchId: strin
           { barcode: { contains: lowerCode, mode: 'insensitive' } },
           { sku: { contains: lowerCode, mode: 'insensitive' } },
         ]
+      },
+      include: {
+        category: true,
+        supplier: true,
       }
     });
-    return product;
+    return product ? {
+      id: product.id,
+      name: product.name,
+      description: product.description || '',
+      category: (product as any).category?.name || 'Uncategorized',
+      quantity: Number(product.stock),
+      costPrice: Number(product.costPrice),
+      sellingPrice: Number(product.sellingPrice),
+      supplier: (product as any).supplier?.name,
+      imageUrl: product.image,
+      barcode: product.barcode,
+      manufacturerBarcode: product.manufacturerBarcode || null,
+      itemNumber: product.sku || '',
+      minimumStock: Number(product.minStock),
+      createdAt: product.createdAt.toISOString(),
+      updatedAt: product.updatedAt.toISOString()
+    } as any : null;
   } catch (error) {
     console.error('[lookupProductByBarcodeAction] Error:', error);
     return null;
-  }
-}
-
-// --- BARCODE SCANNER (all products for scanner preload) ---
-
-export async function getProductsForBarcodeScannerAction(branchId: string) {
-  if (!branchId) return [];
-  try {
-    const products = await db.product.findMany({
-      where: { branchId },
-      select: {
-        id: true, name: true, barcode: true, sku: true,
-        sellingPrice: true, costPrice: true, stock: true,
-        description: true, categoryId: true, branchId: true,
-        minStock: true, imageUrl: true, createdAt: true, updatedAt: true,
-      },
-    });
-    return products;
-  } catch (error) {
-    console.error('[getProductsForBarcodeScannerAction] Error:', error);
-    return [];
   }
 }
 
@@ -559,6 +682,10 @@ export async function getFilteredProductsForExportAction(
   branchId: string,
   filters?: { search?: string; category?: string; stockStatus?: string }
 ) {
+  const session = await auth();
+  if (!session || !session.user) return [];
+  if ((session.user as any).branchId && (session.user as any).branchId !== branchId) return [];
+
   if (!branchId) return [];
   try {
     const where: any = { branchId };
@@ -583,7 +710,15 @@ export async function getFilteredProductsForExportAction(
       orderBy: { createdAt: 'desc' },
     });
 
-    return products;
+    return products.map((p: any) => ({
+      ...p,
+      costPrice: Number(p.costPrice),
+      sellingPrice: Number(p.sellingPrice),
+      stock: Number(p.stock),
+      minStock: Number(p.minStock),
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString()
+    }));
   } catch (error) {
     console.error('[getFilteredProductsForExportAction] Error:', error);
     return [];
