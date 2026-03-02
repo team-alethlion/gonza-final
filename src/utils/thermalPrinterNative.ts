@@ -4,21 +4,6 @@ import BluetoothSpp from "capacitor-bluetooth-spp";
 
 let connectedDevice: string | null = null;
 
-BluetoothSpp.addListener("connected", (info) =>
-  console.log("Event: connected", info),
-);
-BluetoothSpp.addListener("connectionFailed", (info) =>
-  console.log("Event: connectionFailed", info),
-);
-BluetoothSpp.addListener("disconnected", (info) =>
-  console.log("Event: disconnected", info),
-);
-BluetoothSpp.addListener("deviceFound", (device) =>
-  console.log("Event: deviceFound", device),
-);
-BluetoothSpp.addListener("discoveryFinished", () =>
-  console.log("Event: discoveryFinished"),
-);
 
 export async function printBluetooth(data: string) {
   if (!Capacitor.isNativePlatform()) {
@@ -106,7 +91,7 @@ export async function printBluetooth(data: string) {
     console.error("Bluetooth print failed:", err);
     try {
       await BluetoothSpp.disconnect();
-    } catch (_) {}
+    } catch (_) { }
     connectedDevice = null;
 
     return { success: false, message: err?.message || "Unknown error" };

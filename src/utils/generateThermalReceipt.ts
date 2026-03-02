@@ -4,6 +4,9 @@ import { formatNumber } from "@/lib/utils";
 import { numberToWords } from "@/utils/numberToWords";
 import { parsePaymentInfo } from "@/hooks/useBusinessSettings";
 
+type alignType = "left" | "center" | "right";
+type ColDef = { width: number; align: alignType };
+
 export async function generateThermalReceipt(
   sale: any,
   settings: any,
@@ -32,11 +35,11 @@ export async function generateThermalReceipt(
 
   if (settings.businessName) {
     encoder
-      .size("double")
+      .size("double" as any)
       .bold(true)
       .line(settings.businessName.toUpperCase())
       .bold(false)
-      .size("normal");
+      .size("normal" as any);
   }
   encoder.line(is80mm ? "=".repeat(42) : "=".repeat(32));
 
@@ -65,7 +68,7 @@ export async function generateThermalReceipt(
     [
       { width: 12, align: "left" },
       { width: 16, align: "right" },
-    ],
+    ] as ColDef[],
     [
       ["Receipt #:", sale.receiptNumber || ""],
       ["Date:", format(new Date(sale.date || Date.now()), "MMM dd, yyyy")],
@@ -87,19 +90,19 @@ export async function generateThermalReceipt(
   // 80mm (42 chars): Item(22) + Spacer(4) + Qty(6) + Tot(10) = 42
   // 58mm (32 chars): Item(12) + Spacer(1) + Qty(5) + Tot(14) = 32
   // 80mm (42 chars): Item(21) + Spacer(1) + Qty(6) + Tot(14) = 42
-  const tableColumns = is80mm
+  const tableColumns: ColDef[] = is80mm
     ? [
-        { width: 21, align: "left" },
-        { width: 1, align: "center" },
-        { width: 6, align: "right" },
-        { width: 14, align: "right" },
-      ]
+      { width: 21, align: "left" },
+      { width: 1, align: "center" },
+      { width: 6, align: "right" },
+      { width: 14, align: "right" },
+    ]
     : [
-        { width: 12, align: "left" },
-        { width: 1, align: "center" },
-        { width: 5, align: "right" },
-        { width: 14, align: "right" },
-      ];
+      { width: 12, align: "left" },
+      { width: 1, align: "center" },
+      { width: 5, align: "right" },
+      { width: 14, align: "right" },
+    ];
 
   encoder.table(tableColumns, [["Item", "", "Qty", `Total`]]);
   encoder.line(is80mm ? "-".repeat(42) : "-".repeat(32));
@@ -135,7 +138,7 @@ export async function generateThermalReceipt(
             [
               { width: 22, align: "left" },
               { width: 10, align: "right" },
-            ],
+            ] as ColDef[],
             [[`  Discount ${discText}`, `-${formatNumber(discount)}`]],
           )
           .italic(false);
@@ -153,9 +156,9 @@ export async function generateThermalReceipt(
   // For installment sales, sum up all payments from history if available
   const totalPaidFromHistory = Array.isArray(sale.payments)
     ? sale.payments.reduce(
-        (sum: number, p: any) => sum + (Number(p.amount) || 0),
-        0,
-      )
+      (sum: number, p: any) => sum + (Number(p.amount) || 0),
+      0,
+    )
     : 0;
 
   const amountPaid =
@@ -170,7 +173,7 @@ export async function generateThermalReceipt(
 
   encoder.newline();
 
-  const totalsColumns = [
+  const totalsColumns: ColDef[] = [
     { width: 14, align: "left" },
     { width: is80mm ? 28 : 18, align: "right" },
   ];
@@ -236,7 +239,7 @@ export async function generateThermalReceipt(
 
   // ===== Footer =====
   encoder.line("Thank you for your business!");
-  encoder.size("small").line("Created by Gonza Systems").size("normal");
+  encoder.size("small" as any).line("Created by Gonza Systems").size("normal" as any);
   encoder.line(is80mm ? "=".repeat(42) : "=".repeat(32));
 
   // Cut paper

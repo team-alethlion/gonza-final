@@ -1,4 +1,13 @@
+// Minimal Web Serial API types (not yet in default TS dom lib)
+interface SerialPort {
+  readable: ReadableStream | null;
+  writable: WritableStream | null;
+  open(options: { baudRate: number }): Promise<void>;
+  close(): Promise<void>;
+}
+
 let selectedPort: SerialPort | null = null;
+
 
 export async function printWeb(
   data: string,
