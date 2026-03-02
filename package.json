@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "generate": "prisma generate",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "rebuild": "powershell -Command \"if (Test-Path dist) { Remove-Item -Recurse -Force dist }; if (Test-Path android\\app\\build) { Remove-Item -Recurse -Force android\\app\\build }; if (Test-Path android\\build) { Remove-Item -Recurse -Force android\\build }; npm run build; npx cap copy; npx cap sync; cd android; ./gradlew clean assembleDebug; $apk = Get-ChildItem -Path app\\build\\outputs\\apk\\debug\\GonzaSystems-v*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1; adb uninstall com.gonza.salestracker; adb install $apk.FullName; cd ..\""
