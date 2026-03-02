@@ -40,7 +40,7 @@ const MergeCustomersDialog: React.FC<MergeCustomersDialogProps> = ({
       }
 
       // Attempt merge using Server Action
-      const result = await mergeCustomersAction(primaryCustomerId, duplicateIds);
+      const result = await mergeCustomersAction(primaryCustomer.branchId, primaryCustomerId, duplicateIds);
 
       if (!result.success) {
         throw new Error(result.error);

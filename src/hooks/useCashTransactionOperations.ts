@@ -2,8 +2,10 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useCashTransactions } from '@/hooks/useCashTransactions';
 import { findCashTransactionAction } from '@/app/actions/finance';
+import { useBusiness } from '@/contexts/BusinessContext';
 
 export const useCashTransactionOperations = () => {
+  const { currentBusiness } = useBusiness();
   const {
     createTransaction: createCashTransaction,
     updateTransaction: updateCashTransaction,
@@ -136,7 +138,8 @@ export const useCashTransactionOperations = () => {
 
   const findCashTransactionForSale = useCallback(async (cashTransactionId: string) => {
     try {
-      const result = await findCashTransactionAction(cashTransactionId);
+      if (!currentBusiness?.id) return null;
+      const result = await findCashTransactionAction(cashTransactionId, currentBusiness.id);
       if (result.success && result.data) {
         return result.data.accountId;
       }
@@ -144,7 +147,7 @@ export const useCashTransactionOperations = () => {
       console.error('Error finding cash transaction:', error);
     }
     return null;
-  }, []);
+  }, [currentBusiness?.id]);
 
   return {
     createCashTransactionForSale,

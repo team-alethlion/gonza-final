@@ -10,7 +10,7 @@ export const useInventoryActions = (userId: string | undefined) => {
      * Helper to fetch fresh product data from DB to avoid race conditions/stale data
      */
     const fetchFreshProducts = async (productIds: string[], locationId?: string) => {
-        if (!productIds.length) return [];
+        if (!productIds.length || !locationId) return [];
 
         try {
             const result = await getProductsByIdsAction(productIds, locationId);

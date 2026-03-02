@@ -98,6 +98,8 @@ export const useCategories = (userId: string | undefined) => {
   };
 
   const updateCategory = async (id: string, name: string) => {
+    if (!currentBusiness?.id) return false;
+
     try {
       // Check if another category with this name exists
       const existingCategory = categories.find(
@@ -112,7 +114,7 @@ export const useCategories = (userId: string | undefined) => {
         return false;
       }
 
-      const result = await updateProductCategoryAction(id, name);
+      const result = await updateProductCategoryAction(id, currentBusiness.id, name);
 
       if (!result.success) throw new Error(result.error);
 
@@ -134,8 +136,9 @@ export const useCategories = (userId: string | undefined) => {
   };
 
   const deleteCategory = async (id: string) => {
+    if (!currentBusiness?.id) return false;
     try {
-      const result = await deleteProductCategoryAction(id);
+      const result = await deleteProductCategoryAction(id, currentBusiness.id);
 
       if (!result.success) {
         toast({

@@ -26,7 +26,12 @@ export interface OnboardingData {
 
 const ONBOARDING_QUERY_KEY = 'businessOnboarding';
 
+/**
+ * useOnboarding hook
+ * Note: currentBusinessId is passed as an argument to avoid circular dependency with BusinessContext.
+ */
 export const useOnboarding = (currentBusinessId?: string | null) => {
+    console.log('[DEBUG] useOnboarding hook called with ID:', currentBusinessId);
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
@@ -49,7 +54,7 @@ export const useOnboarding = (currentBusinessId?: string | null) => {
         refetchOnWindowFocus: false,
     });
 
-    // Fetch global freeze status (robust fallback)
+    // Fetch global account/freeze status
     const {
         data: globalStatus,
         isLoading: isGlobalLoading,
@@ -92,7 +97,7 @@ export const useOnboarding = (currentBusinessId?: string | null) => {
                     return false;
                 }
 
-                // Invalidate cache so RequiredSetupGate re-checks
+                // Invalidate cache
                 queryClient.invalidateQueries({ queryKey: [ONBOARDING_QUERY_KEY, currentBusinessId] });
                 queryClient.invalidateQueries({ queryKey: ['user-onboarding-complete', user.id] });
 

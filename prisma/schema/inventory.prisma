@@ -160,6 +160,7 @@ enum ProductHistoryType {
   STOCK_TAKE
   TRANSFER_IN
   TRANSFER_OUT
+  RETURN_OUT
 }
 
 model StockTransfer {

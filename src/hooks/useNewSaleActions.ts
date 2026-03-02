@@ -74,11 +74,12 @@ export const useNewSaleActions = (
                 email: null,
                 birthday: null,
                 gender: null,
-                categoryId: selectedCategoryId || null,
+                categoryId: sale.categoryId || null,
                 notes: null,
                 tags: null,
                 socialMedia: null,
-              });
+                branchId: currentBusiness?.id || ''
+                });
               if (newCustomer) {
                 customerId = newCustomer.id;
                 toast.success(

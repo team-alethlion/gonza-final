@@ -103,7 +103,7 @@ const SignatureManager: React.FC<SignatureManagerProps> = ({
             </div>
             <SignaturePadComponent
               onSave={onSignaturePadSave}
-              existingSignature={signature}
+              existingSignature={signature || undefined}
             />
           </div>
         )}

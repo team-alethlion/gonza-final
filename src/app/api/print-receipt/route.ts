@@ -118,7 +118,7 @@ export async function GET(request: Request) {
                 businessPhone: sale.branch.settings?.phone || sale.branch.phone,
                 businessEmail: sale.branch.settings?.email || sale.branch.email,
                 currency: sale.branch.settings?.currency || 'UGX',
-                businessLogo: sale.branch.settings?.businessLogo
+                businessLogo: sale.branch.settings?.logo
             }
         };
 

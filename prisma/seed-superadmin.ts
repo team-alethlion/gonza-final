@@ -57,7 +57,7 @@ async function main() {
         password: adminPassword,
         roleId: superadminRole.id,
         emailVerified: new Date(),
-        status: 'active',
+        status: 'ACTIVE',
         passwordResetRequired: false
       }
     })

@@ -10,6 +10,7 @@ import { generatePaymentReminderPDF } from '@/utils/generatePaymentReminderPDF';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useToast } from '@/hooks/use-toast';
 import { openWhatsApp } from '@/utils/smsUtils';
+import { useBusiness } from '@/contexts/BusinessContext';
 
 interface PaymentReminderPreviewDialogProps {
     isOpen: boolean;
@@ -28,29 +29,31 @@ const PaymentReminderPreviewDialog: React.FC<PaymentReminderPreviewDialogProps> 
 }) => {
     const isMobile = useIsMobile();
     const { settings, isLoading: settingsLoading } = useBusinessSettings();
+    const { currentBusiness } = useBusiness();
     const { toast } = useToast();
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Prepare customer and sales data
+    // Prepare customer and sales data without making redundant requests
+    // Using sale data directly satisfies our PDF generation needs since we only need name, contact, and address
     const targetCustomer: Customer | null = customer || (sale ? {
         id: 'placeholder',
         fullName: sale.customerName,
         phoneNumber: sale.customerContact,
         email: null,
-        location: sale.customerAddress,
+        location: sale.customerAddress || null,
         createdAt: new Date(),
         updatedAt: new Date(),
-        loyaltyPoints: 0,
-        totalSpent: 0,
-        lastVisit: null,
+        lifetimeValue: 0,
+        orderCount: 0,
         categoryId: null,
         birthday: null,
         socialMedia: null,
         gender: null,
         tags: null,
-        notes: null
+        notes: null,
+        branchId: currentBusiness?.id || 'placeholder'
     } as Customer : null);
 
     const targetSales = unpaidSales || (sale ? [sale] : []);

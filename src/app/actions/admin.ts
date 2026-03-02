@@ -39,6 +39,8 @@ export async function getPlatformUserSummary() {
         throw new Error('Unauthorized');
     }
 
+    const now = new Date();
+
     try {
         const users = await prisma.user.findMany({
             where: {
@@ -73,9 +75,9 @@ export async function getPlatformUserSummary() {
             const locations = branches.map(branch => {
                 const settings = branch.settings;
                 const daysRemaining = agency?.subscriptionExpiry 
-                    ? differenceInDays(new Date(agency.subscriptionExpiry), new Date()) 
+                    ? differenceInDays(new Date(agency.subscriptionExpiry), now) 
                     : agency?.trialEndDate 
-                        ? differenceInDays(new Date(agency.trialEndDate), new Date())
+                        ? differenceInDays(new Date(agency.trialEndDate), now)
                         : 0;
 
                 return {
@@ -99,15 +101,20 @@ export async function getPlatformUserSummary() {
             const primarySettings = primaryBranch?.settings;
             
             const daysRemaining = agency?.subscriptionExpiry 
-                ? differenceInDays(new Date(agency.subscriptionExpiry), new Date()) 
+                ? differenceInDays(new Date(agency.subscriptionExpiry), now) 
                 : agency?.trialEndDate 
-                    ? differenceInDays(new Date(agency.trialEndDate), new Date())
+                    ? differenceInDays(new Date(agency.trialEndDate), now)
                     : 0;
 
             let locationLimit = (user.user_metadata as any)?.location_limit || 1;
             if (agency?.package) {
                 locationLimit = agency.package.unlimitedLocations ? 999 : (agency.package.maxLocations || 1);
             }
+
+            const expiryDate = agency?.subscriptionExpiry || agency?.trialEndDate;
+            const nextBillingDate = (expiryDate && new Date(expiryDate) > now) 
+                ? expiryDate.toISOString() 
+                : '';
 
             return {
                 user_id: user.id,
@@ -122,7 +129,7 @@ export async function getPlatformUserSummary() {
                 billing_amount: Number(agency?.package?.monthlyPrice || 0),
                 billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
                 days_remaining: daysRemaining,
-                next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || ''
+                next_billing_date: nextBillingDate
             };
         });
 
@@ -158,12 +165,15 @@ export async function getPlatformUserDetail(userId: string) {
         throw new Error('Unauthorized');
     }
 
+    const now = new Date();
+
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
             include: {
                 agency: {
                     include: {
+                        package: true,
                         branches: {
                             include: {
                                 settings: true
@@ -183,9 +193,9 @@ export async function getPlatformUserDetail(userId: string) {
         const locations = branches.map(branch => {
             const settings = branch.settings;
             const daysRemaining = agency?.subscriptionExpiry 
-                ? differenceInDays(new Date(agency.subscriptionExpiry), new Date()) 
+                ? differenceInDays(new Date(agency.subscriptionExpiry), now) 
                 : agency?.trialEndDate 
-                    ? differenceInDays(new Date(agency.trialEndDate), new Date())
+                    ? differenceInDays(new Date(agency.trialEndDate), now)
                     : 0;
 
             return {
@@ -210,15 +220,20 @@ export async function getPlatformUserDetail(userId: string) {
         const primarySettings = primaryBranch?.settings;
         
         const daysRemaining = agency?.subscriptionExpiry 
-            ? differenceInDays(new Date(agency.subscriptionExpiry), new Date()) 
+            ? differenceInDays(new Date(agency.subscriptionExpiry), now) 
             : agency?.trialEndDate 
-                ? differenceInDays(new Date(agency.trialEndDate), new Date())
+                ? differenceInDays(new Date(agency.trialEndDate), now)
                 : 0;
 
         let locationLimit = (user.user_metadata as any)?.location_limit || 1;
         if (agency?.package) {
             locationLimit = agency.package.unlimitedLocations ? 999 : (agency.package.maxLocations || 1);
         }
+
+        const expiryDate = agency?.subscriptionExpiry || agency?.trialEndDate;
+        const nextBillingDate = (expiryDate && new Date(expiryDate) > now) 
+            ? expiryDate.toISOString() 
+            : '';
 
         const data = {
             user_id: user.id,
@@ -231,7 +246,7 @@ export async function getPlatformUserDetail(userId: string) {
             billing_amount: Number(agency?.package?.monthlyPrice || 0),
             billing_duration: agency?.package?.name || agency?.subscriptionStatus || 'trial',
             days_remaining: daysRemaining,
-            next_billing_date: agency?.subscriptionExpiry?.toISOString() || agency?.trialEndDate?.toISOString() || '',
+            next_billing_date: nextBillingDate,
             created_at: user.createdAt.toISOString()
         };
 
@@ -247,6 +262,8 @@ export async function getPlatformOnboardingData() {
         throw new Error('Unauthorized');
     }
 
+    const now = new Date();
+
     try {
         const branches = await prisma.branch.findMany({
             include: {
@@ -259,25 +276,32 @@ export async function getPlatformOnboardingData() {
             }
         });
 
-        const data = branches.map(branch => ({
-            id: branch.id, // Not exactly onboarding ID but maps to it
-            location_id: branch.id,
-            business_name: branch.settings?.businessName || branch.name,
-            business_email: branch.settings?.email || branch.email || '',
-            business_phone: branch.settings?.phone || branch.phone || '',
-            business_address: branch.settings?.address || branch.location,
-            nature_of_business: branch.settings?.metadata ? (branch.settings.metadata as any).nature_of_business : '',
-            business_size: branch.settings?.metadata ? (branch.settings.metadata as any).business_size : '',
-            billing_duration: branch.agency?.package?.name || branch.agency?.subscriptionStatus || 'trial',
-            billing_amount: Number(branch.agency?.package?.monthlyPrice || 0),
-            days_remaining: branch.agency?.subscriptionExpiry 
-                ? differenceInDays(new Date(branch.agency.subscriptionExpiry), new Date()) 
-                : 0,
-            next_billing_date: branch.agency?.subscriptionExpiry?.toISOString() || '',
-            completed: !(branch.settings?.needsOnboarding ?? true),
-            created_at: branch.createdAt.toISOString(),
-            user_id: branch.adminId
-        }));
+        const data = branches.map(branch => {
+            const expiryDate = branch.agency?.subscriptionExpiry || branch.agency?.trialEndDate;
+            const nextBillingDate = (expiryDate && new Date(expiryDate) > now) 
+                ? expiryDate.toISOString() 
+                : '';
+
+            return {
+                id: branch.id, // Not exactly onboarding ID but maps to it
+                location_id: branch.id,
+                business_name: branch.settings?.businessName || branch.name,
+                business_email: branch.settings?.email || branch.email || '',
+                business_phone: branch.settings?.phone || branch.phone || '',
+                business_address: branch.settings?.address || branch.location,
+                nature_of_business: branch.settings?.metadata ? (branch.settings.metadata as any).nature_of_business : '',
+                business_size: branch.settings?.metadata ? (branch.settings.metadata as any).business_size : '',
+                billing_duration: branch.agency?.package?.name || branch.agency?.subscriptionStatus || 'trial',
+                billing_amount: Number(branch.agency?.package?.monthlyPrice || 0),
+                days_remaining: expiryDate 
+                    ? Math.max(0, differenceInDays(new Date(expiryDate), now)) 
+                    : 0,
+                next_billing_date: nextBillingDate,
+                completed: !(branch.settings?.needsOnboarding ?? true),
+                created_at: branch.createdAt.toISOString(),
+                user_id: branch.adminId
+            };
+        });
 
         return { success: true, data };
     } catch (error: any) {
@@ -317,13 +341,12 @@ export async function updatePlatformOnboardingData(params: any) {
             p_business_address, 
             p_nature_of_business, 
             p_business_size, 
-            p_billing_amount, 
             p_billing_duration, 
-            p_days_remaining, 
             p_next_billing_date, 
             p_completed 
         } = params;
 
+        // 1. Update Branch Settings (The commercial identity of the specific branch)
         if (p_location_id) {
             await prisma.branchSettings.upsert({
                 where: { branchId: p_location_id },
@@ -344,7 +367,7 @@ export async function updatePlatformOnboardingData(params: any) {
                     email: p_business_email,
                     phone: p_business_phone,
                     address: p_business_address,
-                    needsOnboarding: !p_completed,
+                    needsOnboarding: p_completed === null ? undefined : !p_completed,
                     metadata: {
                         nature_of_business: p_nature_of_business,
                         business_size: p_business_size
@@ -353,6 +376,7 @@ export async function updatePlatformOnboardingData(params: any) {
             });
         }
 
+        // 2. Update Agency (The billing and subscription container)
         if (p_user_id) {
             const user = await prisma.user.findUnique({
                 where: { id: p_user_id },
@@ -360,11 +384,18 @@ export async function updatePlatformOnboardingData(params: any) {
             });
 
             if (user?.agencyId) {
+                // Map frontend status names back to backend enums if necessary
+                let validStatus = p_billing_duration;
+                const statusOptions = ['trial', 'active', 'expired', 'blocked'];
+                if (!statusOptions.includes(validStatus)) {
+                    validStatus = undefined; // Don't overwrite if it's a plan name like "Starter"
+                }
+
                 await prisma.agency.update({
                     where: { id: user.agencyId },
                     data: {
                         name: p_business_name || undefined,
-                        subscriptionStatus: p_billing_duration || undefined,
+                        subscriptionStatus: validStatus,
                         subscriptionExpiry: p_next_billing_date ? new Date(p_next_billing_date) : undefined
                     }
                 });
@@ -373,6 +404,7 @@ export async function updatePlatformOnboardingData(params: any) {
 
         return { success: true };
     } catch (error: any) {
+        console.error('Error updating platform onboarding data:', error);
         return { success: false, error: error.message };
     }
 }

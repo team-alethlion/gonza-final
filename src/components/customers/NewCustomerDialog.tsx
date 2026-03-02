@@ -15,7 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface NewCustomerDialogProps {
   open: boolean;
   onClose: () => void;
-  onAddCustomer: (data: Partial<Customer>) => void;
+  onAddCustomer: (data: any) => Promise<boolean> | void;
   initialData?: Customer;
 }
 
@@ -25,9 +25,9 @@ const NewCustomerDialog: React.FC<NewCustomerDialogProps> = ({
   onAddCustomer, 
   initialData 
 }) => {
-  const handleSubmit = async (data: Partial<Customer>) => {
-    onAddCustomer(data);
-    return true;
+  const handleSubmit = async (data: any): Promise<boolean> => {
+    const result = await onAddCustomer(data);
+    return result !== false;
   };
 
   const isEditing = !!initialData;

@@ -378,7 +378,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                           try {
                             await exportBarcodeToJPEG({
                               productName: product.name,
-                              barcodeValue: product.barcode,
+                              barcodeValue: product.barcode || '',
                               price: product.sellingPrice,
                               currency: settings.currency,
                               showPrice: showPriceOnBarcode,
@@ -404,7 +404,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                           try {
                             await exportSingleBarcodeToPDF({
                               productName: product.name,
-                              barcodeValue: product.barcode,
+                              barcodeValue: product.barcode || '',
                               price: product.sellingPrice,
                               currency: settings.currency,
                               showPrice: showPriceOnBarcode,

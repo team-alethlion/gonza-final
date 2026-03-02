@@ -149,14 +149,19 @@ export async function getAccountStatusAction(userId: string) {
         if (agency) {
             const expiryDate = agency.subscriptionExpiry || agency.trialEndDate;
             if (expiryDate) {
-                daysRemaining = Math.max(0, Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-                nextBillingDate = expiryDate.toISOString();
+                const expiryDateObj = new Date(expiryDate);
+                daysRemaining = Math.max(0, Math.ceil((expiryDateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+                
+                // Only set next billing date if it's in the future
+                if (expiryDateObj > now) {
+                    nextBillingDate = expiryDateObj.toISOString();
+                }
             }
         }
 
         // 3. Billing & Limits Info
         let billingAmount = 50000;
-        let locationLimit = (user.user_metadata as any)?.location_limit || 1;
+        let locationLimit = 1;
 
         if (agency && agency.package) {
             billingAmount = Number(agency.package.monthlyPrice) || 50000;

@@ -437,7 +437,7 @@ const DesktopProductTable: React.FC<DesktopProductTableProps> = ({
                         className="text-right"
                       />
                     ) : (
-                      <span>{settings.currency} {formatFinancial(product.sellingPrice, 'price')}</span>
+                      <span>{settings.currency} {formatFinancial(product.sellingPrice, 'selling')}</span>
                     )}
                   </TableCell>
                 )}

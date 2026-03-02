@@ -715,7 +715,8 @@ const SalesTable: React.FC<SalesTableProps> = ({
               socialMedia: null,
               gender: null,
               tags: null,
-              notes: null
+              notes: null,
+              branchId: 'placeholder'
             }}
             open={isNoticeDialogOpen}
             onClose={handleCloseNoticeDialog}

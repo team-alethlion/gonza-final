@@ -91,7 +91,7 @@ export const useProductCRUD = (
 
       const currentProduct = products.find(p => p.id === productId);
 
-      const result = await updateProductAction(productId, {
+      const result = await updateProductAction(productId, currentBusiness.id, {
         ...productData,
         userId,
         businessId: currentBusiness.id,
@@ -136,11 +136,11 @@ export const useProductCRUD = (
 
   const deleteProduct = async (productId: string) => {
     try {
-      if (!userId) return false;
+      if (!userId || !currentBusiness?.id) return false;
 
       const productToDelete = products.find(p => p.id === productId);
 
-      const result = await deleteProductAction(productId);
+      const result = await deleteProductAction(productId, currentBusiness.id);
 
       if (result) {
         setProducts(prev => prev.filter(p => p.id !== productId));

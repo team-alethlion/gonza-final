@@ -317,6 +317,7 @@ export interface Customer {
   gender: string | null;
   tags: string[] | null;
   notes: string | null;
+  branchId: string;
   lifetimeValue?: number;
   orderCount?: number;
   createdAt: Date;
@@ -443,6 +444,11 @@ export const mapSaleToDbSale = (
     amount_due: saleData.amountDue || null,
     notes: saleData.notes || null,
     category_id: saleData.categoryId || null,
+    subtotal: saleData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+    total_cost: saleData.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0),
+    tax_amount: saleData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * (saleData.taxRate || 0) / 100,
+    total: saleData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * (1 + (saleData.taxRate || 0) / 100),
+    discount: 0,
   };
 };
 
@@ -602,6 +608,7 @@ export const mapDbCustomerToCustomer = (dbCustomer: DbCustomer): Customer => {
     gender: dbCustomer.gender,
     tags: dbCustomer.tags,
     notes: dbCustomer.notes,
+    branchId: (dbCustomer as any).location_id || (dbCustomer as any).branch_id || '',
     createdAt: new Date(dbCustomer.created_at),
     updatedAt: new Date(dbCustomer.updated_at)
   };

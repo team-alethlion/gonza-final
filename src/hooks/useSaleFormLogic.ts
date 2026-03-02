@@ -95,7 +95,7 @@ export const useSaleFormLogic = ({
   const {
     calculateTotalAmount,
     calculateTaxAmount,
-  } = useFormCalculations({ taxRate: formData.taxRate });
+  } = useFormCalculations({ taxRate: formData.taxRate || 0 });
 
   // Payment operations
   const {

@@ -63,7 +63,7 @@ const MessageTemplateDialog = ({ open, onClose, onSave, initialData }: MessageTe
     const success = await onSave({
       name,
       content,
-      category: finalCategory || undefined,
+      category: finalCategory || null,
       variables,
       isDefault: false
     });

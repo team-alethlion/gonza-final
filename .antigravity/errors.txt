@@ -1,2 +1,6 @@
 // Redirect to payment page
         window.open(result.redirectUrl, '_blank');
+
+
+        │ 164 - let locationLimit = (user.user_metadata as any)?.location_limit || 1;                                                                                                                          │
+│ 164 + let locationLimit = 1;  

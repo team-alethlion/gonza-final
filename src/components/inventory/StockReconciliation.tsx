@@ -102,7 +102,11 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
       try {
         const result = await getProductReconciliationAction(currentBusiness.id, product.id);
         if (result.success && result.data) {
-          setReconciliationData(result.data as ReconciliationData);
+          const rawData = result.data as any;
+          setReconciliationData({
+            ...rawData,
+            calculatedClosingStock: rawData.calculatedStock
+          } as ReconciliationData);
         } else {
           toast.error(result.error || 'Failed to calculate reconciliation data');
         }
@@ -135,7 +139,7 @@ const StockReconciliation: React.FC<StockReconciliationProps> = ({
     setIsApplying(true);
     try {
       // Use the updated updateProductAction which handles history internally
-      const result = await updateProductAction(product.id, {
+      const result = await updateProductAction(product.id, currentBusiness.id, {
         userId: user.id,
         quantity: reconciliationData.calculatedClosingStock,
         costPrice: adjustedCostPrice,

@@ -105,7 +105,7 @@ export const useCashAccounts = () => {
     if (!currentBusiness?.id) return false;
 
     try {
-      const result = await updateCashAccountAction(id, {
+      const result = await updateCashAccountAction(id, currentBusiness.id, {
         ...updates,
         locationId: currentBusiness.id
       });

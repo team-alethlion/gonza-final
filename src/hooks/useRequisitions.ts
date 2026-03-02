@@ -26,6 +26,7 @@ export interface RequisitionItem {
   productName: string;
   sku: string | null;
   quantity: number;
+  urgentItem?: boolean;
 }
 
 export const useRequisitions = (userId: string | undefined, locationId: string | undefined) => {

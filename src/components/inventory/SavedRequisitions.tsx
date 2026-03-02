@@ -165,7 +165,7 @@ const SavedRequisitions = ({
       await generateAlternativePDF(requisition, businessName);
       console.log('PDF generated successfully using alternative method');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF generation failed:', error);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);

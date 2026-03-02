@@ -42,7 +42,7 @@ const MessageContent = ({
   // Filter messages by search and status
   const filteredMessages = messages.filter(msg => {
     const customer = getCustomer(msg.customerId);
-    const name = customer ? (customer.full_name || customer.fullName || customer.name) : '';
+    const name = customer ? ((customer as any).full_name || customer.fullName || (customer as any).name) : '';
     const phone = msg.phoneNumber;
     const content = msg.content;
 
@@ -96,7 +96,7 @@ const MessageContent = ({
         ) : (
           filteredMessages.map(msg => {
             const customer = getCustomer(msg.customerId);
-            const name = customer ? (customer.full_name || customer.fullName || customer.name) : '';
+            const name = customer ? ((customer as any).full_name || customer.fullName || (customer as any).name) : '';
 
             return (
               <div

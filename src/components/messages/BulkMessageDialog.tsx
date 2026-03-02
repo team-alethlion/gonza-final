@@ -65,7 +65,7 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
     }
 
     customers.forEach(customer => {
-      const customerName = (customer.full_name || customer.fullName || customer.name || '').toLowerCase();
+      const customerName = ((customer as any).full_name || customer.fullName || (customer as any).name || '').toLowerCase();
       const customerSales = sales.filter(s =>
         s.customerId === customer.id || s.customerName?.toLowerCase().trim() === customerName
       );
@@ -111,14 +111,14 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
   }, [selectedTemplate, templates]);
 
   const getCustomerPhone = (customer: Customer) =>
-    customer.phone_number || customer.phoneNumber || customer.phone || customer.contact || '';
+    (customer as any).phone_number || customer.phoneNumber || (customer as any).phone || (customer as any).contact || '';
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
       const phone = getCustomerPhone(customer) || '';
       if (!phone) return false;
 
-      const name = (customer.full_name || customer.fullName || customer.name || '').toLowerCase();
+      const name = ((customer as any).full_name || customer.fullName || (customer as any).name || '').toLowerCase();
       const term = (searchTerm || '').toLowerCase();
       const searchMatch = !term || name.includes(term) || phone.toLowerCase().includes(term);
 
@@ -298,7 +298,7 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
                     >
                       <Checkbox checked={selectedCustomers.includes(customer.id)} onCheckedChange={() => handleToggleCustomer(customer.id)} />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{customer.full_name || customer.fullName || customer.name || 'Unnamed Customer'}</p>
+                        <p className="font-medium text-gray-900">{((customer as any).full_name || customer.fullName || (customer as any).name || 'Unnamed Customer')}</p>
                         <p className="text-xs text-gray-500">{phone}</p>
                         <span className="text-xs text-gray-400">Status: {statuses.map(s => s.toUpperCase()).join(', ')}</span>
                       </div>

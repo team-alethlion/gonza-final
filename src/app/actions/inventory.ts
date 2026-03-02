@@ -584,3 +584,140 @@ export async function getNextReceiptNumberAction(locationId: string) {
         return { success: false, error: error.message };
     }
 }
+
+// --- PRODUCT RECONCILIATION ---
+
+export async function getProductReconciliationAction(branchId: string, productId: string) {
+    try {
+        const product = await db.product.findUnique({
+            where: { id: productId, branchId },
+            include: {
+                category: true,
+                supplier: true
+            }
+        });
+
+        if (!product) throw new Error("Product not found");
+
+        const history = await db.productHistory.findMany({
+            where: { productId, locationId: branchId },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
+        });
+
+        let totalIn = 0;
+        let totalOut = 0;
+        let itemsSold = 0;
+        let stockAdded = 0;
+        let adjustments = 0;
+        let calculatedStock = 0;
+        let openingStock = 0;
+        let openingDate: string | null = null;
+
+        const dailyMap = new Map<string, any>();
+
+        if (history.length > 0) {
+            openingStock = history[0].oldStock;
+            calculatedStock = openingStock;
+            openingDate = history[0].createdAt.toISOString();
+            
+            for (const entry of history) {
+                const change = entry.newStock - entry.oldStock;
+                const dateKey = entry.createdAt.toISOString().split('T')[0];
+                
+                if (!dailyMap.has(dateKey)) {
+                    dailyMap.set(dateKey, {
+                        date: dateKey,
+                        startingStock: entry.oldStock,
+                        itemsSold: 0,
+                        stockAdded: 0,
+                        transferOut: 0,
+                        returnIn: 0,
+                        returnOut: 0,
+                        adjustments: 0,
+                        endingStock: entry.newStock
+                    });
+                }
+                
+                const daily = dailyMap.get(dateKey);
+                
+                if (change > 0) {
+                    totalIn += change;
+                    if (entry.type === 'RESTOCK' || entry.type === 'TRANSFER_IN') {
+                        stockAdded += change;
+                        daily.stockAdded += change;
+                    } else if (entry.type === 'RETURN_IN') {
+                        daily.returnIn += change;
+                    } else {
+                        adjustments += change;
+                        daily.adjustments += change;
+                    }
+                } else {
+                    const absChange = Math.abs(change);
+                    totalOut += absChange;
+                    if (entry.type === 'SALE') {
+                        itemsSold += absChange;
+                        daily.itemsSold += absChange;
+                    } else if (entry.type === 'TRANSFER_OUT') {
+                        daily.transferOut += absChange;
+                    } else if (entry.type === 'RETURN_OUT') {
+                        daily.returnOut += absChange;
+                    } else {
+                        adjustments += change; // change is negative
+                        daily.adjustments += change;
+                    }
+                }
+                
+                calculatedStock += change;
+                daily.endingStock = calculatedStock;
+            }
+        }
+
+        const currentStock = Number(product.stock);
+        const discrepancy = currentStock - calculatedStock;
+
+        // Format for ReconciliationPreview
+        const formattedProduct = {
+            id: product.id,
+            name: product.name,
+            description: product.description || '',
+            category: product.category?.name || 'Uncategorized',
+            quantity: Number(product.stock),
+            costPrice: Number(product.costPrice),
+            sellingPrice: Number(product.sellingPrice),
+            supplier: product.supplier?.name,
+            imageUrl: product.image,
+            barcode: product.barcode,
+            manufacturerBarcode: product.manufacturerBarcode || null,
+            itemNumber: product.sku || '',
+            minimumStock: Number(product.minStock),
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+        };
+
+        return {
+            success: true,
+            data: {
+                product: formattedProduct,
+                productId,
+                productName: product.name,
+                itemNumber: product.sku,
+                currentStock,
+                calculatedStock,
+                discrepancy,
+                openingStock,
+                itemsSold,
+                stockAdded,
+                transferOut: 0, // Placeholder
+                returnIn: 0,    // Placeholder
+                returnOut: 0,   // Placeholder
+                adjustments,
+                excludedSalesQty: 0,
+                openingDate,
+                dailyBreakdown: Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+            }
+        };
+    } catch (error: any) {
+        console.error('Error calculating product reconciliation:', error);
+        return { success: false, error: error.message };
+    }
+}

@@ -41,6 +41,7 @@ export const useSoldItemsData = (
       const result = await getProductsAction({
         userId: user.id,
         businessId: currentBusiness.id,
+        page: 1,
         pageSize: 1000, // Load enough to populate the map
       });
 

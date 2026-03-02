@@ -85,10 +85,11 @@ export const RoleManagement: React.FC = () => {
     };
 
     const handleDeleteRole = async (id: string) => {
+        if (!currentBusiness?.id) return;
         if (!confirm('Are you sure you want to delete this role? Profiles assigned to this role will lose their special permissions.')) return;
 
         try {
-            const result = await deleteRoleAction(id);
+            const result = await deleteRoleAction(id, currentBusiness.id);
             if (!result.success) throw new Error(result.error);
             toast.success('Role deleted');
             await loadRoles();

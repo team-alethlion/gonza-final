@@ -81,7 +81,7 @@ export const useBusinessSettingsForm = () => {
   const handleRemoveSignature = useCallback(async () => {
     try {
       setLocalSettings(prev => ({ ...prev, signature: undefined }));
-      const success = await updateSettings({ signature: null });
+      const success = await updateSettings({ signature: undefined });
       
       if (success) {
         toast.success('Business signature removed successfully');

@@ -25,7 +25,7 @@ export const useFormValidation = ({
       newErrors.customerName = 'Customer name is required';
     }
 
-    if (formData.taxRate < 0) {
+    if (formData.taxRate != null && formData.taxRate < 0) {
       newErrors.taxRate = 'Tax rate cannot be negative';
     }
 
@@ -42,7 +42,7 @@ export const useFormValidation = ({
     );
 
     if (hasInvalidItems) {
-      newErrors.items = 'All items must have a description, positive quantity, and non-negative price/cost';
+      (newErrors as any).items = 'All items must have a description, positive quantity, and non-negative price/cost';
     }
 
     // Note: Removed product creation date validation as it was too strict
@@ -52,21 +52,21 @@ export const useFormValidation = ({
 
 
     if (linkToCash && (formData.paymentStatus === 'Paid' || formData.paymentStatus === 'Installment Sale') && !selectedCashAccountId) {
-      newErrors.cashAccount = 'Select a cash account when linking payments';
+      (newErrors as any).cashAccount = 'Select a cash account when linking payments';
     }
 
     if (formData.paymentStatus === 'Installment Sale' && !initialData) {
       if (!formData.amountPaid || formData.amountPaid <= 0) {
-        newErrors.amountPaid = 'Enter an initial payment greater than 0';
+        (newErrors as any).amountPaid = 'Enter an initial payment greater than 0';
       }
       if (formData.amountPaid && formData.amountPaid > grandTotal) {
-        newErrors.amountPaid = 'Amount paid cannot exceed total';
+        (newErrors as any).amountPaid = 'Amount paid cannot exceed total';
       }
     }
 
     if (formData.paymentStatus === 'Installment Sale' && initialData && formData.amountPaid) {
       if (formData.amountPaid > grandTotal) {
-        newErrors.amountPaid = 'Amount paid cannot exceed total';
+        (newErrors as any).amountPaid = 'Amount paid cannot exceed total';
       }
     }
     setErrors(newErrors);

@@ -77,7 +77,7 @@ const TaskList: React.FC<TaskListProps> = ({
       <TaskFiltersComponent
         filters={filters}
         onFiltersChange={setFilters}
-        taskCategories={taskCategories}
+        taskCategories={taskCategories as string[]}
         selectedTasks={selectedTasks}
         onBulkComplete={handleBulkComplete}
         canEdit={canEdit}

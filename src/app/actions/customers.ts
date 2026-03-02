@@ -207,6 +207,56 @@ export async function deleteCustomerAction(customerId: string, branchId: string)
     }
 }
 
+export async function getCustomerAction(customerId: string, branchId: string) {
+    try {
+        const customer = await db.customer.findFirst({
+            where: { id: customerId, branchId: branchId }
+        });
+
+        if (!customer) {
+            return { success: false, error: 'Customer not found' };
+        }
+
+        // Fetch stats separately to match the structure of getCustomersAction
+        const stats = await db.sale.aggregate({
+            where: {
+                branchId,
+                customerName: { equals: customer.name, mode: 'insensitive' },
+                paymentStatus: { not: 'QUOTE' }
+            },
+            _sum: {
+                total: true
+            },
+            _count: {
+                id: true
+            }
+        });
+
+        const formattedCustomer = {
+            id: customer.id,
+            fullName: customer.name,
+            phoneNumber: customer.phone,
+            email: customer.email,
+            birthday: customer.birthday ? customer.birthday.toISOString() : null,
+            gender: customer.gender,
+            location: customer.address,
+            categoryId: customer.categoryId,
+            notes: customer.notes,
+            tags: customer.tags || [],
+            socialMedia: customer.socialMedia || null,
+            createdAt: customer.createdAt.toISOString(),
+            updatedAt: customer.updatedAt.toISOString(),
+            lifetimeValue: Number(stats._sum.total || 0),
+            orderCount: stats._count.id
+        };
+
+        return { success: true, data: formattedCustomer };
+    } catch (error: any) {
+        console.error('Error fetching customer:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function getCustomerCategoriesAction(branchId: string) {
     try {
         const categories = await db.customerCategory.findMany({

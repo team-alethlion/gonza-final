@@ -64,8 +64,9 @@ export const NewProfileDialog: React.FC<NewProfileDialogProps> = ({
         role: formData.role,
         role_id: formData.role_id || null,
         pin: '0000',
-        is_active: true
-      });
+        is_active: true,
+        sms_credits: 0
+      } as any);
 
       if (result) {
         setFormData({

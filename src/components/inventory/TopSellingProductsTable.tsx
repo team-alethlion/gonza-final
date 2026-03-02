@@ -97,13 +97,13 @@ const TopSellingProductsTable: React.FC<TopSellingProductsTableProps> = ({
 
     // Add title
     doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Top Selling Items Report', 14, 22);
 
     // Add period and date
     doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Period: ${periodLabel}`, 14, 32);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Period: ${periodLabel}`, 14, 30);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
 
     // Prepare table data

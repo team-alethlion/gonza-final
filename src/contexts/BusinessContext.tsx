@@ -6,8 +6,7 @@ import { useBusinessPassword } from '@/hooks/useBusinessPassword';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { getBusinessLocationsAction, createBusinessAction, updateBusinessAction, deleteBusinessAction, resetBusinessAction } from '@/app/actions/business';
-import { useOnboarding } from '@/hooks/useOnboarding';
-
+import { getAccountStatusAction } from '@/app/actions/business-settings';
 
 export interface BusinessLocation {
   id: string;
@@ -43,13 +42,26 @@ export const useBusiness = () => {
 };
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('[DEBUG] BusinessProvider: Initializing...');
   const { user } = useAuth();
   const [currentBusiness, setCurrentBusiness] = useState<BusinessLocation | null>(null);
   const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
-  const { locationLimit } = useOnboarding(currentBusiness?.id);
+
+  // Fetch account status directly to avoid circular dependency with useOnboarding hook
+  const { data: globalStatus } = useQuery({
+    queryKey: ['globalAccountStatus', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      return await getAccountStatusAction(user.id);
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 1000,
+  });
+
+  const locationLimit = globalStatus?.location_limit || 1;
 
 
   const getStorageKey = () => user ? `selected_business_${user.id}` : null;

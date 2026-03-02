@@ -88,7 +88,7 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const result = await resetPasswordAction(data.password, hash || undefined);
+      const result = await resetPasswordAction(data.password, hash || undefined) as any;
 
       if (!result.success) throw new Error(result.error);
 

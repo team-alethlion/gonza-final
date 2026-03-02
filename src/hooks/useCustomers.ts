@@ -22,6 +22,7 @@ export interface Customer {
   categoryId: string | null; // Added category field
   notes: string | null;
   tags: string[] | null;
+  branchId: string;
   socialMedia: {
     instagram?: string;
     facebook?: string;
@@ -77,6 +78,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
           categoryId: customer.categoryId,
           notes: customer.notes,
           tags: customer.tags,
+          branchId: customer.branchId,
           socialMedia: customer.socialMedia || null,
           createdAt: new Date(customer.createdAt),
           updatedAt: new Date(customer.updatedAt),
@@ -175,6 +177,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
         categoryId: data.categoryId,
         notes: data.notes,
         tags: data.tags,
+        branchId: data.branchId || currentBusiness?.id || '',
         socialMedia: data.socialMedia as any,
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),

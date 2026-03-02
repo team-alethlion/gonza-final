@@ -125,7 +125,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       };
       
       console.log('Submitting customer data:', customerData);
-      await onSubmit(customerData);
+      return await onSubmit(customerData);
     } finally {
       setIsSubmitting(false);
     }

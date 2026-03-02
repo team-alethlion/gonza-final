@@ -25,7 +25,7 @@ export const usePaymentOperations = ({ initialDataId }: UsePaymentOperationsProp
   const processPendingPaymentChanges = useCallback(async () => {
     for (const change of pendingChanges) {
       if (change.type === 'update') {
-        await updateInstallmentPayment(change.id, change.updatedData);
+        await updateInstallmentPayment(change.id, change.updatedData || {});
       } else if (change.type === 'delete') {
         await deleteInstallmentPayment(change.id);
       }

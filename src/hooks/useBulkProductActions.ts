@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 export const useBulkProductActions = (
   userId: string | undefined,
   products: Product[],
-  setProducts: (products: Product[]) => void,
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>,
   refreshProducts: () => void
 ) => {
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());

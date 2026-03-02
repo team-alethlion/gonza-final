@@ -893,7 +893,7 @@ const Products = () => {
                 </DropdownMenu>
               )}
               {canCreate && (
-                <Button onClick={() => navigate('/inventory/new')} className="gap-2">
+                <Button onClick={() => router.push('/inventory/new')} className="gap-2">
                   <Plus size={16} /> Add Product
                 </Button>
               )}

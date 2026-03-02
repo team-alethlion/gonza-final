@@ -288,8 +288,8 @@ const StockSummaryTable: React.FC<StockSummaryTableProps> = ({
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
+                <SelectItem key={category} value={category || 'Unknown'}>
+                  {category || 'Unknown'}
                 </SelectItem>
               ))}
             </SelectContent>

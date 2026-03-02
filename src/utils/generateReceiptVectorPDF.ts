@@ -158,7 +158,7 @@ export const generateReceiptVectorPDF = async (
           resolve();
         };
         
-        img.src = receiptData.businessLogo;
+        img.src = receiptData.businessLogo || '';
       });
     } catch (error) {
       console.error('Error processing logo:', error);

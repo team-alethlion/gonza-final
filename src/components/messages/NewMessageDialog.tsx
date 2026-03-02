@@ -56,14 +56,14 @@ const NewMessageDialog = ({ open, onClose, onSend, customers, templates }: NewMe
   }, [selectedTemplate, templates]);
 
   const getCustomerPhone = (customer?: Customer) =>
-    (customer?.phone_number || customer?.phoneNumber || customer?.phone || customer?.contact || '').trim();
+    (((customer as any)?.phone_number || customer?.phoneNumber || (customer as any)?.phone || (customer as any)?.contact) || '').trim();
 
   const filteredCustomers = useMemo(() => {
     const term = (searchTerm || '').toLowerCase();
     return customers
       .filter(c => getCustomerPhone(c)) // only customers with phone
       .filter(c => {
-        const name = (c.full_name || c.fullName || c.name || '').toLowerCase();
+        const name = ((c as any).full_name || c.fullName || (c as any).name || '').toLowerCase();
         const phone = getCustomerPhone(c).toLowerCase();
         return !term || name.includes(term) || phone.includes(term);
       });
@@ -151,7 +151,7 @@ const NewMessageDialog = ({ open, onClose, onSend, customers, templates }: NewMe
                   <SelectItem value="none">None - Enter Customer Name or Phone Number</SelectItem>
                   {filteredCustomers.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.full_name || c.fullName || c.name || 'Unnamed Customer'} - {getCustomerPhone(c)}
+                      {((c as any).full_name || c.fullName || (c as any).name || 'Unnamed Customer')} - {getCustomerPhone(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>

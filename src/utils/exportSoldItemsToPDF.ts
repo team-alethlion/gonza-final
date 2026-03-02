@@ -192,8 +192,8 @@ export const exportSoldItemsToPDF = (
         ? [
             item.description,
             item.totalQuantity.toString(),
-            numberFormatter.format(item.totalCost / item.totalQuantity), // Average cost
-            numberFormatter.format(item.totalCost)
+            numberFormatter.format((item.totalCost || 0) / item.totalQuantity), // Average cost
+            numberFormatter.format(item.totalCost || 0)
           ]
         : [
             item.description,

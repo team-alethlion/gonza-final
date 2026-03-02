@@ -137,8 +137,9 @@ export const useExpenseCategories = () => {
   };
 
   const deleteCategory = async (id: string) => {
+    if (!currentBusiness?.id) return false;
     try {
-      const result = await deleteExpenseCategoryAction(id);
+      const result = await deleteExpenseCategoryAction(id, currentBusiness.id);
       if (!result.success) throw new Error(result.error);
 
       setCategories(prev => prev.filter(c => c.id !== id));

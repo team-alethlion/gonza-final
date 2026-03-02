@@ -213,7 +213,7 @@ export const useMessages = (userId?: string) => {
       });
 
       if (result.success && result.data) {
-        const newMessage = { ...result.data, createdAt: result.data.createdAt.toISOString() };
+        const newMessage = { ...result.data, createdAt: result.data.createdAt.toISOString() } as any;
         setMessages(prev => [newMessage, ...prev]);
         queryClient.invalidateQueries({ queryKey: messagesQueryKey });
         toast({ title: 'Success', description: 'Message sent successfully' });
