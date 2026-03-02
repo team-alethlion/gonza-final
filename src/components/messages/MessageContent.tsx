@@ -23,7 +23,7 @@ const MessageContent = ({
   statusFilter,
   setStatusFilter
 }: MessageContentProps) => {
-  
+
   const getCustomer = (customerId?: string) => {
     if (!customerId) return null;
     return customers.find(c => c.id === customerId);
@@ -48,8 +48,8 @@ const MessageContent = ({
 
     const matchesSearch = searchTerm
       ? name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        content.toLowerCase().includes(searchTerm.toLowerCase())
+      phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      content.toLowerCase().includes(searchTerm.toLowerCase())
       : true;
 
     const matchesStatus = statusFilter === 'all' || msg.status === statusFilter;
@@ -71,7 +71,7 @@ const MessageContent = ({
             className="pl-10"
           />
         </div>
-        
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full md:w-48">
             <Filter className="w-4 h-4 mr-2" />
@@ -96,7 +96,7 @@ const MessageContent = ({
         ) : (
           filteredMessages.map(msg => {
             const customer = getCustomer(msg.customerId);
-            const name = customer ? ((customer as any).full_name || customer.fullName || (customer as any).name) : '';
+            const name = customer?.fullName || '';
 
             return (
               <div

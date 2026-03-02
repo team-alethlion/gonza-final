@@ -393,7 +393,7 @@ export const generateReceiptVectorPDF = async (
       if ((item.discountPercentage || 0) > 0) {
         discountText = `${item.discountPercentage}%`;
       } else if ((item.discountAmount || 0) > 0) {
-        discountText = formatCurrency(item.discountAmount, receiptData.currency);
+        discountText = formatCurrency(item.discountAmount || 0, receiptData.currency);
       }
       addText(discountText, tableX + colWidths[3] - 3, currentY + calculatedRowHeight/2 + 1.5, {
         fontSize: 9,

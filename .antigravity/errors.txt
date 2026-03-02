@@ -4,3 +4,6 @@
 
         │ 164 - let locationLimit = (user.user_metadata as any)?.location_limit || 1;                                                                                                                          │
 │ 164 + let locationLimit = 1;  
+
+
+src\utils\generateReceiptVectorPDF.ts

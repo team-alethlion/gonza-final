@@ -65,7 +65,7 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
     }
 
     customers.forEach(customer => {
-      const customerName = ((customer as any).full_name || customer.fullName || (customer as any).name || '').toLowerCase();
+      const customerName = (customer.fullName || '').toLowerCase();
       const customerSales = sales.filter(s =>
         s.customerId === customer.id || s.customerName?.toLowerCase().trim() === customerName
       );
@@ -111,14 +111,14 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
   }, [selectedTemplate, templates]);
 
   const getCustomerPhone = (customer: Customer) =>
-    (customer as any).phone_number || customer.phoneNumber || (customer as any).phone || (customer as any).contact || '';
+    customer.phoneNumber || '';
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
       const phone = getCustomerPhone(customer) || '';
       if (!phone) return false;
 
-      const name = ((customer as any).full_name || customer.fullName || (customer as any).name || '').toLowerCase();
+      const name = (customer.fullName || '').toLowerCase();
       const term = (searchTerm || '').toLowerCase();
       const searchMatch = !term || name.includes(term) || phone.toLowerCase().includes(term);
 
@@ -241,7 +241,7 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
 
             {/* Status selection */}
             <div className="flex gap-2 mb-2 flex-wrap items-center">
-              {(['all','paid','unpaid','quote','installment','inactive'] as StatusOption[]).map(status => (
+              {(['all', 'paid', 'unpaid', 'quote', 'installment', 'inactive'] as StatusOption[]).map(status => (
                 <Button
                   key={status}
                   size="sm"
@@ -269,8 +269,8 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
               )}
 
               <Button size="sm" variant="outline" onClick={handleToggleAll}>
-                {selectedCustomers.length === filteredCustomers.length 
-                  ? `Deselect All ${capitalize(statusSelection)} Customers` 
+                {selectedCustomers.length === filteredCustomers.length
+                  ? `Deselect All ${capitalize(statusSelection)} Customers`
                   : `Select All ${capitalize(statusSelection)} Customers`}
               </Button>
 
@@ -298,7 +298,7 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
                     >
                       <Checkbox checked={selectedCustomers.includes(customer.id)} onCheckedChange={() => handleToggleCustomer(customer.id)} />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{((customer as any).full_name || customer.fullName || (customer as any).name || 'Unnamed Customer')}</p>
+                        <p className="font-medium text-gray-900">{customer.fullName || 'Unnamed Customer'}</p>
                         <p className="text-xs text-gray-500">{phone}</p>
                         <span className="text-xs text-gray-400">Status: {statuses.map(s => s.toUpperCase()).join(', ')}</span>
                       </div>
