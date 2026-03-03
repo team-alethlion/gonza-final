@@ -27,7 +27,7 @@ import { exportExpensesToCSV } from '@/utils/exportExpensesToCSV';
 import { exportExpensesToPDF } from '@/utils/exportExpensesToPDF';
 import { generateExpenseTemplate } from '@/utils/generateExpenseTemplate';
 
-import { Expense } from '@/types';
+import { Expense } from '@/hooks/useExpenses';
 
 const ExpensesClient = ({ initialExpenses }: { initialExpenses?: Expense[] }) => {
   const { user } = useAuth();

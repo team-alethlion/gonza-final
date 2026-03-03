@@ -1,8 +1,8 @@
 import { auth } from '@/auth';
-import { getExpensesAction } from '@/app/actions/expenses';
+import { getExpensesAction } from '@/app/actions/finance';
 import { getBusinessLocationsAction } from '@/app/actions/business';
 import ExpensesClient from './ExpensesClient';
-import { Expense } from '@/types';
+import { Expense } from '@/hooks/useExpenses';
 
 export default async function ExpensesPage() {
   const session = await auth();
@@ -24,7 +24,7 @@ export default async function ExpensesPage() {
       }
 
       if (activeBranchId) {
-        const result: any = await getExpensesAction(activeBranchId, 0, 1000); 
+        const result: any = await getExpensesAction(activeBranchId); 
         // using arbitrary large page since Expenses frontend seemingly handles array directly.
         if (result && result.success && result.data) {
           // Format the mapped expenses if the action doesn't already return `Expense[]` perfectly
