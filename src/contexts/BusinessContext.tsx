@@ -44,7 +44,7 @@ export const useBusiness = () => {
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   console.log('[DEBUG] BusinessProvider: Initializing...');
-  const { user } = useAuth();
+  const { user, updateSession } = useAuth();
   const [currentBusiness, setCurrentBusiness] = useState<BusinessLocation | null>(null);
   const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,6 +147,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
           await updateUserBranchAction(user.id, business.id);
           console.log('Successfully updated user current branch in database');
+          
+          // Also update the session so middleware and other parts are in sync
+          await updateSession({ branchId: business.id });
+          console.log('Successfully updated user session branchId');
         } catch (error) {
           console.error('Failed to update user current branch:', error);
         }

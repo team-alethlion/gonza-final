@@ -23,6 +23,7 @@ export default function AgencyDashboardClient() {
     pageTitle,
     nonQuoteSalesCount,
     isLoading,
+    settingsLoading,
     updateAvailable,
     isUpdating,
     triggerUpdate,
@@ -31,7 +32,7 @@ export default function AgencyDashboardClient() {
   const { isRefreshing, handleRefresh, handleQuickCreate } =
     useDashboardActions();
 
-  if (profilesLoading || isLoading) {
+  if (profilesLoading || isLoading || settingsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -39,7 +40,9 @@ export default function AgencyDashboardClient() {
     );
   }
 
-  const showWelcome = !isLoading && nonQuoteSalesCount === 0;
+  // Only show welcome if explicitly no sales AND settings aren't fully configured
+  const hasSettings = settings.businessName && settings.businessPhone;
+  const showWelcome = !isLoading && !settingsLoading && nonQuoteSalesCount === 0 && !hasSettings;
 
   return (
     <>

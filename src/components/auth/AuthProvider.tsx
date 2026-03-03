@@ -24,12 +24,13 @@ interface AuthContextType {
   signUp: (email: string, password: string, options?: { data?: Record<string, any> }) => Promise<{ error: Error | null; user?: User | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateSession: (data?: any) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +49,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setLoading(status === 'loading');
   }, [session, status]);
+
+  const updateSession = async (data?: any) => {
+    return await update(data);
+  };
 
   const signIn = async (email: string, password: string) => {
     const result = await nextAuthSignIn('credentials', {
@@ -100,7 +105,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signInWithGoogle,
       signUp,
       signOut,
-      resetPassword
+      resetPassword,
+      updateSession
     }}>
       {children}
     </AuthContext.Provider>

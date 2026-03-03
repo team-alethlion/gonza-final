@@ -42,6 +42,7 @@ export const useDashboardData = () => {
     pageTitle,
     nonQuoteSalesCount,
     isLoading,
+    settingsLoading,
     updateAvailable,
     isUpdating,
     triggerUpdate

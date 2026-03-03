@@ -166,7 +166,30 @@ async function processSaleInventory(tx: any, items: any[], branchId: string, use
 }
 
 export async function deleteSaleAction(id: string, businessId: string) {
+    const session = await auth();
+    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
+    
+    const userRole = (session.user as any).role?.toLowerCase();
+    const userBranchId = (session.user as any).branchId;
+    const userAgencyId = (session.user as any).agencyId;
+
+    // Authorization check: Superadmins and Admins can view any branch in their agency
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
+        return { success: false, error: 'Unauthorized: Branch mismatch' };
+    }
+
     try {
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin' && userAgencyId) {
+            const branch = await db.branch.findUnique({
+                where: { id: businessId },
+                select: { agencyId: true, adminId: true }
+            });
+            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
+                return { success: false, error: 'Unauthorized: Agency mismatch' };
+            }
+        }
+
         const sale = await db.sale.findUnique({
             where: { id },
             include: { cashTransaction: true, installmentPayments: true }
@@ -274,8 +297,8 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
         const financials = calculateSaleFinancials(saleDbData.items, saleDbData.tax_rate);
 
         const prismaData: any = {
-            userId: saleDbData.user_id,
-            branchId: saleDbData.location_id,
+            user: { connect: { id: saleDbData.user_id } },
+            branch: { connect: { id: saleDbData.location_id } },
             saleNumber: saleDbData.receipt_number,
             customerName: saleDbData.customer_name,
             customerAddress: saleDbData.customer_address,

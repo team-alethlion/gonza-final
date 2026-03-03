@@ -4,6 +4,7 @@
 import { db, PaymentStatus, ActivityType, ActivityModule } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { auth } from '@/auth';
 
 const cashTransactionSchema = z.object({
     userId: z.string().min(1),
@@ -39,7 +40,29 @@ export interface ExpenseInput {
 }
 
 export async function createExpenseAction(data: ExpenseInput, linkToCash: boolean) {
+    const session = await auth();
+    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
+    
+    const userRole = (session.user as any).role?.toLowerCase();
+    const userBranchId = (session.user as any).branchId;
+    const userAgencyId = (session.user as any).agencyId;
+
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== data.locationId) {
+        return { success: false, error: 'Unauthorized: Branch mismatch' };
+    }
+
     try {
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin' && userAgencyId) {
+            const branch = await db.branch.findUnique({
+                where: { id: data.locationId },
+                select: { agencyId: true, adminId: true }
+            });
+            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
+                return { success: false, error: 'Unauthorized: Agency mismatch' };
+            }
+        }
+
         const result = await db.$transaction(async (tx: any) => {
             // 1. Create the expense
             const expense = await tx.expense.create({
@@ -100,7 +123,29 @@ export async function createExpenseAction(data: ExpenseInput, linkToCash: boolea
 }
 
 export async function getExpensesAction(locationId: string) {
+    const session = await auth();
+    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
+    
+    const userRole = (session.user as any).role?.toLowerCase();
+    const userBranchId = (session.user as any).branchId;
+    const userAgencyId = (session.user as any).agencyId;
+
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== locationId) {
+        return { success: false, error: 'Unauthorized: Branch mismatch' };
+    }
+
     try {
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin' && userAgencyId) {
+            const branch = await db.branch.findUnique({
+                where: { id: locationId },
+                select: { agencyId: true, adminId: true }
+            });
+            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
+                return { success: false, error: 'Unauthorized: Agency mismatch' };
+            }
+        }
+
         const expenses = await db.expense.findMany({
             where: { branchId: locationId },
             orderBy: { date: 'desc' }
