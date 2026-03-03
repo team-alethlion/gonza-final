@@ -143,15 +143,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
                 <Truck size={16} /> Carriage Inwards
               </Button>
             )}
-            {hasPermission("inventory", "stock_adjustment") && (
-              <Button
-                onClick={() => router.push("/inventory/reconcile")}
-                variant="outline"
-                className="gap-2"
-                title="Reconcile stock discrepancies">
-                <Scale size={16} /> Reconcile
-              </Button>
-            )}
+
             <Button
               onClick={() => router.push("/products")}
               variant="outline"
