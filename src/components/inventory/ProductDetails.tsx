@@ -14,7 +14,7 @@ import { Edit, Package, AlertCircle, ArrowLeft, Trash2, Copy, RefreshCw, Printer
 import { exportBarcodeToJPEG } from '@/utils/exportBarcodeToJPEG';
 import { exportSingleBarcodeToPDF } from '@/utils/exportBarcodeToPDF';
 import { useFinancialVisibility } from '@/hooks/useFinancialVisibility';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import DeleteProductDialog from './DeleteProductDialog';
 import { useProducts } from '@/hooks/useProducts';
 import { useStockHistory } from '@/hooks/useStockHistory';
@@ -47,6 +47,19 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   onStockUpdate
 }) => {
   const router = useRouter();
+
+  // Safe date formatting helper
+  const formatDate = (date: any, formatStr: string) => {
+    try {
+      if (!date) return 'N/A';
+      const dateObj = date instanceof Date ? date : new Date(date);
+      if (!isValid(dateObj)) return 'N/A';
+      return format(dateObj, formatStr);
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
   const { settings } = useBusinessSettings();
@@ -116,7 +129,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     const proposedDateTime = new Date(year, month - 1, day, hours, minutes, seconds);
 
     if (proposedDateTime < initialStockDate) {
-      return `Date and time cannot be before the initial stock date and time (${format(initialStockDate, 'PPP p')})`;
+      return `Date and time cannot be before the initial stock date and time (${formatDate(initialStockDate, 'PPP p')})`;
     }
 
     return '';
@@ -520,10 +533,10 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                   )}
 
                   <dt className="text-gray-500">Created:</dt>
-                  <dd>{format(product.createdAt, 'MMM d, yyyy')}</dd>
+                  <dd>{formatDate(product.createdAt, 'MMM d, yyyy')}</dd>
 
                   <dt className="text-gray-500">Last Updated:</dt>
-                  <dd>{format(product.updatedAt, 'MMM d, yyyy')}</dd>
+                  <dd>{formatDate(product.updatedAt, 'MMM d, yyyy')}</dd>
                 </dl>
               </div>
             </div>

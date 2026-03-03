@@ -624,8 +624,31 @@ export async function updateSaleCustomerAction(saleId: string, customerId: strin
 
 export async function getSalesGoalAction(userId: string, branchId: string, month: number, year: number) {
     try {
+        const session = await auth();
+        if (!session || !session.user) throw new Error("Unauthorized");
+        
+        const userRole = (session.user as any).role?.toLowerCase();
+        const userBranchId = (session.user as any).branchId;
+        const userAgencyId = (session.user as any).agencyId;
+
+        // Authorization check
+        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
+            throw new Error("Unauthorized: Branch mismatch");
+        }
+
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin' && userAgencyId) {
+            const branch = await db.branch.findUnique({
+                where: { id: branchId },
+                select: { agencyId: true, adminId: true }
+            });
+            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
+                throw new Error("Unauthorized: Agency mismatch");
+            }
+        }
+
         const goal = await db.salesGoal.findFirst({
-            where: { userId, branchId, period: `${year}-${String(month).padStart(2, '0')}` }
+            where: { branchId, period: `${year}-${String(month).padStart(2, '0')}` }
         });
         return { 
             success: true, 
@@ -654,6 +677,18 @@ export async function upsertSalesGoalAction(
     existingGoalId?: string | null
 ) {
     try {
+        const session = await auth();
+        if (!session || !session.user) throw new Error("Unauthorized");
+        
+        const userRole = (session.user as any).role?.toLowerCase();
+        const userBranchId = (session.user as any).branchId;
+        const userAgencyId = (session.user as any).agencyId;
+
+        // Authorization check
+        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
+            throw new Error("Unauthorized: Branch mismatch");
+        }
+
         const period = `${year}-${String(month).padStart(2, '0')}`;
 
         if (existingGoalId) {
@@ -687,6 +722,29 @@ export async function upsertSalesGoalAction(
 
 export async function getPeriodSalesAction(branchId: string, startDate: Date, endDate: Date) {
     try {
+        const session = await auth();
+        if (!session || !session.user) throw new Error("Unauthorized");
+        
+        const userRole = (session.user as any).role?.toLowerCase();
+        const userBranchId = (session.user as any).branchId;
+        const userAgencyId = (session.user as any).agencyId;
+
+        // Authorization check
+        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
+            throw new Error("Unauthorized: Branch mismatch");
+        }
+
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin' && userAgencyId) {
+            const branch = await db.branch.findUnique({
+                where: { id: branchId },
+                select: { agencyId: true, adminId: true }
+            });
+            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
+                throw new Error("Unauthorized: Agency mismatch");
+            }
+        }
+
         const aggregate = await db.sale.aggregate({
             where: {
                 branchId,
@@ -694,11 +752,11 @@ export async function getPeriodSalesAction(branchId: string, startDate: Date, en
                 paymentStatus: { not: 'QUOTE' }
             },
             _sum: {
-                amountPaid: true
+                total: true
             }
         });
 
-        return { success: true, data: toValidNum(aggregate._sum.amountPaid) };
+        return { success: true, data: toValidNum(aggregate._sum.total) };
     } catch (error: any) {
         console.error('Error fetching period sales:', error);
         return { success: false, error: error.message };

@@ -10,26 +10,3 @@ src\utils\generateReceiptVectorPDF.ts
 src/hooks/useNotifications.ts
 
 
-
-⨯ Error: Unauthorized: Branch mismatch
-    at getActivityHistoryAction (src/app/actions/activity.ts:70:42)
-  68 |         // Only allow mismatch if they are superadmin (e.g. platform management)
-  69 |         const role = (session.user as any).role?.toLowerCase();
-> 70 |         if (role !== 'superadmin') throw new Error("Unauthorized: Branch mismatch");
-     |                                          ^
-  71 |     }
-  72 |
-  73 |     try { {
-  digest: '199536928'
-}
- POST /sales 500 in 948ms (compile: 10ms, render: 938ms)
-⨯ Error: Unauthorized: Branch mismatch
-    at getActivityHistoryAction (src/app/actions/activity.ts:70:42)
-  68 |         // Only allow mismatch if they are superadmin (e.g. platform management)
-  69 |         const role = (session.user as any).role?.toLowerCase();
-> 70 |         if (role !== 'superadmin') throw new Error("Unauthorized: Branch mismatch");
-     |                                          ^
-  71 |     }
-  72 |
-  73 |     try { {
-  digest: '199536928'
