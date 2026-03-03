@@ -1,8 +1,9 @@
 "use client"
 
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Receipt, Package, DollarSign, HelpCircle, MessageSquare, Users, Wallet, Settings, CheckSquare, History as HistoryIcon, UserCircle, CreditCard } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Receipt, Package, DollarSign, HelpCircle, MessageSquare, Users, Wallet, Settings, CheckSquare, History as HistoryIcon, UserCircle, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { useProfiles } from '@/contexts/ProfileContext';
@@ -25,6 +26,20 @@ const NavLinks = ({ className = '', onClick, isSidebar = false, isCollapsed = fa
   const pathname = usePathname();
 
   const { hasPermission } = useProfiles();
+
+  // State for minimizable sections
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    Core: true,
+    Business: true,
+    System: true
+  });
+
+  const toggleGroup = (title: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
 
   const coreLinks: NavLink[] = [
     { name: 'Dashboard', path: '/', icon: <Home className="w-4 h-4" /> },
@@ -55,33 +70,48 @@ const NavLinks = ({ className = '', onClick, isSidebar = false, isCollapsed = fa
     return false;
   };
 
-  const renderSidebarGroup = (title: string, links: NavLink[]) => (
-    <div className="space-y-1">
-      {!isCollapsed && (
-        <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-primary-foreground/50 mb-1.5 mt-4 first:mt-0">
-          {title}
-        </p>
-      )}
-      {isCollapsed && <div className="h-4"></div>}
-      <SidebarMenu className="w-full">
-        {links.map((link) => (
-          <SidebarMenuItem key={link.name}>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive(link.path)}
-              tooltip={link.name}
-              className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground"
-            >
-              <Link href={link.path} onClick={onClick}>
-                {link.icon}
-                <span className="group-data-[collapsible=icon]:hidden">{link.name}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    </div>
-  );
+  const renderSidebarGroup = (title: string, links: NavLink[]) => {
+    const isExpanded = expandedGroups[title];
+
+    return (
+      <div className="space-y-1">
+        {!isCollapsed && (
+          <button
+            onClick={() => toggleGroup(title)}
+            className="w-full flex items-center justify-between px-3 text-[10px] font-bold uppercase tracking-wider text-primary-foreground/50 mb-1.5 mt-4 first:mt-0 hover:text-primary-foreground transition-colors group"
+          >
+            <span>{title}</span>
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <ChevronRight className="w-3 h-3" />
+            )}
+          </button>
+        )}
+        {isCollapsed && <div className="h-4"></div>}
+
+        {(isExpanded || isCollapsed) && (
+          <SidebarMenu className="w-full animate-in fade-in slide-in-from-top-1 duration-200">
+            {links.map((link) => (
+              <SidebarMenuItem key={link.name}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive(link.path)}
+                  tooltip={link.name}
+                  className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground"
+                >
+                  <Link href={link.path} onClick={onClick}>
+                    {link.icon}
+                    <span className="group-data-[collapsible=icon]:hidden">{link.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        )}
+      </div>
+    );
+  };
 
   if (isSidebar) {
     return (

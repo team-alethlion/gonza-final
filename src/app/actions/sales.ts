@@ -71,8 +71,26 @@ function calculateSaleFinancials(items: any[], taxRate: number) {
     };
 }
 
+// Robust number conversion to prevent null/NaN in DB
+const toValidNum = (val: any) => {
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+};
+
 export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'desc' = 'desc', pageSize?: number) {
     try {
+        const session = await auth();
+        if (!session || !session.user) return [];
+        
+        const userRole = (session.user as any).role?.toLowerCase();
+        const userBranchId = (session.user as any).branchId;
+        const userAgencyId = (session.user as any).agencyId;
+
+        // Authorization check
+        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
+            return [];
+        }
+
         const queryOptions: any = {
             where: {
                 branchId: businessId,
@@ -103,21 +121,21 @@ export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'des
             customer_id: item.customerId,
             items: item.items as any, // jsonb type
             payment_status: item.paymentStatus,
-            profit: Number(item.profit || 0),
+            profit: toValidNum(item.profit),
             date: item.date.toISOString(),
-            tax_rate: item.taxRate ? Number(item.taxRate) : 0,
+            tax_rate: toValidNum(item.taxRate),
             created_at: item.createdAt.toISOString(),
             updated_at: item.updatedAt.toISOString(),
             cash_transaction_id: item.cashTransactionId,
-            amount_paid: Number(item.amountPaid),
-            amount_due: Number(item.balance),
+            amount_paid: toValidNum(item.amountPaid),
+            amount_due: toValidNum(item.balance),
             category_id: item.categoryId,
             notes: item.notes,
-            total: Number(item.total || 0),
-            total_cost: Number(item.totalCost || 0),
-            subtotal: Number(item.subtotal || 0),
-            discount: Number(item.discount || 0),
-            tax_amount: Number(item.taxAmount || 0)
+            total: toValidNum(item.total),
+            total_cost: toValidNum(item.totalCost),
+            subtotal: toValidNum(item.subtotal),
+            discount: toValidNum(item.discount),
+            tax_amount: toValidNum(item.taxAmount)
         }));
     } catch (error) {
         console.error('Error fetching sales:', error);
@@ -136,8 +154,8 @@ async function processSaleInventory(tx: any, items: any[], branchId: string, use
 
         if (!product) continue;
 
-        const quantitySold = Number(item.quantity) || 0;
-        const previousStock = Number(product.stock);
+        const quantitySold = toValidNum(item.quantity);
+        const previousStock = toValidNum(product.stock);
         const newStock = previousStock - quantitySold;
 
         // 1. Update Product Stock Atomically
@@ -173,7 +191,7 @@ export async function deleteSaleAction(id: string, businessId: string) {
     const userBranchId = (session.user as any).branchId;
     const userAgencyId = (session.user as any).agencyId;
 
-    // Authorization check: Superadmins and Admins can view any branch in their agency
+    // Authorization check
     if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
         return { success: false, error: 'Unauthorized: Branch mismatch' };
     }
@@ -213,8 +231,8 @@ export async function deleteSaleAction(id: string, businessId: string) {
                         });
 
                         if (product) {
-                            const quantityToRestore = Number(item.quantity) || 0;
-                            const previousStock = Number(product.stock);
+                            const quantityToRestore = toValidNum(item.quantity);
+                            const previousStock = toValidNum(product.stock);
                             const newStock = previousStock + quantityToRestore;
 
                             // Atomic increment
@@ -271,13 +289,15 @@ export async function deleteSaleAction(id: string, businessId: string) {
                 paymentStatus: sale.paymentStatus,
                 cashTransactionId: sale.cashTransactionId,
                 items: sale.items as any,
-                amountPaid: Number(sale.amountPaid),
-                amountDue: Number(sale.balance),
-                profit: Number(sale.profit || 0),
-                taxRate: Number(sale.taxRate),
+                amountPaid: toValidNum(sale.amountPaid),
+                amountDue: toValidNum(sale.balance),
+                profit: toValidNum(sale.profit),
+                taxRate: toValidNum(sale.taxRate),
+                taxAmount: toValidNum(sale.taxAmount),
+                discount: toValidNum(sale.discount),
                 notes: sale.notes,
-                total: Number(sale.total || 0),
-                totalCost: Number(sale.totalCost || 0)
+                total: toValidNum(sale.total),
+                totalCost: toValidNum(sale.totalCost)
             }
         };
     } catch (error: any) {
@@ -288,38 +308,53 @@ export async function deleteSaleAction(id: string, businessId: string) {
 
 export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updateId?: string) {
     try {
+        const session = await auth();
+        if (!session || !session.user) throw new Error("Unauthorized");
+        
+        const agencyId = (session?.user as any)?.agencyId;
+
+        if (!saleDbData.location_id) throw new Error("Location ID is required");
+        if (!saleDbData.user_id) throw new Error("User ID is required");
+
         let status = saleDbData.payment_status;
         if (status === 'NOT PAID') status = 'UNPAID';
         else if (status === 'Installment Sale') status = 'INSTALLMENT';
         else if (status === 'Paid') status = 'PAID';
         else if (status === 'Quote') status = 'QUOTE';
 
-        const financials = calculateSaleFinancials(saleDbData.items, saleDbData.tax_rate);
+        // Filter out empty items
+        const validItems = (saleDbData.items || []).filter((item: any) => item.description?.trim());
+        if (validItems.length === 0) throw new Error("At least one valid item is required");
+
+        const financials = calculateSaleFinancials(validItems, saleDbData.tax_rate);
 
         const prismaData: any = {
             user: { connect: { id: saleDbData.user_id } },
             branch: { connect: { id: saleDbData.location_id } },
             saleNumber: saleDbData.receipt_number,
-            customerName: saleDbData.customer_name,
-            customerAddress: saleDbData.customer_address,
-            customerPhone: saleDbData.customer_contact,
-            customerId: saleDbData.customer_id,
-            items: saleDbData.items,
+            customerName: saleDbData.customer_name || "Valued Customer",
+            customerAddress: saleDbData.customer_address || null,
+            customerPhone: saleDbData.customer_contact || null,
+            items: validItems,
             paymentStatus: status as PaymentStatus,
-            date: new Date(saleDbData.date),
-            taxRate: saleDbData.tax_rate,
-            cashTransactionId: saleDbData.cash_transaction_id,
-            amountPaid: saleDbData.amount_paid,
-            balance: saleDbData.amount_due,
-            categoryId: saleDbData.category_id,
-            notes: saleDbData.notes,
-            subtotal: financials.subtotal,
-            discount: financials.discount,
-            taxAmount: financials.taxAmount,
-            total: financials.total,
-            totalCost: financials.totalCost,
-            profit: financials.profit,
+            date: new Date(saleDbData.date || new Date()),
+            taxRate: toValidNum(saleDbData.tax_rate),
+            amountPaid: toValidNum(saleDbData.amount_paid),
+            balance: toValidNum(saleDbData.amount_due),
+            notes: saleDbData.notes || null,
+            subtotal: toValidNum(financials.subtotal),
+            discount: toValidNum(financials.discount),
+            taxAmount: toValidNum(financials.taxAmount),
+            total: toValidNum(financials.total),
+            totalCost: toValidNum(financials.totalCost),
+            profit: toValidNum(financials.profit),
         };
+
+        // Add optional relations
+        if (agencyId) prismaData.agency = { connect: { id: agencyId } };
+        if (saleDbData.customer_id) prismaData.customer = { connect: { id: saleDbData.customer_id } };
+        if (saleDbData.category_id) prismaData.category = { connect: { id: saleDbData.category_id } };
+        if (saleDbData.cash_transaction_id) prismaData.cashTransaction = { connect: { id: saleDbData.cash_transaction_id } };
 
         const result = await db.$transaction(async (tx) => {
             let sale;
@@ -339,14 +374,14 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
                 // Adjust inventory for updates
                 if (existingSale.paymentStatus !== 'QUOTE' || status !== 'QUOTE') {
                     const oldItems = (existingSale.items as any[]) || [];
-                    const newItems = (saleDbData.items as any[]) || [];
+                    const newItems = validItems;
 
                     if (existingSale.paymentStatus !== 'QUOTE') {
                         for (const item of oldItems) {
                             if (item.productId) {
                                 await tx.product.update({
                                     where: { id: item.productId },
-                                    data: { stock: { increment: Number(item.quantity) || 0 } }
+                                    data: { stock: { increment: toValidNum(item.quantity) } }
                                 });
                             }
                         }
@@ -362,7 +397,7 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
                 });
 
                 if (status !== 'QUOTE') {
-                    await processSaleInventory(tx, saleDbData.items, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
+                    await processSaleInventory(tx, validItems, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
                 }
             }
             return sale;
@@ -372,13 +407,15 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
             success: true, 
             data: {
                 ...result,
-                amountPaid: Number(result.amountPaid),
-                balance: Number(result.balance),
-                taxRate: Number(result.taxRate),
-                subtotal: Number(result.subtotal),
-                total: Number(result.total),
-                totalCost: Number(result.totalCost),
-                profit: Number(result.profit),
+                amountPaid: toValidNum(result.amountPaid),
+                balance: toValidNum(result.balance),
+                taxRate: toValidNum(result.taxRate),
+                subtotal: toValidNum(result.subtotal),
+                total: toValidNum(result.total),
+                totalCost: toValidNum(result.totalCost),
+                profit: toValidNum(result.profit),
+                discount: toValidNum(result.discount),
+                taxAmount: toValidNum(result.taxAmount),
                 date: result.date.toISOString(),
                 createdAt: result.createdAt.toISOString(),
                 updatedAt: result.updatedAt.toISOString()
@@ -393,9 +430,19 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
 export async function createReceiptAction(saleData: any, businessId: string, userId: string) {
     try {
         const session = await auth();
-        const agencyId = (session?.user as any)?.agencyId;
-        if (agencyId) {
-            await checkSalesQuota(agencyId);
+        if (!session || !session.user) return { success: false, error: 'Unauthorized' };
+        
+        const userRole = (session.user as any).role?.toLowerCase();
+        const userBranchId = (session.user as any).branchId;
+        const userAgencyId = (session.user as any).agencyId;
+
+        // Authorization check
+        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
+            return { success: false, error: 'Unauthorized: Branch mismatch' };
+        }
+
+        if (userAgencyId) {
+            await checkSalesQuota(userAgencyId);
         }
 
         // Validate input data
@@ -410,29 +457,35 @@ export async function createReceiptAction(saleData: any, businessId: string, use
         const financials = calculateSaleFinancials(validatedData.items, validatedData.taxRate);
         const saleDate = new Date(validatedData.date);
 
+        const prismaData: any = {
+            user: { connect: { id: userId } },
+            branch: { connect: { id: businessId } },
+            saleNumber: validatedData.receiptNumber,
+            customerName: validatedData.customerName || "Valued Customer",
+            customerAddress: saleData.customer_address || null,
+            customerPhone: saleData.customer_contact || null,
+            date: saleDate,
+            items: validatedData.items || [],
+            paymentStatus: status as PaymentStatus,
+            amountPaid: toValidNum(validatedData.amountPaid),
+            balance: toValidNum(validatedData.amountDue),
+            notes: validatedData.notes || null,
+            taxRate: toValidNum(validatedData.taxRate),
+            subtotal: toValidNum(financials.subtotal),
+            discount: toValidNum(financials.discount),
+            taxAmount: toValidNum(financials.taxAmount),
+            total: toValidNum(financials.total),
+            totalCost: toValidNum(financials.totalCost),
+            profit: toValidNum(financials.profit),
+        };
+
+        if (userAgencyId) prismaData.agency = { connect: { id: userAgencyId } };
+        if (validatedData.customerId) prismaData.customer = { connect: { id: validatedData.customerId } };
+        if (validatedData.cashAccountId) prismaData.cashAccount = { connect: { id: validatedData.cashAccountId } };
+
         const result = await db.$transaction(async (tx) => {
             const created = await tx.sale.create({
-                data: {
-                    userId: userId,
-                    branchId: businessId,
-                    saleNumber: validatedData.receiptNumber,
-                    customerName: validatedData.customerName || "",
-                    customerId: validatedData.customerId || null,
-                    date: saleDate,
-                    items: validatedData.items,
-                    paymentStatus: status as PaymentStatus,
-                    amountPaid: validatedData.amountPaid || 0,
-                    balance: validatedData.amountDue || 0,
-                    cashAccountId: validatedData.cashAccountId || null,
-                    notes: validatedData.notes || null,
-                    taxRate: validatedData.taxRate || 0,
-                    subtotal: financials.subtotal,
-                    discount: financials.discount,
-                    taxAmount: financials.taxAmount,
-                    total: financials.total,
-                    totalCost: financials.totalCost,
-                    profit: financials.profit,
-                }
+                data: prismaData
             });
 
             if (status !== 'QUOTE') {
@@ -448,13 +501,15 @@ export async function createReceiptAction(saleData: any, businessId: string, use
             success: true, 
             data: {
                 ...result,
-                amountPaid: Number(result.amountPaid),
-                balance: Number(result.balance),
-                taxRate: Number(result.taxRate),
-                subtotal: Number(result.subtotal),
-                total: Number(result.total),
-                totalCost: Number(result.totalCost),
-                profit: Number(result.profit),
+                amountPaid: toValidNum(result.amountPaid),
+                balance: toValidNum(result.balance),
+                taxRate: toValidNum(result.taxRate),
+                subtotal: toValidNum(result.subtotal),
+                total: toValidNum(result.total),
+                totalCost: toValidNum(result.totalCost),
+                profit: toValidNum(result.profit),
+                discount: toValidNum(result.discount),
+                taxAmount: toValidNum(result.taxAmount),
                 date: result.date.toISOString(),
                 createdAt: result.createdAt.toISOString(),
                 updatedAt: result.updatedAt.toISOString()
@@ -490,8 +545,8 @@ export async function createSalesCategoryAction(businessId: string, userId: stri
     try {
         const category = await db.saleCategory.create({
             data: {
-                branchId: businessId,
-                userId,
+                branch: { connect: { id: businessId } },
+                user: { connect: { id: userId } },
                 name,
             }
         });
@@ -576,8 +631,8 @@ export async function getSalesGoalAction(userId: string, branchId: string, month
             success: true, 
             data: goal ? {
                 ...goal,
-                target: Number(goal.target),
-                current: Number(goal.current),
+                target: toValidNum(goal.target),
+                current: toValidNum(goal.current),
                 startDate: goal.startDate.toISOString(),
                 endDate: goal.endDate.toISOString(),
                 createdAt: goal.createdAt.toISOString(),
@@ -611,8 +666,8 @@ export async function upsertSalesGoalAction(
         } else {
             const created = await db.salesGoal.create({
                 data: {
-                    userId,
-                    branchId,
+                    user: { connect: { id: userId } },
+                    branch: { connect: { id: branchId } },
                     target: amount,
                     current: 0,
                     period,
@@ -643,7 +698,7 @@ export async function getPeriodSalesAction(branchId: string, startDate: Date, en
             }
         });
 
-        return { success: true, data: Number(aggregate._sum.amountPaid || 0) };
+        return { success: true, data: toValidNum(aggregate._sum.amountPaid) };
     } catch (error: any) {
         console.error('Error fetching period sales:', error);
         return { success: false, error: error.message };

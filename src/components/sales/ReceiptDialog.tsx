@@ -2,12 +2,13 @@
 
 import React from 'react';
 import { Sale } from '@/types';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   Drawer,
   DrawerContent,
   DrawerClose,
-  DrawerTrigger
+  DrawerTrigger,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import PrintableReceipt from '@/components/PrintableReceipt';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -35,6 +36,7 @@ const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh]">
+          <DrawerTitle className="sr-only">Sale Receipt</DrawerTitle>
           <div className="relative px-4 py-6 pb-8">
             <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
               <X className="h-4 w-4" />
@@ -52,6 +54,7 @@ const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogTitle className="sr-only">Sale Receipt</DialogTitle>
         <ScrollArea className="h-[80vh] pr-4">
           {sale && <PrintableReceipt sale={sale} currency={currency} includePaymentInfo={includePaymentInfo} />}
         </ScrollArea>
