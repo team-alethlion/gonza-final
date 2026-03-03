@@ -18,27 +18,31 @@ interface NavLinksProps {
   className?: string;
   onClick?: () => void;
   isSidebar?: boolean;
+  isCollapsed?: boolean;
 }
 
-const NavLinks = ({ className = '', onClick, isSidebar = false }: NavLinksProps) => {
+const NavLinks = ({ className = '', onClick, isSidebar = false, isCollapsed = false }: NavLinksProps) => {
   const pathname = usePathname();
 
   const { hasPermission } = useProfiles();
 
-  const mainLinks: NavLink[] = [
+  const coreLinks: NavLink[] = [
     { name: 'Dashboard', path: '/', icon: <Home className="w-4 h-4" /> },
     { name: 'Sales', path: '/sales', icon: <Receipt className="w-4 h-4" />, module: 'sales' },
     { name: 'Inventory', path: '/inventory', icon: <Package className="w-4 h-4" />, module: 'inventory' },
+    { name: 'Customers', path: '/customers', icon: <Users className="w-4 h-4" />, module: 'customers' },
+  ].filter(link => !link.module || hasPermission(link.module, 'view'));
+
+  const businessLinks: NavLink[] = [
     { name: 'Finance', path: '/cash', icon: <Wallet className="w-4 h-4" />, module: 'finance' },
     { name: 'Expenses', path: '/expenses', icon: <DollarSign className="w-4 h-4" />, module: 'expenses' },
-    { name: 'Customers', path: '/customers', icon: <Users className="w-4 h-4" />, module: 'customers' },
     { name: 'Messages', path: '/messages', icon: <MessageSquare className="w-4 h-4" />, module: 'messages' },
-    { name: 'Profiles', path: '/profiles', icon: <UserCircle className="w-4 h-4" />, module: 'profiles' },
     { name: 'Tasks', path: '/tasks', icon: <CheckSquare className="w-4 h-4" />, module: 'tasks' },
     { name: 'History', path: '/history', icon: <HistoryIcon className="w-4 h-4" /> },
   ].filter(link => !link.module || hasPermission(link.module, 'view'));
 
-  const secondaryLinks: NavLink[] = [
+  const systemLinks: NavLink[] = [
+    { name: 'Profiles', path: '/profiles', icon: <UserCircle className="w-4 h-4" />, module: 'profiles' },
     { name: 'Billing History', path: '/billing', icon: <CreditCard className="w-4 h-4" /> },
     { name: 'Settings', path: '/settings', icon: <Settings className="w-4 h-4" />, module: 'settings' },
     { name: 'Help', path: '/help', icon: <HelpCircle className="w-4 h-4" /> },
@@ -51,50 +55,46 @@ const NavLinks = ({ className = '', onClick, isSidebar = false }: NavLinksProps)
     return false;
   };
 
+  const renderSidebarGroup = (title: string, links: NavLink[]) => (
+    <div className="space-y-1">
+      {!isCollapsed && (
+        <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-primary-foreground/50 mb-1.5 mt-4 first:mt-0">
+          {title}
+        </p>
+      )}
+      {isCollapsed && <div className="h-4"></div>}
+      <SidebarMenu className="w-full">
+        {links.map((link) => (
+          <SidebarMenuItem key={link.name}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive(link.path)}
+              tooltip={link.name}
+              className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground"
+            >
+              <Link href={link.path} onClick={onClick}>
+                {link.icon}
+                <span className="group-data-[collapsible=icon]:hidden">{link.name}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </div>
+  );
+
   if (isSidebar) {
     return (
-      <div className="flex flex-col justify-between h-full">
-        <SidebarMenu className="w-full">
-          {mainLinks.map((link) => (
-            <SidebarMenuItem key={link.name}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(link.path)}
-                tooltip={link.name}
-                className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground"
-              >
-                <Link href={link.path} onClick={onClick}>
-                  {link.icon}
-                  <span className="group-data-[collapsible=icon]:hidden">{link.name}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-
-        <SidebarMenu className="w-full">
-          {secondaryLinks.map((link) => (
-            <SidebarMenuItem key={link.name}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(link.path)}
-                tooltip={link.name}
-                className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground"
-              >
-                <Link href={link.path} onClick={onClick}>
-                  {link.icon}
-                  <span className="group-data-[collapsible=icon]:hidden">{link.name}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+      <div className="flex flex-col space-y-4">
+        {renderSidebarGroup('Core', coreLinks)}
+        {renderSidebarGroup('Business', businessLinks)}
+        {renderSidebarGroup('System', systemLinks)}
       </div>
     );
   }
 
   // For Mobile Menu
-  const allLinks = [...mainLinks, ...secondaryLinks];
+  const allLinks = [...coreLinks, ...businessLinks, ...systemLinks];
 
   return (
     <nav className={cn('flex flex-col space-y-1', className)}>

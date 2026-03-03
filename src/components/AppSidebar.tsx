@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar
 } from '@/components/ui/sidebar';
 import NavLinks from './header/NavLinks';
 import { Building2, LogOut } from 'lucide-react';
@@ -23,6 +24,7 @@ const AppSidebar = () => {
   const { businessLocations } = useBusiness();
   const { signOut } = useAuth();
   const { hasPermission } = useProfiles();
+  const { state } = useSidebar();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -57,7 +59,7 @@ const AppSidebar = () => {
           </div>
         )}
         <div className="flex-1">
-          <NavLinks isSidebar={true} />
+          <NavLinks isSidebar={true} isCollapsed={state === 'collapsed'} />
         </div>
       </SidebarContent>
       <SidebarFooter className="p-2 border-t border-primary-foreground/20">
