@@ -18,20 +18,21 @@ import { useSalesActions } from '@/hooks/useSalesActions';
 import { RefreshCw, History, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export const SalesContent: React.FC = () => {
+import { Sale } from '@/types';
+
+export const SalesClient = ({ initialSales }: { initialSales?: Sale[] }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const { settings } = useBusinessSettings();
   const { userId } = useCurrentUser();
 
-  // Fetch ALL sales data without any page size limit
   const {
     sales,
     isLoading: salesLoading,
     deleteSale,
     refetch,
     isFetching
-  } = useSalesData(userId, 'desc');
+  } = useSalesData(userId, 'desc', undefined, true, initialSales);
 
   const {
     deletedSales,

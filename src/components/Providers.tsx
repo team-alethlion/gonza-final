@@ -8,7 +8,15 @@ import { ProfileProvider } from "@/contexts/ProfileContext";
 import { SessionProvider } from "next-auth/react";
 import { SyncManager } from "./SyncManager";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ 
+    children, 
+    initialBusinessLocations = [],
+    initialProfiles = []
+}: { 
+    children: React.ReactNode,
+    initialBusinessLocations?: any[],
+    initialProfiles?: any[]
+}) {
     const [queryClient] = useState(
         () =>
             new QueryClient({
@@ -27,8 +35,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <SessionProvider>
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
-                    <BusinessProvider>
-                        <ProfileProvider>
+                    <BusinessProvider initialLocations={initialBusinessLocations}>
+                        <ProfileProvider initialProfiles={initialProfiles}>
                             <SyncManager />
                             {children}
                         </ProfileProvider>

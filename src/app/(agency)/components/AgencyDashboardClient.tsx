@@ -14,8 +14,9 @@ import { useDashboardActions } from "@/hooks/useDashboardActions";
 const AnalyticsDashboard = lazy(
   () => import("@/components/AnalyticsDashboard"),
 );
+import { Sale } from "@/types";
 
-export default function AgencyDashboardClient() {
+export default function AgencyDashboardClient({ initialSales }: { initialSales?: Sale[] }) {
   const { isLoading: profilesLoading } = useProfiles();
   const {
     settings,
@@ -27,7 +28,7 @@ export default function AgencyDashboardClient() {
     updateAvailable,
     isUpdating,
     triggerUpdate,
-  } = useDashboardData();
+  } = useDashboardData(initialSales);
 
   const { isRefreshing, handleRefresh, handleQuickCreate } =
     useDashboardActions();

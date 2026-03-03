@@ -14,11 +14,15 @@ import {
   updateProductsBulkAction
 } from '@/app/actions/products';
 
-export const useProducts = (userId: string | undefined, initialPageSize: number = 50) => {
-  const [products, setProducts] = useState<Product[]>([]);
+export const useProducts = (
+  userId: string | undefined, 
+  initialPageSize: number = 50,
+  initialData?: { products: Product[], count: number }
+) => {
+  const [products, setProducts] = useState<Product[]>(initialData?.products || []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(initialData?.count || 0);
   const [isTyping, setIsTyping] = useState(false);
   const { settings } = useBusinessSettings();
   const { currentBusiness } = useBusiness();
@@ -79,6 +83,7 @@ export const useProducts = (userId: string | undefined, initialPageSize: number 
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    initialData: (page === 1 && filters.search === '' && filters.category === 'all' && filters.stockStatus === 'all' && initialData?.products.length) ? initialData : undefined
   });
 
   useEffect(() => {

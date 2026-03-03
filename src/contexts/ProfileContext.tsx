@@ -55,14 +55,30 @@ interface ProfileContextType {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
-export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfiles?: BusinessProfile[] }> = ({ children, initialProfiles = [] }) => {
   const { user, signOut } = useAuth();
   const userId = user?.id;
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
-  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
-  const [currentProfile, setCurrentProfile] = useState<BusinessProfile | null>(null);
+  const [profiles, setProfiles] = useState<BusinessProfile[]>(initialProfiles);
+  
+  const [currentProfile, setCurrentProfile] = useState<BusinessProfile | null>(() => {
+    if (initialProfiles.length > 0 && currentBusiness?.id) {
+      if (typeof window !== 'undefined') {
+        const savedProfileId = localStorage.getItem(`currentProfile_${currentBusiness.id}`);
+        if (savedProfileId) {
+          const profile = initialProfiles.find(p => p.id === savedProfileId);
+          if (profile) return profile;
+        }
+      }
+      if (initialProfiles.length === 1) {
+        return initialProfiles[0];
+      }
+    }
+    return null;
+  });
+
   const [isProfileVerified, setIsProfileVerified] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialProfiles.length === 0 && !!userId && !!currentBusiness?.id);
   const [isFirstTimeSetupNeeded, setIsFirstTimeSetupNeeded] = useState(false);
 
   // Restore verification state from sessionStorage when business and profile are loaded
@@ -297,13 +313,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       userId
     });
 
-    // Reset profile state immediately when business or user changes
-    setProfiles([]);
-    setCurrentProfile(null);
-    setIsProfileVerified(false);
-    setIsFirstTimeSetupNeeded(false);
-
-    // If business is still loading, stay in loading state
     if (businessLoading) {
       console.log('ProfileContext: Business still loading, keeping spinner');
       setIsLoading(true);
@@ -311,13 +320,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (currentBusiness?.id) {
-      console.log('ProfileContext: Calling loadProfiles');
-      loadProfiles();
+      if (initialProfiles.length === 0 || profiles.length === 0 || profiles[0]?.business_location_id !== currentBusiness.id) {
+        console.log('ProfileContext: Calling loadProfiles');
+        loadProfiles();
+      }
     } else {
       console.log('ProfileContext: No business found, clearing profiles');
+      setProfiles([]);
+      setCurrentProfile(null);
+      setIsProfileVerified(false);
+      setIsFirstTimeSetupNeeded(false);
       setIsLoading(false);
     }
-  }, [currentBusiness?.id, businessLoading, userId]);
+  }, [currentBusiness?.id, businessLoading, userId, initialProfiles.length]);
 
   // Load current profile from localStorage or auto-select first profile
   useEffect(() => {

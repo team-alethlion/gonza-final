@@ -9,7 +9,7 @@ export const authConfig = {
   },
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = (user as any).role
@@ -17,6 +17,10 @@ export const authConfig = {
         token.agencyId = (user as any).agencyId
       }
       
+      if (trigger === "update" && session?.branchId) {
+        token.branchId = session.branchId;
+      }
+
       return token
     },
     async session({ session, token }) {

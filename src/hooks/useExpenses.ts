@@ -27,8 +27,8 @@ export interface Expense {
   updatedAt: Date;
 }
 
-export const useExpenses = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+export const useExpenses = (initialData?: Expense[]) => {
+  const [expenses, setExpenses] = useState<Expense[]>(initialData || []);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
@@ -83,6 +83,7 @@ export const useExpenses = () => {
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    initialData: initialData?.length ? initialData : undefined
   });
 
   useEffect(() => {

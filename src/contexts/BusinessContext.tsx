@@ -42,12 +42,32 @@ export const useBusiness = () => {
   return context;
 };
 
-export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const BusinessProvider: React.FC<{ children: React.ReactNode, initialLocations?: BusinessLocation[] }> = ({ children, initialLocations = [] }) => {
   console.log('[DEBUG] BusinessProvider: Initializing...');
   const { user, updateSession } = useAuth();
-  const [currentBusiness, setCurrentBusiness] = useState<BusinessLocation | null>(null);
-  const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>(initialLocations);
+  
+  const [currentBusiness, setCurrentBusiness] = useState<BusinessLocation | null>(() => {
+    if (initialLocations.length > 0) {
+      if (user?.branchId) {
+        const branch = initialLocations.find(b => b.id === user.branchId);
+        if (branch) return branch;
+      }
+      
+      if (typeof window !== 'undefined') {
+         const key = user ? `selected_business_${user.id}` : null;
+         const saved = key ? localStorage.getItem(key) : null;
+         const branch = initialLocations.find(b => b.id === saved);
+         if (branch) return branch;
+      }
+      
+      return initialLocations.find(b => b.is_default) || initialLocations[0];
+    }
+    return null;
+  });
+
+  const [isLoading, setIsLoading] = useState(initialLocations.length === 0 && !!user);
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
 
@@ -325,16 +345,15 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && initialLocations.length === 0) {
       loadBusinessLocations();
-    } else {
+    } else if (!user) {
       setCurrentBusiness(null);
       setBusinessLocations([]);
       setIsLoading(false);
       setError(null);
-      // We don't remove user-specific keys here as they will be ignored next time
     }
-  }, [user?.id]);
+  }, [user?.id, initialLocations.length]);
 
   return (
     <BusinessContext.Provider

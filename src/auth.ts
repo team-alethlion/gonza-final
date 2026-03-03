@@ -88,6 +88,10 @@ const nextAuth = NextAuth({
         delete token.impersonatingAgencyId;
       }
 
+      if (trigger === "update" && session?.branchId) {
+        token.branchId = session.branchId;
+      }
+
       return token;
     },
     async session({ session, token }) {

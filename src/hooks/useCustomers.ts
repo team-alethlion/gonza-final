@@ -35,11 +35,14 @@ export interface Customer {
   updatedAt: Date;
 }
 
-export const useCustomers = (initialPageSize: number = 50) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+export const useCustomers = (
+  initialPageSize: number = 50,
+  initialData?: { customers: Customer[]; count: number }
+) => {
+  const [customers, setCustomers] = useState<Customer[]>(initialData?.customers || []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(initialData?.count || 0);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
@@ -113,6 +116,7 @@ export const useCustomers = (initialPageSize: number = 50) => {
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    initialData: (page === 1 && initialData?.customers.length) ? initialData : undefined
   });
 
   useEffect(() => {

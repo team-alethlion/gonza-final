@@ -5,13 +5,13 @@ import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useSalesData } from '@/hooks/useSalesData';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 
-export const useDashboardData = () => {
+export const useDashboardData = (initialSales?: any[]) => {
   const { user } = useAuth();
   const { isLoading: businessLoading, error: businessError, currentBusiness } = useBusiness();
   const { settings, isLoading: settingsLoading } = useBusinessSettings();
   // Load only recent sales for the dashboard
   // Analytics summary is now handled server-side in AnalyticsDashboard via useAnalyticsData
-  const { sales, isLoading: salesLoading } = useSalesData(user?.id, 'desc', 50);
+  const { sales, isLoading: salesLoading } = useSalesData(user?.id, 'desc', 50, true, initialSales);
   const { updateAvailable, isUpdating, triggerUpdate } = useAppUpdate();
 
   // Memoize page title computation with more efficient logic

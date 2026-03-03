@@ -26,11 +26,6 @@ const AppSidebar = () => {
   const { hasPermission } = useProfiles();
   const { state } = useSidebar();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const canManageSettings = hasPermission('settings', 'manage');
 
@@ -47,7 +42,6 @@ const AppSidebar = () => {
     }
   };
 
-  if (!mounted) return null;
 
   return (
     <Sidebar collapsible="icon" className="hidden border-r border-primary-foreground/20 bg-primary text-primary-foreground md:flex">

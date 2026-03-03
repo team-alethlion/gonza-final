@@ -20,7 +20,8 @@ export const useSalesData = (
   userId: string | undefined,
   sortOrder: string = 'desc',
   pageSize?: number,
-  enabled: boolean = true
+  enabled: boolean = true,
+  initialData?: Sale[]
 ) => {
 
   const queryClient = useQueryClient();
@@ -98,6 +99,7 @@ export const useSalesData = (
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    initialData: initialData?.length ? initialData : undefined
   });
 
   // Derived loading state
