@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarMenuButton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '../ui/sidebar';
 import { BusinessPasswordDialog } from './BusinessPasswordDialog';
@@ -25,8 +26,13 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
   variant = 'desktop',
   onItemClick
 }) => {
+  const { user } = useAuth();
   const { currentBusiness, businessLocations, switchBusiness } = useBusiness();
   const { verifyBusinessPassword } = useBusinessPassword();
+  
+  const userRole = user?.role?.toLowerCase();
+  const canSwitchBusiness = userRole === 'superadmin' || userRole === 'admin';
+
   const [isOpen, setIsOpen] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordPromptData, setPasswordPromptData] = useState<{
@@ -67,9 +73,9 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
   };
 
   if (variant === 'sidebar') {
-    if (businessLocations.length <= 1) {
+    if (businessLocations.length <= 1 || !canSwitchBusiness) {
       return (
-        <SidebarMenuButton className="w-full text-primary-foreground" disabled>
+        <SidebarMenuButton className="w-full text-primary-foreground cursor-default" disabled={!canSwitchBusiness}>
           <Building2 className="size-4" />
           <span className="flex-1 text-left truncate group-data-[collapsible=icon]:hidden">{currentBusiness?.name || 'Business'}</span>
         </SidebarMenuButton>
@@ -124,30 +130,32 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
           <div className="text-sm text-gray-500 mb-2">Current Business</div>
           <div className="font-medium break-words">{currentBusiness?.name || 'Loading...'}</div>
 
-          <div className="mt-3 space-y-1">
-            {businessLocations.map((business) => (
-              <button
-                key={business.id}
-                onClick={() => handleBusinessSwitch(business.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors touch-manipulation ${currentBusiness?.id === business.id
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'hover:bg-gray-50 active:bg-gray-100'
-                  }`}
-                type="button"
-              >
-                <span className="flex items-center gap-2 min-w-0 flex-1">
-                  <Building2 className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{business.name}</span>
-                  {business.is_default && (
-                    <span className="text-xs bg-gray-100 px-1 rounded flex-shrink-0">Default</span>
+          {canSwitchBusiness && (
+            <div className="mt-3 space-y-1">
+              {businessLocations.map((business) => (
+                <button
+                  key={business.id}
+                  onClick={() => handleBusinessSwitch(business.id)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors touch-manipulation ${currentBusiness?.id === business.id
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'hover:bg-gray-50 active:bg-gray-100'
+                    }`}
+                  type="button"
+                >
+                  <span className="flex items-center gap-2 min-w-0 flex-1">
+                    <Building2 className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{business.name}</span>
+                    {business.is_default && (
+                      <span className="text-xs bg-gray-100 px-1 rounded flex-shrink-0">Default</span>
+                    )}
+                  </span>
+                  {currentBusiness?.id === business.id && (
+                    <Check className="h-4 w-4 flex-shrink-0" />
                   )}
-                </span>
-                {currentBusiness?.id === business.id && (
-                  <Check className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {passwordPromptData && (
@@ -170,7 +178,7 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="justify-start gap-2 h-auto py-2">
+          <Button variant="ghost" className={`justify-start gap-2 h-auto py-2 ${!canSwitchBusiness ? 'cursor-default' : ''}`}>
             <Building2 className="h-4 w-4" />
             <div className="text-left">
               <div className="text-xs text-gray-500">Business</div>
@@ -179,26 +187,28 @@ export const BusinessSelector: React.FC<BusinessSelectorProps> = ({
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="start" className="w-64">
-          {businessLocations.map((business) => (
-            <DropdownMenuItem
-              key={business.id}
-              onClick={() => handleBusinessSwitch(business.id)}
-              className="flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                {business.name}
-                {business.is_default && (
-                  <span className="text-xs bg-gray-100 px-1 rounded">Default</span>
+        {canSwitchBusiness && (
+          <DropdownMenuContent align="start" className="w-64">
+            {businessLocations.map((business) => (
+              <DropdownMenuItem
+                key={business.id}
+                onClick={() => handleBusinessSwitch(business.id)}
+                className="flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  {business.name}
+                  {business.is_default && (
+                    <span className="text-xs bg-gray-100 px-1 rounded">Default</span>
+                  )}
+                </span>
+                {currentBusiness?.id === business.id && (
+                  <Check className="h-4 w-4" />
                 )}
-              </span>
-              {currentBusiness?.id === business.id && (
-                <Check className="h-4 w-4" />
-              )}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        )}
       </DropdownMenu>
 
       {passwordPromptData && (

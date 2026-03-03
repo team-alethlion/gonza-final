@@ -608,6 +608,9 @@ export async function getProductReconciliationAction(branchId: string, productId
         let totalOut = 0;
         let itemsSold = 0;
         let stockAdded = 0;
+        let transferOut = 0;
+        let returnIn = 0;
+        let returnOut = 0;
         let adjustments = 0;
         let calculatedStock = 0;
         let openingStock = 0;
@@ -646,6 +649,7 @@ export async function getProductReconciliationAction(branchId: string, productId
                         stockAdded += change;
                         daily.stockAdded += change;
                     } else if (entry.type === 'RETURN_IN') {
+                        returnIn += change;
                         daily.returnIn += change;
                     } else {
                         adjustments += change;
@@ -658,8 +662,10 @@ export async function getProductReconciliationAction(branchId: string, productId
                         itemsSold += absChange;
                         daily.itemsSold += absChange;
                     } else if (entry.type === 'TRANSFER_OUT') {
+                        transferOut += absChange;
                         daily.transferOut += absChange;
                     } else if (entry.type === 'RETURN_OUT') {
+                        returnOut += absChange;
                         daily.returnOut += absChange;
                     } else {
                         adjustments += change; // change is negative
@@ -707,9 +713,9 @@ export async function getProductReconciliationAction(branchId: string, productId
                 openingStock,
                 itemsSold,
                 stockAdded,
-                transferOut: 0, // Placeholder
-                returnIn: 0,    // Placeholder
-                returnOut: 0,   // Placeholder
+                transferOut,
+                returnIn,
+                returnOut,
                 adjustments,
                 excludedSalesQty: 0,
                 openingDate,

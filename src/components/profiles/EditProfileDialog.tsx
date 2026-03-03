@@ -155,7 +155,7 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             />
           </div>
 
-          {profile.role.toLowerCase() !== 'admin' && profile.role.toLowerCase() !== 'owner' && profile.business_role?.name !== 'Admin' && profile.business_role?.name !== 'Owner' && (
+          {profile.role.toLowerCase() !== 'manager' && profile.role.toLowerCase() !== 'admin' && profile.role.toLowerCase() !== 'owner' && profile.business_role?.name !== 'Manager' && profile.business_role?.name !== 'Admin' && profile.business_role?.name !== 'Owner' && (
             <div className="space-y-2">
               <Label htmlFor="edit_role">Role</Label>
               <Select
@@ -179,8 +179,8 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                     ))
                   ) : (
                     <>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="admin">Manager</SelectItem>
+                      <SelectItem value="manager">Supervisor</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
                     </>
                   )}

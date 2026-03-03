@@ -34,23 +34,56 @@ export const authConfig = {
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const role = (auth?.user as any)?.role
+      const role = (auth?.user as any)?.role?.toLowerCase()
 
-      const isSuperAdminPath = nextUrl.pathname.startsWith("/(admin)") || nextUrl.pathname.startsWith("/admin_login")
-      const isAgencyPath = nextUrl.pathname.startsWith("/(agency)")
-      const isPublicPath = nextUrl.pathname.startsWith("/(public)") || ["/login", "/signup", "/privacy-policy"].includes(nextUrl.pathname)
+      const isSuperAdminPath = nextUrl.pathname.startsWith("/packages") || nextUrl.pathname.startsWith("/admin_login")
+      const isPublicPath = ["/login", "/signup", "/privacy-policy", "/auth/error"].includes(nextUrl.pathname)
+      const isRootPath = nextUrl.pathname === "/"
 
-      // Note: With Route Groups, the actual URL doesn't include the group name.
-      // We check the requested path.
+      // 1. Handle Public Paths
+      if (isPublicPath) {
+        if (isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/signup")) {
+          return Response.redirect(new URL("/", nextUrl))
+        }
+        return true
+      }
+
+      // 2. Handle Authentication
+      if (!isLoggedIn) {
+        // Redirect to admin login for superadmin paths
+        if (isSuperAdminPath && nextUrl.pathname !== "/admin_login") {
+          return Response.redirect(new URL("/admin_login", nextUrl))
+        }
+        // Redirect to standard login for everything else
+        return false // Redirects to authConfig.pages.signIn
+      }
+
+      // 3. Handle Role-Based Authorization
       
-      const isOnLogin = nextUrl.pathname === "/login" || nextUrl.pathname === "/signup"
-
-      if (isLoggedIn && isOnLogin) {
-        // Redirect to root, the RootPage component in src/app/page.tsx handles the final view
+      // Superadmin path protection
+      if (isSuperAdminPath) {
+        if (role === 'superadmin') return true
+        // If not superadmin but on admin path, redirect to root
         return Response.redirect(new URL("/", nextUrl))
       }
 
-      return true // Allow the flow, page.tsx will handle granular checks
+      // Agency paths (everything else)
+      // Allow Superadmin to see agency view as well (for management)
+      if (role === 'superadmin') return true
+
+      // Admins (Agency Owners) and Managers (Branch Managers/Supervisors)
+      // These roles are allowed on the main app
+      if (role === 'admin' || role === 'manager' || role === 'supervisor') {
+        // Protect specific high-level management routes from non-admins if needed
+        const isAdminOnlyPath = nextUrl.pathname.startsWith("/business-management")
+        if (isAdminOnlyPath && role !== 'admin') {
+          return Response.redirect(new URL("/", nextUrl))
+        }
+        return true
+      }
+
+      // Default: If they have a session but no valid role for the path, sign them out or redirect to root
+      return Response.redirect(new URL("/login", nextUrl))
     },
   },
   providers: [], 

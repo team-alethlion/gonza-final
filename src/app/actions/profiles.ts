@@ -12,16 +12,31 @@ export async function getProfilesAction(branchId: string) {
     if (!session || !session.user) throw new Error("Unauthorized");
     
     const userBranchId = (session.user as any).branchId;
-    if (userBranchId && userBranchId !== branchId) {
-        const role = (session.user as any).role?.toLowerCase();
-        if (role !== 'superadmin') throw new Error("Unauthorized: Branch mismatch");
+    const userRole = (session.user as any).role?.toLowerCase();
+    const userId = session.user.id;
+
+    // Authorization check: Superadmins and Admins can view any branch in their agency
+    // Managers and Staff are restricted to their assigned branch
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
+        throw new Error("Unauthorized: Branch mismatch");
     }
 
     try {
         const branch = await db.branch.findUnique({
             where: { id: branchId },
-            select: { adminId: true }
+            select: { adminId: true, agencyId: true }
         });
+
+        // For Admin role, ensure they belong to the same agency
+        if (userRole === 'admin') {
+            const user = await db.user.findUnique({
+                where: { id: userId },
+                select: { agencyId: true }
+            });
+            if (user?.agencyId !== branch?.agencyId && userId !== branch?.adminId) {
+                throw new Error("Unauthorized: Agency mismatch");
+            }
+        }
 
         const users = await db.user.findMany({
             where: {
@@ -43,31 +58,46 @@ export async function getProfilesAction(branchId: string) {
         });
 
         // Map Prisma User model to the shape expected by ProfileContext
-        return users.map((u: any) => ({
-            id: u.id,
-            business_location_id: u.branchId,
-            profile_name: u.name,
-            email: u.email,
-            phone_number: undefined,
-            role: u.role?.name || 'staff',
-            pin: u.pin || '0000',
-            role_id: u.roleId,
-            business_role: u.role ? {
-                id: u.role.id,
-                name: u.role.name,
-                permissions: u.role.permissions.reduce((acc: any, p: any) => {
-                    const [module, action] = p.name.split(':');
-                    if (!acc[module]) acc[module] = [];
-                    acc[module].push(action);
-                    return acc;
-                }, {})
-            } : undefined,
-            is_active: u.status === 'ACTIVE',
-            sms_credits: u.credits,
-            created_by: u.agencyId || u.id,
-            created_at: u.createdAt.toISOString(),
-            updated_at: u.updatedAt.toISOString(),
-        }));
+        return users.map((u: any) => {
+            let roleName = u.role?.name || 'staff';
+            
+            // User requested to change "admin" to "manager" for managers if applicable.
+            // In a branch context, the "admin" is usually the Manager.
+            if (roleName.toLowerCase() === 'admin') {
+                roleName = 'Manager';
+            } else if (roleName.toLowerCase() === 'manager') {
+                roleName = 'Supervisor'; // Or keep as manager if preferred, but we need to distinguish
+            } else {
+                // Capitalize other roles
+                roleName = roleName.charAt(0).toUpperCase() + roleName.slice(1).toLowerCase();
+            }
+
+            return {
+                id: u.id,
+                business_location_id: u.branchId,
+                profile_name: u.name,
+                email: u.email,
+                phone_number: undefined,
+                role: roleName,
+                pin: u.pin || '0000',
+                role_id: u.roleId,
+                business_role: u.role ? {
+                    id: u.role.id,
+                    name: roleName,
+                    permissions: u.role.permissions.reduce((acc: any, p: any) => {
+                        const [module, action] = p.name.split(':');
+                        if (!acc[module]) acc[module] = [];
+                        acc[module].push(action);
+                        return acc;
+                    }, {})
+                } : undefined,
+                is_active: u.status === 'ACTIVE',
+                sms_credits: u.credits,
+                created_by: u.agencyId || u.id,
+                created_at: u.createdAt.toISOString(),
+                updated_at: u.updatedAt.toISOString(),
+            };
+        });
     } catch (error) {
         console.error('Error fetching profiles:', error);
         return [];

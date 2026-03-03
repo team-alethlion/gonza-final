@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { getBusinessLocationsAction, createBusinessAction, updateBusinessAction, deleteBusinessAction, resetBusinessAction } from '@/app/actions/business';
 import { getAccountStatusAction } from '@/app/actions/business-settings';
+import { updateUserBranchAction } from '@/app/actions/auth';
 
 export interface BusinessLocation {
   id: string;
@@ -20,7 +21,7 @@ export interface BusinessLocation {
 interface BusinessContextType {
   currentBusiness: BusinessLocation | null;
   businessLocations: BusinessLocation[];
-  switchBusiness: (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => void;
+  switchBusiness: (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => Promise<void>;
   loadBusinessLocations: () => Promise<void>;
   createBusiness: (name: string) => Promise<BusinessLocation | null>;
   updateBusiness: (id: string, name: string) => Promise<boolean>;
@@ -127,23 +128,37 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const switchBusiness = (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => {
+  const switchBusiness = async (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => {
     const business = businessLocations.find(b => b.id === businessId);
     if (!business) {
       console.error('Business not found:', businessId);
       return;
     }
 
+    const performSwitch = async () => {
+      setCurrentBusiness(business);
+      const storageKey = getStorageKey();
+      if (storageKey) {
+        localStorage.setItem(storageKey, business.id);
+      }
+      
+      // Update the user's current branch in the database
+      if (user?.id) {
+        try {
+          await updateUserBranchAction(user.id, business.id);
+          console.log('Successfully updated user current branch in database');
+        } catch (error) {
+          console.error('Failed to update user current branch:', error);
+        }
+      }
+    };
+
     // If business has password protection and is not verified in this session
     if (business.switch_password_hash && !isBusinessVerified(businessId)) {
       if (onPasswordPrompt) {
         onPasswordPrompt(businessId, business.name, () => {
           // This callback is called after successful password verification
-          setCurrentBusiness(business);
-          const storageKey = getStorageKey();
-          if (storageKey) {
-            localStorage.setItem(storageKey, business.id);
-          }
+          performSwitch();
         });
         return;
       } else {
@@ -153,11 +168,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     // No password protection or already verified
-    setCurrentBusiness(business);
-    const storageKey = getStorageKey();
-    if (storageKey) {
-      localStorage.setItem(storageKey, business.id);
-    }
+    await performSwitch();
   };
 
   const createBusiness = async (name: string): Promise<BusinessLocation | null> => {

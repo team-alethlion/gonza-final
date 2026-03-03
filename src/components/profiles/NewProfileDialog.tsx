@@ -152,15 +152,15 @@ export const NewProfileDialog: React.FC<NewProfileDialogProps> = ({
                   ))
                 ) : (
                   <>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="admin">Manager</SelectItem>
+                    <SelectItem value="manager">Supervisor</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                   </>
                 )}
               </SelectContent>
             </Select>
             {profiles.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">First profile must be the Admin.</p>
+              <p className="text-xs text-muted-foreground mt-1">First profile must be the Manager.</p>
             )}
           </div>
 

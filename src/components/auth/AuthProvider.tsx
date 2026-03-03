@@ -11,6 +11,9 @@ import { signInAction, signUpAction } from '@/app/actions/auth';
 interface User {
   id: string;
   email?: string;
+  role?: string;
+  branchId?: string;
+  agencyId?: string;
 }
 
 interface AuthContextType {
@@ -35,7 +38,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (status === 'authenticated' && session?.user) {
       setUser({
         id: session.user.id || '',
-        email: session.user.email || undefined
+        email: session.user.email || undefined,
+        role: (session.user as any).role,
+        branchId: (session.user as any).branchId,
+        agencyId: (session.user as any).agencyId,
       });
     } else if (status === 'unauthenticated') {
       setUser(null);
