@@ -6,9 +6,11 @@ model Agency {
   id                 String    @id @default(cuid())
   name               String
   subscriptionStatus String    @default("trial") // "trial", "active", "expired", "blocked"
+  hadTrialBefore     Boolean   @default(false)
   trialEndDate       DateTime?
   subscriptionExpiry DateTime?
   isUnlimitedUsage   Boolean   @default(false)
+  isOnboarded        Boolean   @default(false)
 
   // Package Management
   packageId String?
@@ -58,6 +60,7 @@ model User {
   password              String? // Null for OAuth-only users
   emailVerified         DateTime? // Changed from Boolean to DateTime for NextAuth
   passwordResetRequired Boolean?  @default(false)
+  isOnboarded           Boolean   @default(false)
   status                UserStatus @default(ACTIVE)
   image                 String? // Profile picture URL
   roleId                String
@@ -172,6 +175,14 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@unique([email, token])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Role {

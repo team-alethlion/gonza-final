@@ -85,7 +85,14 @@ export async function createPackageAction(data: any) {
         });
 
         revalidatePath('/(admin)/packages');
-        return { success: true, data: pkg };
+        return { 
+            success: true, 
+            data: {
+                ...pkg,
+                monthlyPrice: Number(pkg.monthlyPrice),
+                yearlyPrice: Number(pkg.yearlyPrice)
+            }
+        };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
@@ -117,7 +124,14 @@ export async function updatePackageAction(id: string, data: any) {
         });
 
         revalidatePath('/(admin)/packages');
-        return { success: true, data: pkg };
+        return { 
+            success: true, 
+            data: {
+                ...pkg,
+                monthlyPrice: Number(pkg.monthlyPrice),
+                yearlyPrice: Number(pkg.yearlyPrice)
+            }
+        };
     } catch (error: any) {
         return { success: false, error: error.message };
     }

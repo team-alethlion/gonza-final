@@ -30,7 +30,10 @@ const nextAuth = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
-          include: { role: true },
+          include: { 
+            role: true,
+            agency: true,
+          },
         });
 
         if (!user || !user.password) {
@@ -54,6 +57,11 @@ const nextAuth = NextAuth({
           role: user.role.name,
           branchId: user.branchId || undefined,
           agencyId: user.agencyId || undefined,
+          isOnboarded: user.isOnboarded,
+          agencyOnboarded: user.agency?.isOnboarded || false,
+          subscriptionStatus: user.agency?.subscriptionStatus,
+          subscriptionExpiry: user.agency?.subscriptionExpiry,
+          trialEndDate: user.agency?.trialEndDate,
         };
       },
     }),
@@ -63,33 +71,48 @@ const nextAuth = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        if ((user as any).role) {
-          token.role = (user as any).role;
-          token.branchId = (user as any).branchId;
-          token.agencyId = (user as any).agencyId;
-        } else {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            include: { role: true },
-          });
-          if (dbUser) {
-            token.role = dbUser.role.name;
-            token.branchId = dbUser.branchId;
-            token.agencyId = dbUser.agencyId;
-          }
+        token.role = (user as any).role;
+        token.branchId = (user as any).branchId;
+        token.agencyId = (user as any).agencyId;
+        token.isOnboarded = (user as any).isOnboarded;
+        token.agencyOnboarded = (user as any).agencyOnboarded;
+        token.subscriptionStatus = (user as any).subscriptionStatus;
+        token.subscriptionExpiry = (user as any).subscriptionExpiry;
+        token.trialEndDate = (user as any).trialEndDate;
+      } else if (token.id && token.isOnboarded === undefined) {
+        // Fallback for session recovery
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          include: { 
+            role: true,
+            agency: true 
+          },
+        });
+        if (dbUser) {
+          token.role = dbUser.role.name;
+          token.branchId = dbUser.branchId;
+          token.agencyId = dbUser.agencyId;
+          token.isOnboarded = dbUser.isOnboarded;
+          token.agencyOnboarded = dbUser.agency?.isOnboarded || false;
+          token.subscriptionStatus = dbUser.agency?.subscriptionStatus;
+          token.subscriptionExpiry = dbUser.agency?.subscriptionExpiry;
+          token.trialEndDate = dbUser.agency?.trialEndDate;
         }
       }
 
-      if (trigger === "update" && session?.impersonatingAgencyId) {
-        token.impersonatingAgencyId = session.impersonatingAgencyId;
-      }
+      if (trigger === "update") {
+        if (session?.impersonatingAgencyId) token.impersonatingAgencyId = session.impersonatingAgencyId;
+        if (session?.clearImpersonation) delete token.impersonatingAgencyId;
+        if (session?.branchId) token.branchId = session.branchId;
+        
+        // Handle onboarding updates
+        if (session?.isOnboarded !== undefined) token.isOnboarded = session.isOnboarded;
+        if (session?.agencyOnboarded !== undefined) token.agencyOnboarded = session.agencyOnboarded;
 
-      if (trigger === "update" && session?.clearImpersonation) {
-        delete token.impersonatingAgencyId;
-      }
-
-      if (trigger === "update" && session?.branchId) {
-        token.branchId = session.branchId;
+        // Handle subscription updates
+        if (session?.subscriptionStatus) token.subscriptionStatus = session.subscriptionStatus;
+        if (session?.subscriptionExpiry) token.subscriptionExpiry = session.subscriptionExpiry;
+        if (session?.trialEndDate) token.trialEndDate = session.trialEndDate;
       }
 
       return token;
@@ -100,6 +123,11 @@ const nextAuth = NextAuth({
         (session.user as any).role = token.role as string;
         (session.user as any).branchId = token.branchId as string;
         (session.user as any).agencyId = token.agencyId as string;
+        (session.user as any).isOnboarded = token.isOnboarded;
+        (session.user as any).agencyOnboarded = token.agencyOnboarded;
+        (session.user as any).subscriptionStatus = token.subscriptionStatus;
+        (session.user as any).subscriptionExpiry = token.subscriptionExpiry;
+        (session.user as any).trialEndDate = token.trialEndDate;
 
         if (token.impersonatingAgencyId) {
           (session as any).impersonatingAgencyId = token.impersonatingAgencyId;

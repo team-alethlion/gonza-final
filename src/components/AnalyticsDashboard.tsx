@@ -61,6 +61,8 @@ const AnalyticsDashboard = memo<AnalyticsDashboardProps>(({ sales, currency = 'U
   // Memoize settings update
   const memoizedSettings = useMemo(() => {
     const baseSettings = { ...DEFAULT_SETTINGS, currency };
+    if (typeof window === 'undefined') return baseSettings;
+    
     const savedSettings = localStorage.getItem('businessSettings');
     if (savedSettings) {
       try {

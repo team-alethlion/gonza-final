@@ -1,15 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from './useCurrentUser';
-import { ActivityFilters as FilterTypes } from '@/app/(agency)/history/page';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getActivityHistoryAction, ActivityFilters } from '@/app/actions/activity';
+import { useState, useEffect, useCallback } from "react";
+import { useCurrentUser } from "./useCurrentUser";
+import { ActivityFilters as FilterTypes } from "@/app/(agency)/agency/history/page";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getActivityHistoryAction,
+  ActivityFilters,
+} from "@/app/actions/activity";
 
 export interface ActivityHistoryItem {
   id: string;
   user_id: string;
   location_id: string;
-  activity_type: 'CREATE' | 'UPDATE' | 'DELETE';
-  module: 'SALES' | 'INVENTORY' | 'EXPENSES' | 'FINANCE' | 'CUSTOMERS' | 'TASKS';
+  activity_type: "CREATE" | "UPDATE" | "DELETE";
+  module:
+    | "SALES"
+    | "INVENTORY"
+    | "EXPENSES"
+    | "FINANCE"
+    | "CUSTOMERS"
+    | "TASKS";
   entity_type: string;
   entity_id: string | null;
   entity_name: string;
@@ -22,7 +31,10 @@ export interface ActivityHistoryItem {
 
 const ITEMS_PER_PAGE = 20;
 
-export const useActivityHistory = (locationId?: string, filters?: FilterTypes) => {
+export const useActivityHistory = (
+  locationId?: string,
+  filters?: FilterTypes,
+) => {
   const { userId } = useCurrentUser();
   const [activities, setActivities] = useState<ActivityHistoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -30,44 +42,55 @@ export const useActivityHistory = (locationId?: string, filters?: FilterTypes) =
   const [totalPages, setTotalPages] = useState(1);
   const queryClient = useQueryClient();
 
-  const fetchActivities = useCallback(async (): Promise<{ activities: ActivityHistoryItem[], count: number }> => {
+  const fetchActivities = useCallback(async (): Promise<{
+    activities: ActivityHistoryItem[];
+    count: number;
+  }> => {
     if (!userId || !locationId) {
       return { activities: [], count: 0 };
     }
 
     try {
-      const actionFilters: ActivityFilters = filters ? {
-        activityType: filters.activityType,
-        module: filters.module,
-        search: filters.search,
-        dateFrom: filters.dateRange.from?.toISOString(),
-        dateTo: filters.dateRange.to?.toISOString()
-      } : {};
+      const actionFilters: ActivityFilters = filters
+        ? {
+            activityType: filters.activityType,
+            module: filters.module,
+            search: filters.search,
+            dateFrom: filters.dateRange.from?.toISOString(),
+            dateTo: filters.dateRange.to?.toISOString(),
+          }
+        : {};
 
       const result = await getActivityHistoryAction(
         locationId,
         userId,
         currentPage,
         ITEMS_PER_PAGE,
-        actionFilters
+        actionFilters,
       );
 
       if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to fetch activities');
+        throw new Error(result.error || "Failed to fetch activities");
       }
 
       return {
         activities: result.data.activities as ActivityHistoryItem[],
-        count: result.data.count
+        count: result.data.count,
       };
     } catch (error) {
-      console.error('Error fetching activity history:', error);
+      console.error("Error fetching activity history:", error);
       return { activities: [], count: 0 };
     }
   }, [userId, locationId, currentPage, filters]);
 
   // React Query caching
-  const queryKey = ['activity_history', userId, locationId, currentPage, filters];
+  const queryKey = [
+    "activity_history",
+    userId,
+    locationId,
+    currentPage,
+    filters,
+  ];
   const { data: queriedData, isLoading: isQueryLoading } = useQuery({
     queryKey,
     queryFn: fetchActivities,
@@ -97,7 +120,7 @@ export const useActivityHistory = (locationId?: string, filters?: FilterTypes) =
     queryClient.invalidateQueries({ queryKey });
   };
 
-  // Realtime: In the Next.js/Prisma model, we typically rely on manual invalidation 
+  // Realtime: In the Next.js/Prisma model, we typically rely on manual invalidation
   // or polling. Supabase realtime is removed here to align with the Prisma migration.
   useEffect(() => {
     if (!userId || !locationId) return;
@@ -113,6 +136,6 @@ export const useActivityHistory = (locationId?: string, filters?: FilterTypes) =
     currentPage,
     totalPages,
     setCurrentPage,
-    refetch: refetchActivities
+    refetch: refetchActivities,
   };
 };

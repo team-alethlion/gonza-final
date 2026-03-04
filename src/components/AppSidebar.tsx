@@ -72,7 +72,7 @@ const AppSidebar = () => {
           {canManageSettings && (
             <SidebarMenuItem>
               <SidebarMenuButton className="w-full justify-start hover:bg-white/10 text-primary-foreground" asChild tooltip="Manage Businesses">
-                <Link href="/business-management">
+                <Link href="/agency/business-management">
                   <Building2 className="mr-2 h-4 w-4" />
                   <span className="group-data-[collapsible=icon]:hidden truncate">Manage Businesses</span>
                 </Link>

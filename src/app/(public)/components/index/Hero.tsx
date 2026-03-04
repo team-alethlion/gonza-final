@@ -1,8 +1,12 @@
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/components/auth/AuthProvider";
 
-const Hero = ({ B }: { B: any }) => (
-  <section
+const Hero = ({ B }: { B: any }) => {
+  const { user } = useAuth();
+  
+  return (
+    <section
     className="lp-grid-bg"
     style={{
       position: "relative",
@@ -125,12 +129,23 @@ const Hero = ({ B }: { B: any }) => (
           animationDelay: "0.44s",
           opacity: 0,
         }}>
-        <Link href="/signup" className="lp-btn-primary">
-          Start for Free <ArrowRight size={15} />
-        </Link>
-        <Link href="/login" className="lp-btn-outline">
-          Sign In
-        </Link>
+        {user ? (
+          <Link
+            href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
+            className="lp-btn-primary"
+            style={{ padding: "14px 28px" }}>
+            Go to Dashboard <LayoutDashboard size={18} className="ml-1" />
+          </Link>
+        ) : (
+          <>
+            <Link href="/public/signup" className="lp-btn-primary">
+              Start for Free <ArrowRight size={15} />
+            </Link>
+            <Link href="/public/login" className="lp-btn-outline">
+              Sign In
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Trust line */}
@@ -160,6 +175,7 @@ const Hero = ({ B }: { B: any }) => (
       }}
     />
   </section>
-);
+  );
+};
 
 export default Hero;

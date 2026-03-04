@@ -113,6 +113,80 @@ export async function upsertBusinessSettingsAction(branchId: string, userId: str
     }
 }
 
+export async function completeInitialOnboardingAction(data: any) {
+    try {
+        const { 
+            userId, 
+            agencyId, 
+            branchId,
+            businessName, 
+            businessAddress, 
+            businessPhone, 
+            businessEmail,
+            businessLogo,
+            userName,
+            userPhone,
+            userPin,
+            packageId,
+            subscriptionStatus,
+            trialEndDate
+        } = data;
+
+        await db.$transaction(async (tx) => {
+            // 1. Update Agency
+            await tx.agency.update({
+                where: { id: agencyId },
+                data: {
+                    name: businessName,
+                    isOnboarded: true,
+                    packageId: packageId,
+                    subscriptionStatus: subscriptionStatus || 'trial',
+                    trialEndDate: trialEndDate ? new Date(trialEndDate) : undefined
+                }
+            });
+
+            // 2. Update User
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    name: userName,
+                    phone: userPhone,
+                    pin: userPin,
+                    isOnboarded: true
+                }
+            });
+
+            // 3. Update Branch Settings
+            await tx.branchSettings.upsert({
+                where: { branchId: branchId },
+                update: {
+                    businessName,
+                    address: businessAddress,
+                    phone: businessPhone,
+                    email: businessEmail,
+                    logo: businessLogo,
+                    needsOnboarding: false
+                },
+                create: {
+                    branchId: branchId,
+                    businessName,
+                    address: businessAddress,
+                    phone: businessPhone,
+                    email: businessEmail,
+                    logo: businessLogo,
+                    needsOnboarding: false
+                }
+            });
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error completing initial onboarding:', error);
+        return { success: false, error: error.message || 'Failed to complete onboarding' };
+    }
+}
+
 export async function getAccountStatusAction(userId: string) {
     try {
         const user = await db.user.findUnique({

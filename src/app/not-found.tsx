@@ -1,30 +1,42 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { FileQuestion, ArrowLeft, Home } from "lucide-react";
 
-const NotFound = () => {
-  const pathname = usePathname();
-
-  useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      pathname
-    );
-  }, [pathname]);
-
+export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <Link href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </Link>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="text-center space-y-6 max-w-md">
+        <div className="flex justify-center">
+          <div className="bg-primary/10 p-6 rounded-full">
+            <FileQuestion className="w-16 h-16 text-primary" />
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">404</h1>
+          <h2 className="text-2xl font-bold text-gray-700">Page Not Found</h2>
+          <p className="text-muted-foreground">
+            The page you are looking for doesn&apos;t exist or has been restricted due to account status.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="javascript:history.back()">
+              <ArrowLeft className="w-4 h-4" />
+              Go Back
+            </Link>
+          </Button>
+          <Button asChild className="gap-2">
+            <Link href="/">
+              <Home className="w-4 h-4" />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
-};
-
-export default NotFound;
+}

@@ -1,11 +1,13 @@
 "use client";
 
-import { CheckCircle2, ArrowRight, Phone } from "lucide-react";
+import { CheckCircle2, ArrowRight, Phone, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useReveal } from "@/hooks/useReveal";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const CTA = ({ B }: { B: any }) => {
   const { ref, visible } = useReveal();
+  const { user } = useAuth();
   return (
     <section
       ref={ref}
@@ -102,12 +104,21 @@ const CTA = ({ B }: { B: any }) => {
               justifyContent: "center",
               flexWrap: "wrap",
             }}>
-            <Link
-              href="/signup"
-              className="lp-btn-primary"
-              style={{ fontSize: 15, padding: "14px 28px" }}>
-              Sign Up for Free <ArrowRight size={16} />
-            </Link>
+            {user ? (
+              <Link
+                href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
+                className="lp-btn-primary"
+                style={{ fontSize: 15, padding: "14px 28px" }}>
+                Go to Dashboard <LayoutDashboard size={16} className="ml-1" />
+              </Link>
+            ) : (
+              <Link
+                href="/public/signup"
+                className="lp-btn-primary"
+                style={{ fontSize: 15, padding: "14px 28px" }}>
+                Sign Up for Free <ArrowRight size={16} />
+              </Link>
+            )}
             <a
               href="tel:0758519696"
               className="lp-btn-outline"

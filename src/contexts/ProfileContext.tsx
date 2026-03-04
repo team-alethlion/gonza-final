@@ -61,29 +61,50 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const [profiles, setProfiles] = useState<BusinessProfile[]>(initialProfiles);
   
-  const [currentProfile, setCurrentProfile] = useState<BusinessProfile | null>(() => {
-    if (initialProfiles.length > 0 && currentBusiness?.id) {
-      if (typeof window !== 'undefined') {
-        const savedProfileId = localStorage.getItem(`currentProfile_${currentBusiness.id}`);
-        if (savedProfileId) {
-          const profile = initialProfiles.find(p => p.id === savedProfileId);
-          if (profile) return profile;
-        }
-      }
-      if (initialProfiles.length === 1) {
-        return initialProfiles[0];
-      }
-    }
-    return null;
-  });
+  // Initialize to null to avoid hydration mismatch
+  const [currentProfile, setCurrentProfile] = useState<BusinessProfile | null>(null);
 
   const [isProfileVerified, setIsProfileVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(initialProfiles.length === 0 && !!userId && !!currentBusiness?.id);
   const [isFirstTimeSetupNeeded, setIsFirstTimeSetupNeeded] = useState(false);
 
+  // Restore current profile from localStorage after hydration
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentBusiness?.id && !currentProfile && profiles.length > 0) {
+      const savedProfileId = localStorage.getItem(`currentProfile_${currentBusiness.id}`);
+      if (savedProfileId) {
+        const profile = profiles.find(p => p.id === savedProfileId);
+        if (profile) {
+          console.log(`ProfileContext: Restoring profile ${profile.profile_name} from localStorage`);
+          setCurrentProfile(profile);
+          setIsProfileVerified(false);
+        }
+      } else if (profiles.length === 1) {
+        console.log(`ProfileContext: Auto-selecting single profile ${profiles[0].profile_name}`);
+        setCurrentProfile(profiles[0]);
+        setIsProfileVerified(false);
+      }
+    }
+  }, [currentBusiness?.id, profiles]);
+
   // Restore verification state from sessionStorage when business and profile are loaded
   useEffect(() => {
     if (currentBusiness?.id && currentProfile?.id && !isProfileVerified) {
+      const role = (currentProfile.role || "").toLowerCase();
+      const businessRoleName = (currentProfile.business_role?.name || "").toLowerCase();
+      
+      // PIN Bypass for Admin (Agency Owner) and Manager roles
+      if (
+        role === 'admin' || 
+        role === 'manager' || 
+        role === 'owner' || 
+        businessRoleName === 'admin' || 
+        businessRoleName === 'owner'
+      ) {
+        setIsProfileVerified(true);
+        return;
+      }
+
       const verifiedKey = `profileVerified_${currentBusiness.id}_${currentProfile.id}`;
       const isVerified = sessionStorage.getItem(verifiedKey) === 'true';
       if (isVerified) {
@@ -333,30 +354,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       setIsLoading(false);
     }
   }, [currentBusiness?.id, businessLoading, userId, initialProfiles.length]);
-
-  // Load current profile from localStorage or auto-select first profile
-  useEffect(() => {
-    if (profiles.length > 0 && currentBusiness?.id && !currentProfile) {
-      const savedProfileId = localStorage.getItem(`currentProfile_${currentBusiness.id}`);
-      if (savedProfileId) {
-        const profile = profiles.find(p => p.id === savedProfileId);
-        if (profile) {
-          console.log(`ProfileContext: Restoring profile ${profile.profile_name} from localStorage`);
-          setCurrentProfile(profile);
-          setIsProfileVerified(false);
-          return;
-        }
-      }
-
-      // Auto-select if there is only one profile and none is selected
-      if (profiles.length === 1 && !currentProfile) {
-        console.log(`ProfileContext: Auto-selecting single profile ${profiles[0].profile_name}`);
-        handleSetCurrentProfile(profiles[0]);
-      } else if (profiles.length > 1 && !currentProfile) {
-        console.log(`ProfileContext: Multiple profiles available (${profiles.length}), waiting for selection`);
-      }
-    }
-  }, [profiles, currentBusiness?.id, currentProfile]);
 
   // Save current profile to localStorage
   const handleSetCurrentProfile = (profile: BusinessProfile | null) => {

@@ -42,31 +42,31 @@ const NavLinks = ({ className = '', onClick, isSidebar = false, isCollapsed = fa
   };
 
   const coreLinks: NavLink[] = [
-    { name: 'Dashboard', path: '/', icon: <Home className="w-4 h-4" /> },
-    { name: 'Sales', path: '/sales', icon: <Receipt className="w-4 h-4" />, module: 'sales' },
-    { name: 'Inventory', path: '/inventory', icon: <Package className="w-4 h-4" />, module: 'inventory' },
-    { name: 'Customers', path: '/customers', icon: <Users className="w-4 h-4" />, module: 'customers' },
+    { name: 'Dashboard', path: '/agency', icon: <Home className="w-4 h-4" /> },
+    { name: 'Sales', path: '/agency/sales', icon: <Receipt className="w-4 h-4" />, module: 'sales' },
+    { name: 'Inventory', path: '/agency/inventory', icon: <Package className="w-4 h-4" />, module: 'inventory' },
+    { name: 'Customers', path: '/agency/customers', icon: <Users className="w-4 h-4" />, module: 'customers' },
   ].filter(link => !link.module || hasPermission(link.module, 'view'));
 
   const businessLinks: NavLink[] = [
-    { name: 'Finance', path: '/cash', icon: <Wallet className="w-4 h-4" />, module: 'finance' },
-    { name: 'Expenses', path: '/expenses', icon: <DollarSign className="w-4 h-4" />, module: 'expenses' },
-    { name: 'Messages', path: '/messages', icon: <MessageSquare className="w-4 h-4" />, module: 'messages' },
-    { name: 'Tasks', path: '/tasks', icon: <CheckSquare className="w-4 h-4" />, module: 'tasks' },
-    { name: 'History', path: '/history', icon: <HistoryIcon className="w-4 h-4" /> },
+    { name: 'Finance', path: '/agency/cash', icon: <Wallet className="w-4 h-4" />, module: 'finance' },
+    { name: 'Expenses', path: '/agency/expenses', icon: <DollarSign className="w-4 h-4" />, module: 'expenses' },
+    { name: 'Messages', path: '/agency/messages', icon: <MessageSquare className="w-4 h-4" />, module: 'messages' },
+    { name: 'Tasks', path: '/agency/tasks', icon: <CheckSquare className="w-4 h-4" />, module: 'tasks' },
+    { name: 'History', path: '/agency/history', icon: <HistoryIcon className="w-4 h-4" /> },
   ].filter(link => !link.module || hasPermission(link.module, 'view'));
 
   const systemLinks: NavLink[] = [
-    { name: 'Profiles', path: '/profiles', icon: <UserCircle className="w-4 h-4" />, module: 'profiles' },
-    { name: 'Billing History', path: '/billing', icon: <CreditCard className="w-4 h-4" /> },
-    { name: 'Settings', path: '/settings', icon: <Settings className="w-4 h-4" />, module: 'settings' },
-    { name: 'Help', path: '/help', icon: <HelpCircle className="w-4 h-4" /> },
-    { name: 'Privacy Policy', path: '/privacy-policy', icon: <HelpCircle className="w-4 h-4" /> },
+    { name: 'Profiles', path: '/agency/profiles', icon: <UserCircle className="w-4 h-4" />, module: 'profiles' },
+    { name: 'Billing History', path: '/agency/billing', icon: <CreditCard className="w-4 h-4" /> },
+    { name: 'Settings', path: '/agency/settings', icon: <Settings className="w-4 h-4" />, module: 'settings' },
+    { name: 'Help', path: '/agency/help', icon: <HelpCircle className="w-4 h-4" /> },
+    { name: 'Privacy Policy', path: '/agency/privacy-policy', icon: <HelpCircle className="w-4 h-4" /> },
   ].filter(link => !link.module || hasPermission(link.module, 'view'));
 
   const isActive = (path: string) => {
-    if (path === '/' && pathname === '/') return true;
-    if (path !== '/' && pathname?.startsWith(path)) return true;
+    if (path === '/agency' && pathname === '/agency') return true;
+    if (path !== '/agency' && pathname?.startsWith(path)) return true;
     return false;
   };
 

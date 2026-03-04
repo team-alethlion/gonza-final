@@ -1,4 +1,4 @@
-import { B } from "../../constants";
+import { B } from "../../public/constants";
 
 const GlobalStyles = () => (
   <style>{`

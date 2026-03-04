@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const Nav = () => {
+  const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 24);
@@ -35,15 +37,26 @@ const Nav = () => {
           </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/login" className="lp-btn-ghost" style={{ fontSize: 13 }}>
-            Log In
-          </Link>
-          <Link
-            href="/signup"
-            className="lp-btn-primary"
-            style={{ fontSize: 13, padding: "9px 18px" }}>
-            Get Started <ArrowRight size={14} />
-          </Link>
+          {user ? (
+            <Link
+              href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
+              className="lp-btn-primary"
+              style={{ fontSize: 13, padding: "9px 18px" }}>
+              Dashboard <LayoutDashboard size={14} className="ml-1" />
+            </Link>
+          ) : (
+            <>
+              <Link href="/public/login" className="lp-btn-ghost" style={{ fontSize: 13 }}>
+                Log In
+              </Link>
+              <Link
+                href="/public/signup"
+                className="lp-btn-primary"
+                style={{ fontSize: 13, padding: "9px 18px" }}>
+                Get Started <ArrowRight size={14} />
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

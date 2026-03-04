@@ -5,15 +5,23 @@ import { useState, useContext, createContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, useSession } from 'next-auth/react';
 
-import { signInAction, signUpAction } from '@/app/actions/auth';
+import { signInAction } from '@/app/actions/auth';
 
 // Simplified type declarations for our mock
 interface User {
   id: string;
   email?: string;
+  name?: string;
+  image?: string;
   role?: string;
+  status?: string;
   branchId?: string;
   agencyId?: string;
+  isOnboarded?: boolean;
+  agencyOnboarded?: boolean;
+  subscriptionStatus?: string;
+  subscriptionExpiry?: string;
+  trialEndDate?: string;
 }
 
 interface AuthContextType {
@@ -21,7 +29,6 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signUp: (email: string, password: string, options?: { data?: Record<string, any> }) => Promise<{ error: Error | null; user?: User | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateSession: (data?: any) => Promise<any>;
@@ -40,9 +47,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser({
         id: session.user.id || '',
         email: session.user.email || undefined,
+        name: session.user.name || undefined,
+        image: session.user.image || undefined,
         role: (session.user as any).role,
+        status: (session.user as any).status,
         branchId: (session.user as any).branchId,
         agencyId: (session.user as any).agencyId,
+        isOnboarded: (session.user as any).isOnboarded,
+        agencyOnboarded: (session.user as any).agencyOnboarded,
+        subscriptionStatus: (session.user as any).subscriptionStatus,
+        subscriptionExpiry: (session.user as any).subscriptionExpiry,
+        trialEndDate: (session.user as any).trialEndDate,
       });
     } else if (status === 'unauthenticated') {
       setUser(null);
@@ -69,28 +84,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    await nextAuthSignIn('google', { callbackUrl: '/' });
-  };
-
-  const signUp = async (email: string, password: string, options?: { data?: Record<string, any> }) => {
-    const result = await signUpAction({ email, password, name: options?.data?.name });
-    if (result.success && result.user) {
-      // Auto-signin with NextAuth after successful signup
-      await nextAuthSignIn('credentials', {
-        email,
-        password,
-        redirect: false
-      });
-      
-      toast.success('Account created and signed in successfully.');
-      return { error: null, user: result.user };
-    } else {
-      return { error: new Error(result.error || 'Sign up failed'), user: null };
-    }
+    await nextAuthSignIn('google', { callbackUrl: '/public' });
   };
 
   const signOut = async () => {
-    await nextAuthSignOut({ redirect: true, callbackUrl: '/' });
+    await nextAuthSignOut({ redirect: true, callbackUrl: '/public' });
   };
 
   const resetPassword = async (email: string) => {
@@ -103,7 +101,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading,
       signIn,
       signInWithGoogle,
-      signUp,
       signOut,
       resetPassword,
       updateSession

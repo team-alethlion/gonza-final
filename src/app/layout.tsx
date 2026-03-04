@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import "@/app/(agency)/globals.css";
+import "@/app/(agency)/agency/globals.css";
 import { Providers } from "@/components/Providers";
 import { auth } from "@/auth";
 import { getBusinessLocationsAction } from "@/app/actions/business";

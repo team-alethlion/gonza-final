@@ -2,96 +2,17 @@
 "use server";
 
 import { db } from "../../../prisma/db";
-import { hash, compare } from "bcryptjs";
+import { compare } from "bcryptjs";
 import { auth } from "@/auth";
-
-export async function signUpAction(data: any) {
-  try {
-    const { email, password, name } = data;
-
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return { success: false, error: "User already exists" };
-    }
-
-    const hashedPassword = await hash(password, 10);
-
-    // Find or create the 'admin' role
-    let role = await db.role.findFirst({
-      where: {
-        name: {
-          equals: "admin",
-          mode: "insensitive",
-        },
-      },
-    });
-
-    if (!role) {
-      role = await db.role.create({
-        data: { name: "admin", description: "Agency Owner / Admin" },
-      });
-    }
-
-    const finalRole = role;
-
-    // Perform everything in a transaction to ensure data integrity
-    const result = await db.$transaction(async (tx) => {
-      // 1. Create the Agency
-      const agency = await tx.agency.create({
-        data: {
-          name: `${name}'s Agency`,
-          subscriptionStatus: "trial",
-          trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
-        },
-      });
-
-      // 2. Create the User (linked to agency)
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          roleId: finalRole.id,
-          agencyId: agency.id,
-          status: "ACTIVE",
-        },
-      });
-
-      // 3. Create the Default Branch (linked to user and agency)
-      const branch = await tx.branch.create({
-        data: {
-          name: "Main Branch",
-          location: "Default Location",
-          agencyId: agency.id,
-          adminId: user.id,
-        },
-      });
-
-      // 4. Update the user with the branchId
-      const updatedUser = await tx.user.update({
-        where: { id: user.id },
-        data: { branchId: branch.id },
-      });
-
-      return updatedUser;
-    });
-
-    return { success: true, user: { id: result.id, email: result.email } };
-  } catch (error: any) {
-    console.error("Error in signUpAction:", error);
-    return { success: false, error: error.message || "Failed to sign up" };
-  }
-}
 
 export async function signInAction(email: string, password: string) {
   try {
     const user = await db.user.findUnique({
       where: { email },
-      include: { role: true },
+      include: { 
+        role: true,
+        agency: true,
+      },
     });
 
     if (!user || !user.password) {
@@ -111,6 +32,7 @@ export async function signInAction(email: string, password: string) {
         email: user.email,
         name: user.name,
         role: user.role?.name,
+        agency: user.agency, // Pass agency data through
       },
     };
   } catch (error: any) {

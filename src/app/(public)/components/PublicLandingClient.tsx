@@ -1,17 +1,17 @@
 "use client";
 
-import Hero from "../components/index/Hero";
-import DashboardShowcase from "../components/index/DashboardShowcase";
-import AppShowcase from "../components/index/AppShowcase";
-import StatsBar from "../components/index/StatsBar";
-import Features from "../components/index/Features";
-import WhySection from "../components/index/WhySection";
-import ContactSection from "../components/index/ContactSection";
-import CTA from "../components/index/CTA";
-import Footer from "../components/index/Footer";
-import Nav from "../components/index/Nav";
-import GlobalStyles from "../components/index/GlobalStyles";
-import { B } from "../constants";
+import Hero from "./index/Hero";
+import DashboardShowcase from "./index/DashboardShowcase";
+import AppShowcase from "./index/AppShowcase";
+import StatsBar from "./index/StatsBar";
+import Features from "./index/Features";
+import WhySection from "./index/WhySection";
+import ContactSection from "./index/ContactSection";
+import CTA from "./index/CTA";
+import Footer from "./index/Footer";
+import Nav from "./index/Nav";
+import GlobalStyles from "./index/GlobalStyles";
+import { B } from "../public/constants";
 
 export default function PublicLandingClient() {
   return (

@@ -49,6 +49,68 @@ export async function verifyPesapalTransaction(trackingId: string) {
     return statusData;
 }
 
+export async function initiatePesapalPayment(params: {
+    amount: number;
+    email: string;
+    phoneNumber: string;
+    reference: string;
+    description: string;
+    firstName?: string;
+    lastName?: string;
+}) {
+    const token = await getPesapalToken();
+    const pesapalUrl = process.env.PESAPAL_BASE_URL;
+    const rawCallbackUrl = process.env.PESAPAL_CALLBACK_URL || 'http://localhost:3000/public/payment-callback';
+    const callbackUrl = `${rawCallbackUrl}${rawCallbackUrl.includes('?') ? '&' : '?'}purchase_id=${params.reference}`;
+    const ipnId = process.env.PESAPAL_IPN_ID;
+
+    if (!ipnId) {
+        throw new Error("Missing PESAPAL_IPN_ID in environment variables");
+    }
+
+    const payload = {
+        id: params.reference,
+        currency: "UGX",
+        amount: params.amount,
+        description: params.description,
+        callback_url: callbackUrl,
+        notification_id: ipnId,
+        billing_address: {
+            email_address: params.email,
+            phone_number: params.phoneNumber,
+            country_code: "UG",
+            first_name: params.firstName || "Customer",
+            last_name: params.lastName || "User",
+            line_1: "Kampala",
+            line_2: "",
+            city: "Kampala",
+            state: "",
+            postal_code: "",
+            zip_code: ""
+        }
+    };
+
+    console.log('[Pesapal] Submitting Order:', JSON.stringify(payload, null, 2));
+
+    const response = await fetch(`${pesapalUrl}/api/Transactions/SubmitOrderRequest`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[Pesapal] Submit Order Failed:', errorData);
+        throw new Error(`Failed to submit order to Pesapal: ${JSON.stringify(errorData)}`);
+    }
+
+    return await response.json();
+}
+
 export async function processSuccessfulSubscription(transactionId: string, pesapalData: any) {
     return await db.$transaction(async (tx) => {
         // 1. Fetch the transaction

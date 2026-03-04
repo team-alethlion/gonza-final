@@ -51,7 +51,7 @@ export function LoginForm() {
 
     if (user && !isRecovery) {
       console.log("User already authenticated, redirecting to dashboard");
-      router.replace("/");
+      router.replace("/agency");
     }
   }, [user, router]);
 
@@ -60,7 +60,7 @@ export function LoginForm() {
 
     try {
       await signIn(data.email, data.password);
-      // The AuthProvider will handle the success message and navigation
+      router.push("/agency");
     } catch (error: any) {
       console.error("Email/password sign in error:", error);
       if (error.message.includes("Invalid login credentials")) {
@@ -158,7 +158,7 @@ export function LoginForm() {
         type="button"
         variant="outline"
         className="w-full border-primary/20 hover:bg-primary/5 mt-4"
-        onClick={() => router.push("/signup")}
+        onClick={() => router.push("/public/signup")}
         disabled={loading}>
         Create Account
       </Button>
