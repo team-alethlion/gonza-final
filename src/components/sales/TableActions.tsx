@@ -147,7 +147,7 @@ const TableActions: React.FC<TableActionsProps> = ({
       </div>
       {hasPermission('sales', 'create') && (
         <Button
-          onClick={() => router.push('/new-sale')}
+          onClick={() => router.push('/agency/new-sale')}
           size="lg"
           className="w-full gap-2 h-12 text-sm font-medium"
         >

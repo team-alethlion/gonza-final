@@ -4,8 +4,10 @@
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { getPesapalToken } from '@/lib/pesapal';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getSubscriptionPaymentsAction(userId: string) {
+    await verifyUserAccess(userId);
     try {
         const transactions = await db.transaction.findMany({
             where: {
@@ -87,6 +89,8 @@ function normalizeUgPhoneNumber(raw: string): string {
 }
 
 export async function initiateSubscriptionPaymentAction(userId: string, locationId: string, billingCycle: string, phone: string, newPackageId?: string) {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
     try {
         // 1. Fetch user, and determining which package to use (current or a new selection)
         const user = await db.user.findUnique({

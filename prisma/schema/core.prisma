@@ -4,7 +4,7 @@
 
 model Branch {
   id             String     @id @default(cuid())
-  name           String     @unique
+  name           String
   location       String
   phone          String?
   email          String?
@@ -46,6 +46,9 @@ model Branch {
   carriageInwards CarriageInward[]
 
   systemNotifications SystemNotification[]
+
+  @@unique([agencyId, name])
+  @@index([agencyId])
 }
 
 enum BranchType {
@@ -77,6 +80,8 @@ model BranchSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
 }
 
 // =========================
@@ -99,6 +104,7 @@ model TaskCategory {
   updatedAt DateTime @updatedAt
 
   @@unique([branchId, name])
+  @@index([branchId])
 }
 
 model Task {
@@ -145,6 +151,10 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([assignedToId])
 }
 
 enum TaskPriority {
@@ -197,6 +207,9 @@ model ActivityHistory {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("activity_history")
+  @@index([locationId])
+  @@index([agencyId])
+  @@index([userId])
 }
 
 enum ActivityType {
@@ -247,6 +260,10 @@ model Notification {
   expiresAt DateTime? // Optional expiration date for auto-cleanup
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([userId])
 }
 
 model SystemNotification {
@@ -276,6 +293,9 @@ model SystemNotification {
   expiresAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([agencyId])
+  @@index([branchId])
 }
 
 model BranchCounter {

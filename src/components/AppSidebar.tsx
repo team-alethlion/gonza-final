@@ -14,7 +14,6 @@ import {
 import NavLinks from './header/NavLinks';
 import { Building2, LogOut } from 'lucide-react';
 import { BusinessSelector } from './business/BusinessSelector';
-import { ProfileSelector } from './profiles/ProfileSelector';
 import { useProfiles } from '@/contexts/ProfileContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -45,11 +44,15 @@ const AppSidebar = () => {
 
   return (
     <Sidebar collapsible="icon" className="hidden border-r border-primary-foreground/20 bg-primary text-primary-foreground md:flex">
-      <SidebarContent className="p-2 pt-6 flex flex-col">
+      <SidebarContent className="p-4 pt-8 flex flex-col gap-6">
         {businessLocations.length > 0 && (
-          <div className="p-2 space-y-2">
-            <BusinessSelector variant="sidebar" />
-            <ProfileSelector />
+          <div className="space-y-4">
+            <div className="px-2">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary-foreground/40 mb-3 group-data-[collapsible=icon]:hidden">
+                Active Branch
+              </h3>
+              <BusinessSelector variant="sidebar" />
+            </div>
           </div>
         )}
         <div className="flex-1">

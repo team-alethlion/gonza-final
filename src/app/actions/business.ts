@@ -3,26 +3,16 @@
 
 import { db } from "../../../prisma/db";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { verifyBranchAccess, verifyUserAccess } from "@/lib/auth-guard";
 import bcrypt from "bcryptjs";
 
 export async function getBusinessLocationsAction(userId: string) {
-  const session = await auth();
-  if (!session || !session.user) return [];
-
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userAgencyId = (session.user as any).agencyId;
-  const sessionBranchId = (session.user as any).branchId;
-
-  // Authorization: User can see their own branches, or admins can see all in agency
-  if (
-    session.user.id !== userId &&
-    userRole !== "superadmin" &&
-    userRole !== "admin"
-  )
-    return [];
-
   try {
+    const sessionUser = await verifyUserAccess(userId);
+    const userRole = (sessionUser as any).role?.toLowerCase();
+    const userAgencyId = (sessionUser as any).agencyId;
+    const sessionBranchId = (sessionUser as any).branchId;
+
     let whereClause: any = {
       OR: [{ adminId: userId }, { users: { some: { id: userId } } }],
     };
@@ -63,11 +53,8 @@ export async function getBusinessLocationsAction(userId: string) {
 }
 
 export async function createBusinessAction(userId: string, name: string) {
-  const session = await auth();
-  if (!session || !session.user || session.user.id !== userId)
-    throw new Error("Unauthorized");
-
   try {
+    await verifyUserAccess(userId);
     const branch = await db.branch.create({
       data: {
         name: name,
@@ -88,9 +75,9 @@ export async function createBusinessAction(userId: string, name: string) {
         switch_password_hash: branch.accessPassword,
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating business:", error);
-    return { success: false, error: "Failed to create business" };
+    return { success: false, error: error.message || "Failed to create business" };
   }
 }
 
@@ -99,16 +86,10 @@ export async function updateBusinessAction(
   userId: string,
   name: string,
 ) {
-  const session = await auth();
-  if (
-    !session ||
-    !session.user ||
-    (session.user.id !== userId &&
-      (session.user as any).role?.toLowerCase() !== "superadmin")
-  )
-    throw new Error("Unauthorized");
-
   try {
+    await verifyUserAccess(userId);
+    await verifyBranchAccess(id);
+
     const branch = await db.branch.update({
       where: {
         id: id,
@@ -131,23 +112,17 @@ export async function updateBusinessAction(
         switch_password_hash: branch.accessPassword,
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating business:", error);
-    return { success: false, error: "Failed to update business" };
+    return { success: false, error: error.message || "Failed to update business" };
   }
 }
 
 export async function deleteBusinessAction(id: string, userId: string) {
-  const session = await auth();
-  if (
-    !session ||
-    !session.user ||
-    (session.user.id !== userId &&
-      (session.user as any).role?.toLowerCase() !== "superadmin")
-  )
-    throw new Error("Unauthorized");
-
   try {
+    await verifyUserAccess(userId);
+    await verifyBranchAccess(id);
+
     await db.branch.delete({
       where: {
         id: id,
@@ -156,39 +131,27 @@ export async function deleteBusinessAction(id: string, userId: string) {
     });
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting business:", error);
-    return { success: false, error: "Failed to delete business" };
+    return { success: false, error: error.message || "Failed to delete business" };
   }
 }
 
 // --- BUSINESS RESET ---
 
 export async function resetBusinessAction(id: string, userId: string) {
-  const session = await auth();
-  if (
-    !session ||
-    !session.user ||
-    (session.user.id !== userId &&
-      (session.user as any).role?.toLowerCase() !== "superadmin")
-  )
-    throw new Error("Unauthorized");
-
   try {
+    await verifyUserAccess(userId);
+    await verifyBranchAccess(id);
+
     // VERIFY OWNERSHIP BEFORE WIPE
     const branch = await db.branch.findUnique({
       where: { id },
       select: { adminId: true },
     });
 
-    if (
-      !branch ||
-      (branch.adminId !== userId &&
-        (session.user as any).role?.toLowerCase() !== "superadmin")
-    ) {
-      throw new Error(
-        "Unauthorized: You do not have permission to reset this business.",
-      );
+    if (!branch) {
+      throw new Error("Branch not found");
     }
 
     // Delete all business data in a transaction
@@ -213,17 +176,8 @@ export async function setBusinessPasswordAction(
   businessId: string,
   password: string,
 ) {
-  const session = await auth();
-  if (!session || !session.user) throw new Error("Unauthorized");
-
-  // Authorization: only branch users or superadmins can set password
-  const userBranchId = (session.user as any).branchId;
-  const isSuperAdmin =
-    (session.user as any).role?.toLowerCase() === "superadmin";
-  if (userBranchId && userBranchId !== businessId && !isSuperAdmin)
-    throw new Error("Unauthorized");
-
   try {
+    await verifyBranchAccess(businessId);
     const hash = await bcrypt.hash(password, 10);
     await db.branch.update({
       where: { id: businessId },
@@ -259,21 +213,8 @@ export async function verifyBusinessPasswordAction(
 }
 
 export async function removeBusinessPasswordAction(businessId: string) {
-  const session = await auth();
-  if (!session || !session.user) throw new Error("Unauthorized");
-
-  // Verification: only admin of the branch or superadmin
-  const isSuperAdmin =
-    (session.user as any).role?.toLowerCase() === "superadmin";
-  const branch = await db.branch.findUnique({
-    where: { id: businessId },
-    select: { adminId: true },
-  });
-
-  if (!isSuperAdmin && branch?.adminId !== session.user.id)
-    throw new Error("Unauthorized");
-
   try {
+    await verifyBranchAccess(businessId);
     await db.branch.update({
       where: { id: businessId },
       data: { accessPassword: null },

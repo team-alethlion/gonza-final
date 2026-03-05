@@ -3,9 +3,12 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getCustomerStatsAction(userId: string, branchId: string) {
     try {
+        await verifyUserAccess(userId);
+        await verifyBranchAccess(branchId);
         const thisMonth = new Date();
         const startOfMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
 
@@ -44,6 +47,7 @@ export async function getCustomerStatsAction(userId: string, branchId: string) {
 
 export async function mergeCustomersAction(branchId: string, primaryCustomerId: string, duplicateIds: string[]) {
     try {
+        await verifyBranchAccess(branchId);
         if (!primaryCustomerId || duplicateIds.length === 0) {
             return { success: false, error: 'Invalid selection' };
         }
@@ -92,6 +96,7 @@ export async function mergeCustomersAction(branchId: string, primaryCustomerId: 
 
 export async function getCustomersAction(branchId: string, skip: number = 0, take: number = 50) {
     try {
+        await verifyBranchAccess(branchId);
         const customers: any[] = await db.$queryRaw`
             SELECT 
                 c.*,
@@ -144,6 +149,8 @@ export async function getCustomersAction(branchId: string, skip: number = 0, tak
 
 export async function createCustomerAction(branchId: string, userId: string, data: any) {
     try {
+        await verifyUserAccess(userId);
+        await verifyBranchAccess(branchId);
         const newCustomer = await db.customer.create({
             data: {
                 branchId: branchId,
@@ -170,6 +177,7 @@ export async function createCustomerAction(branchId: string, userId: string, dat
 
 export async function updateCustomerAction(customerId: string, branchId: string, data: any) {
     try {
+        await verifyBranchAccess(branchId);
         const updateData: any = {};
         if (data.fullName !== undefined) updateData.name = data.fullName;
         if (data.phoneNumber !== undefined) updateData.phone = data.phoneNumber;
@@ -196,6 +204,7 @@ export async function updateCustomerAction(customerId: string, branchId: string,
 
 export async function deleteCustomerAction(customerId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.customer.delete({
             where: { id: customerId, branchId: branchId }
         });
@@ -209,6 +218,7 @@ export async function deleteCustomerAction(customerId: string, branchId: string)
 
 export async function getCustomerAction(customerId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         const customer = await db.customer.findFirst({
             where: { id: customerId, branchId: branchId }
         });
@@ -259,6 +269,7 @@ export async function getCustomerAction(customerId: string, branchId: string) {
 
 export async function getCustomerCategoriesAction(branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         const categories = await db.customerCategory.findMany({
             where: { branchId },
             orderBy: { name: 'asc' }
@@ -281,6 +292,8 @@ export async function getCustomerCategoriesAction(branchId: string) {
 
 export async function createCustomerCategoryAction(branchId: string, userId: string, name: string) {
     try {
+        await verifyUserAccess(userId);
+        await verifyBranchAccess(branchId);
         const newCategory = await db.customerCategory.create({
             data: {
                 branchId: branchId,
@@ -299,6 +312,7 @@ export async function createCustomerCategoryAction(branchId: string, userId: str
 
 export async function updateCustomerCategoryAction(categoryId: string, branchId: string, name: string) {
     try {
+        await verifyBranchAccess(branchId);
         const updatedCategory = await db.customerCategory.update({
             where: { id: categoryId, branchId: branchId },
             data: { name: name.trim() }
@@ -313,6 +327,7 @@ export async function updateCustomerCategoryAction(categoryId: string, branchId:
 
 export async function deleteCustomerCategoryAction(categoryId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.customerCategory.delete({
             where: { id: categoryId, branchId: branchId }
         });
@@ -326,6 +341,7 @@ export async function deleteCustomerCategoryAction(categoryId: string, branchId:
 
 export async function getCustomerLifetimeStatsAction(branchId: string, customerName: string) {
     try {
+        await verifyBranchAccess(branchId);
         const stats = await db.sale.aggregate({
             where: {
                 branchId,

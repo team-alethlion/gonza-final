@@ -1,9 +1,11 @@
+"use client";
+
 import { ArrowRight, ChevronRight, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const Hero = ({ B }: { B: any }) => {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   
   return (
     <section
@@ -129,7 +131,9 @@ const Hero = ({ B }: { B: any }) => {
           animationDelay: "0.44s",
           opacity: 0,
         }}>
-        {user ? (
+        {status === 'loading' ? (
+          <div className="w-48 h-12 bg-white/5 animate-pulse rounded-xl" />
+        ) : user ? (
           <Link
             href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
             className="lp-btn-primary"

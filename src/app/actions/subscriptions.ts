@@ -2,22 +2,20 @@
 "use server";
 
 import { db } from "../../../prisma/db";
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { addDays, format } from "date-fns";
 import { sendSubscriptionNotificationEmail } from "@/lib/email";
 import { initiatePesapalPayment } from "@/lib/pesapal";
+import { verifyAgencyAccess, verifyUserAccess } from "@/lib/auth-guard";
 
 export async function getAgencySubscriptionAction() {
-  const session = await auth();
-  if (!session || !session.user) {
-    return { success: false, error: "Unauthorized" };
-  }
-
-  const agencyId = (session.user as any).agencyId;
-  if (!agencyId) return { success: false, error: "No agency found" };
-
   try {
+    const session = await import("@/auth").then(m => m.auth());
+    const agencyId = (session?.user as any)?.agencyId;
+    if (!agencyId) return { success: false, error: "No agency found" };
+
+    await verifyAgencyAccess(agencyId);
+
     const agency = await db.agency.findUnique({
       where: { id: agencyId },
       include: {
@@ -41,15 +39,13 @@ export async function getAgencySubscriptionAction() {
 }
 
 export async function activateTrialAction(packageId: string) {
-  const session = await auth();
-  if (!session || !session.user) {
-    return { success: false, error: "Unauthorized" };
-  }
-
-  const agencyId = (session.user as any).agencyId;
-  if (!agencyId) return { success: false, error: "No agency found" };
-
   try {
+    const sessionUser = await import("@/auth").then(m => m.auth()).then(s => s?.user as any);
+    const agencyId = sessionUser?.agencyId;
+    if (!agencyId) return { success: false, error: "No agency found" };
+
+    await verifyAgencyAccess(agencyId);
+
     const agency = await db.agency.findUnique({
       where: { id: agencyId },
     });
@@ -81,9 +77,9 @@ export async function activateTrialAction(packageId: string) {
     });
 
     // Send confirmation email
-    if (session.user?.email) {
-      await sendSubscriptionNotificationEmail(session.user.email, {
-        userName: session.user.name || "Subscriber",
+    if (sessionUser?.email) {
+      await sendSubscriptionNotificationEmail(sessionUser.email, {
+        userName: sessionUser.name || "Subscriber",
         planName: pkg.name,
         status: "Free Trial",
         expiryDate: format(trialEndDate, "PPP"),
@@ -106,16 +102,16 @@ export async function activateTrialAction(packageId: string) {
 }
 
 export async function upgradeSubscriptionAction(packageId: string, duration: "monthly" | "yearly") {
-  const session = await auth();
-  if (!session || !session.user) {
-    return { success: false, error: "Unauthorized" };
-  }
-
-  const userId = session.user.id;
-  const agencyId = (session.user as any).agencyId;
-  if (!agencyId) return { success: false, error: "No agency found" };
-
   try {
+    const sessionUser = await import("@/auth").then(m => m.auth()).then(s => s?.user as any);
+    const userId = sessionUser?.id;
+    const agencyId = sessionUser?.agencyId;
+    
+    if (!userId || !agencyId) return { success: false, error: "Authentication required" };
+
+    await verifyUserAccess(userId);
+    await verifyAgencyAccess(agencyId);
+
     const pkg = await db.package.findUnique({
       where: { id: packageId },
     });
@@ -145,12 +141,12 @@ export async function upgradeSubscriptionAction(packageId: string, duration: "mo
     // 3. Initiate Pesapal Payment
     const pesapalResult = await initiatePesapalPayment({
       amount: price,
-      email: session.user.email || "billing@gonzasystems.com",
-      phoneNumber: (session.user as any).phone || "0700000000",
+      email: sessionUser.email || "billing@gonzasystems.com",
+      phoneNumber: sessionUser.phone || "0700000000",
       reference: reference,
       description: `Upgrade to ${pkg.name} (${duration})`,
-      firstName: session.user.name?.split(' ')[0] || "Client",
-      lastName: session.user.name?.split(' ').slice(1).join(' ') || "Admin"
+      firstName: sessionUser.name?.split(' ')[0] || "Client",
+      lastName: sessionUser.name?.split(' ').slice(1).join(' ') || "Admin"
     });
 
     if (!pesapalResult.redirect_url) {
@@ -168,3 +164,4 @@ export async function upgradeSubscriptionAction(packageId: string, duration: "mo
     return { success: false, error: error.message };
   }
 }
+

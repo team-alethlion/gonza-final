@@ -4,7 +4,7 @@
 
 model Sale {
   id         String   @id @default(cuid())
-  saleNumber String   @unique // Auto-generated: "SAL-2024-001"
+  saleNumber String   // REMOVED @unique to allow composite unique
   date       DateTime @default(now())
 
   agencyId String?
@@ -59,6 +59,12 @@ model Sale {
 
   cashTransactionId String?          @unique
   cashTransaction   CashTransaction? @relation(fields: [cashTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([branchId, saleNumber])
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([customerId])
+  @@index([userId])
 }
 
 model SalesGoal {
@@ -75,11 +81,14 @@ model SalesGoal {
   status    String   @default("active") // active, completed, failed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([userId])
 }
 
 model SaleCategory {
   id   String @id @default(cuid())
-  name String @unique
+  name String 
 
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -91,6 +100,9 @@ model SaleCategory {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([branchId, name])
+  @@index([branchId])
 }
 
 enum SaleSource {

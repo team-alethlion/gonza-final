@@ -21,6 +21,8 @@ model Category {
   updatedAt DateTime  @updatedAt
 
   @@unique([branchId, name])
+  @@index([branchId])
+  @@index([agencyId])
 }
 
 model Supplier {
@@ -39,6 +41,7 @@ model Supplier {
   updatedAt DateTime  @updatedAt
 
   @@unique([agencyId, name])
+  @@index([agencyId])
 }
 
 model Product {
@@ -84,6 +87,9 @@ model Product {
   @@unique([branchId, sku])
   @@unique([branchId, barcode])
   @@unique([branchId, slug])
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([categoryId])
 }
 
 model StockAudit {
@@ -104,6 +110,8 @@ model StockAudit {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
 }
 
 model StockAuditItem {
@@ -124,6 +132,9 @@ model StockAuditItem {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([auditId])
+  @@index([productId])
 }
 
 model ProductHistory {
@@ -136,7 +147,7 @@ model ProductHistory {
   newStock       Int
   newQuantity    Int?
   changeReason   String?
-  locationId     String?
+  locationId     String? // This should be branchId for consistency
   oldPrice       Decimal?           @db.Decimal(15, 2)
   newPrice       Decimal?           @db.Decimal(15, 2)
   oldCost        Decimal?           @db.Decimal(15, 2)
@@ -147,6 +158,11 @@ model ProductHistory {
   userId         String
   user           User               @relation(fields: [userId], references: [id])
   createdAt      DateTime           @default(now())
+
+  @@index([productId])
+  @@index([locationId])
+  @@index([userId])
+  @@index([referenceId])
 }
 
 enum ProductHistoryType {
@@ -188,6 +204,10 @@ model StockTransfer {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
 }
 
 model StockTransferItem {
@@ -201,6 +221,8 @@ model StockTransferItem {
   quantity    Int
 
   createdAt DateTime @default(now())
+
+  @@index([transferId])
 }
 
 enum TransferStatus {
@@ -211,7 +233,7 @@ enum TransferStatus {
 
 model Requisition {
   id                String   @id @default(cuid())
-  requisitionNumber String   @unique // "REQ-2024-001"
+  requisitionNumber String   // REMOVED @unique to allow composite unique
   date              DateTime @default(now())
   title             String?
   locationId        String?
@@ -233,6 +255,11 @@ model Requisition {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([branchId, requisitionNumber])
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([userId])
 }
 
 model RequisitionItem {
@@ -245,6 +272,8 @@ model RequisitionItem {
   quantity    Int
 
   createdAt DateTime @default(now())
+
+  @@index([requisitionId])
 }
 
 enum RequisitionStatus {
@@ -273,4 +302,7 @@ model CarriageInward {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([userId])
 }

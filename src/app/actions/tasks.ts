@@ -4,9 +4,10 @@
 import { db, TaskPriority, RecurrenceType } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { addDays, addWeeks, addMonths, format, parseISO } from 'date-fns';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 // --- TASKS ---
-
+// ... (CreateTaskInput unchanged)
 export interface CreateTaskInput {
     userId: string;
     locationId: string;
@@ -23,6 +24,8 @@ export interface CreateTaskInput {
 }
 
 export async function getTasksAction(userId: string, locationId: string) {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
     try {
         const tasks = await db.task.findMany({
             where: {
@@ -60,8 +63,11 @@ export async function getTasksAction(userId: string, locationId: string) {
 }
 
 export async function createTaskAction(data: CreateTaskInput) {
+    await verifyBranchAccess(data.locationId);
+    await verifyUserAccess(data.userId);
     try {
         const result = await db.$transaction(async (tx: any) => {
+// ...
             // 1. Create the main task
             const task = await tx.task.create({
                 data: {
@@ -137,6 +143,7 @@ export async function createTaskAction(data: CreateTaskInput) {
 }
 
 export async function updateTaskAction(id: string, userId: string, updates: any) {
+    await verifyUserAccess(userId);
     try {
         const result = await db.$transaction(async (tx: any) => {
             const task = await tx.task.update({
@@ -204,6 +211,7 @@ export async function updateTaskAction(id: string, userId: string, updates: any)
 }
 
 export async function deleteTaskAction(id: string, userId: string) {
+    await verifyUserAccess(userId);
     try {
         await db.$transaction(async (tx: any) => {
             // Delete instances first
@@ -225,6 +233,7 @@ export async function deleteTaskAction(id: string, userId: string) {
 }
 
 export async function bulkUpdateTasksAction(ids: string[], userId: string, updates: any) {
+    await verifyUserAccess(userId);
     try {
         await db.task.updateMany({
             where: { id: { in: ids }, createdById: userId },
@@ -242,6 +251,8 @@ export async function bulkUpdateTasksAction(ids: string[], userId: string, updat
 // --- CATEGORIES ---
 
 export async function getTaskCategoriesAction(userId: string, locationId: string) {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
     try {
         const categories = await db.taskCategory.findMany({
             where: { branchId: locationId },
@@ -265,6 +276,8 @@ export async function getTaskCategoriesAction(userId: string, locationId: string
 }
 
 export async function createTaskCategoryAction(userId: string, locationId: string, name: string) {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
     try {
         const category = await db.taskCategory.create({
             data: { userId, branchId: locationId, name }
@@ -278,6 +291,7 @@ export async function createTaskCategoryAction(userId: string, locationId: strin
 }
 
 export async function updateTaskCategoryAction(id: string, userId: string, name: string) {
+    await verifyUserAccess(userId);
     try {
         const category = await db.taskCategory.update({
             where: { id, userId },
@@ -292,6 +306,7 @@ export async function updateTaskCategoryAction(id: string, userId: string, name:
 }
 
 export async function deleteTaskCategoryAction(id: string, userId: string) {
+    await verifyUserAccess(userId);
     try {
         await db.taskCategory.delete({
             where: { id, userId }
@@ -305,6 +320,8 @@ export async function deleteTaskCategoryAction(id: string, userId: string) {
 }
 
 export async function createDefaultTaskCategoriesAction(userId: string, locationId: string) {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
     try {
         const defaultNames = ['General', 'Marketing', 'Operations', 'Finance', 'Follow-up'];
 

@@ -61,7 +61,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
   const { settings } = useBusinessSettings();
   const { user } = useAuth();
-  const { updateInventoryForSale, updateInventoryForEditedSale } = useSaleProductSelection(user?.id);
   const { accounts: cashAccounts } = useCashAccounts();
   const { currentBusiness } = useBusiness();
 
@@ -325,7 +324,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         toast.success('Offline! Sale queued for sync when connection returns.');
         setIsSubmitted(true);
         if (draftData && onClearDraft) onClearDraft();
-        if (!onSaleComplete) router.push('/sales');
+        if (!onSaleComplete) router.push('/agency/sales');
         return;
       }
 
@@ -434,7 +433,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       setIsSubmitted(true);
 
       if (!onSaleComplete) {
-        router.push('/sales');
+        router.push('/agency/sales');
       }
 
     } catch (error: any) {
@@ -634,7 +633,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       <SaleFormActions
         loading={loading}
         isEditing={!!initialData}
-        onCancel={() => router.push('/sales')}
+        onCancel={() => router.push('/agency/sales')}
         onClearForm={!initialData ? handleClearForm : undefined}
         printAfterSave={printAfterSave}
         onPrintAfterSaveChange={setPrintAfterSave}

@@ -3,8 +3,10 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getBusinessSettingsAction(branchId: string) {
+    await verifyBranchAccess(branchId);
     try {
         const settings = await db.branchSettings.findUnique({
             where: { branchId }
@@ -32,22 +34,9 @@ export async function getBusinessSettingsAction(branchId: string) {
 }
 
 export async function upsertBusinessSettingsAction(branchId: string, userId: string, updateData: any) {
+    await verifyBranchAccess(branchId);
+    await verifyUserAccess(userId);
     try {
-        // Validate user access to branch
-        const branch = await db.branch.findFirst({
-            where: {
-                id: branchId,
-                OR: [
-                    { adminId: userId },
-                    { users: { some: { id: userId } } }
-                ]
-            }
-        });
-
-        if (!branch) {
-            return { success: false, error: 'Unauthorized to update branch settings' };
-        }
-
         const result = await db.$transaction(async (tx) => {
             const data = {
                 businessName: updateData.business_name,
@@ -114,11 +103,14 @@ export async function upsertBusinessSettingsAction(branchId: string, userId: str
 }
 
 export async function completeInitialOnboardingAction(data: any) {
+    const { userId } = data;
+    if (!userId) throw new Error("User ID is required for onboarding.");
+    
+    await verifyUserAccess(userId);
     try {
         const { 
-            userId, 
-            agencyId, 
-            branchId,
+            agencyId: providedAgencyId, 
+            branchId: providedBranchId,
             businessName, 
             businessAddress, 
             businessPhone, 
@@ -133,15 +125,65 @@ export async function completeInitialOnboardingAction(data: any) {
         } = data;
 
         await db.$transaction(async (tx) => {
+            // 0. Resolve User and Agency
+            const userRecord = await tx.user.findUnique({
+                where: { id: userId },
+                select: { id: true, agencyId: true }
+            });
+
+            if (!userRecord) {
+                throw new Error("User record not found.");
+            }
+
+            let targetAgencyId = providedAgencyId || userRecord.agencyId;
+
+            // 0.1 If no agency exists, create one (Safety fallback)
+            if (!targetAgencyId) {
+                const crypto = await import('crypto');
+                const uniqueId = crypto.randomBytes(3).toString('hex');
+                const newAgency = await tx.agency.create({
+                    data: {
+                        name: businessName || `Agency ${uniqueId}`,
+                        subscriptionStatus: subscriptionStatus || "trial",
+                        hadTrialBefore: false,
+                    }
+                });
+                targetAgencyId = newAgency.id;
+            }
+
+            // 0.2 Resolve Branch
+            let targetBranchId = providedBranchId;
+            if (!targetBranchId) {
+                const branch = await tx.branch.findFirst({
+                    where: { agencyId: targetAgencyId }
+                });
+                
+                if (branch) {
+                    targetBranchId = branch.id;
+                } else {
+                    // Create branch if missing
+                    const newBranch = await tx.branch.create({
+                        data: {
+                            name: businessName || "Main Branch",
+                            location: businessAddress || "Default Location",
+                            agencyId: targetAgencyId,
+                            adminId: userId
+                        }
+                    });
+                    targetBranchId = newBranch.id;
+                }
+            }
+
             // 1. Update Agency
             await tx.agency.update({
-                where: { id: agencyId },
+                where: { id: targetAgencyId },
                 data: {
                     name: businessName,
                     isOnboarded: true,
-                    packageId: packageId,
-                    subscriptionStatus: subscriptionStatus || 'trial',
-                    trialEndDate: trialEndDate ? new Date(trialEndDate) : undefined
+                    packageId: packageId || undefined,
+                    subscriptionStatus: subscriptionStatus || undefined,
+                    trialEndDate: subscriptionStatus === 'trial' ? (trialEndDate ? new Date(trialEndDate) : undefined) : undefined,
+                    subscriptionExpiry: subscriptionStatus === 'active' ? (trialEndDate ? new Date(trialEndDate) : undefined) : undefined
                 }
             });
 
@@ -152,31 +194,54 @@ export async function completeInitialOnboardingAction(data: any) {
                     name: userName,
                     phone: userPhone,
                     pin: userPin,
-                    isOnboarded: true
+                    isOnboarded: true,
+                    branchId: targetBranchId,
+                    agencyId: targetAgencyId
                 }
             });
 
             // 3. Update Branch Settings
             await tx.branchSettings.upsert({
-                where: { branchId: branchId },
+                where: { branchId: targetBranchId },
                 update: {
                     businessName,
                     address: businessAddress,
                     phone: businessPhone,
                     email: businessEmail,
                     logo: businessLogo,
-                    needsOnboarding: false
+                    needsOnboarding: false,
+                    metadata: {
+                        natureOfBusiness: data.natureOfBusiness,
+                        businessSize: data.businessSize
+                    }
                 },
                 create: {
-                    branchId: branchId,
+                    branchId: targetBranchId,
                     businessName,
                     address: businessAddress,
                     phone: businessPhone,
                     email: businessEmail,
                     logo: businessLogo,
-                    needsOnboarding: false
+                    needsOnboarding: false,
+                    metadata: {
+                        natureOfBusiness: data.natureOfBusiness,
+                        businessSize: data.businessSize
+                    }
                 }
             });
+
+            // 4. Update the Branch name itself for consistency
+            await tx.branch.update({
+                where: { id: targetBranchId },
+                data: { 
+                    name: businessName,
+                    location: businessAddress,
+                    phone: businessPhone
+                }
+            });
+        }, {
+            timeout: 15000, // 15 seconds for robustness
+            maxWait: 5000   // 5 seconds
         });
 
         revalidatePath('/');
@@ -188,6 +253,7 @@ export async function completeInitialOnboardingAction(data: any) {
 }
 
 export async function getAccountStatusAction(userId: string) {
+    await verifyUserAccess(userId);
     try {
         const user = await db.user.findUnique({
             where: { id: userId },
@@ -236,10 +302,15 @@ export async function getAccountStatusAction(userId: string) {
         // 3. Billing & Limits Info
         let billingAmount = 50000;
         let locationLimit = 1;
+        let isTrial = agency?.subscriptionStatus === 'trial';
 
         if (agency && agency.package) {
             billingAmount = Number(agency.package.monthlyPrice) || 50000;
-            if (agency.package.unlimitedLocations) {
+            
+            // If in trial, we strictly limit to 1 location regardless of the package
+            if (isTrial) {
+                locationLimit = 1;
+            } else if (agency.package.unlimitedLocations) {
                 locationLimit = 999;
             } else {
                 locationLimit = agency.package.maxLocations || 1;
@@ -253,7 +324,9 @@ export async function getAccountStatusAction(userId: string) {
             billing_duration: 'Monthly',
             days_remaining: daysRemaining,
             next_billing_date: nextBillingDate,
-            package_id: agency?.packageId || null
+            package_id: agency?.packageId || null,
+            subscription_status: agency?.subscriptionStatus || 'trial',
+            is_trial: isTrial
         };
     } catch (error) {
         console.error('Error fetching account status:', error);
@@ -270,6 +343,7 @@ export async function getAccountStatusAction(userId: string) {
 }
 
 export async function getOnboardingStatusAction(locationId: string) {
+    await verifyBranchAccess(locationId);
     try {
         const settings = await db.branchSettings.findUnique({
             where: { branchId: locationId }
@@ -293,3 +367,4 @@ export async function getOnboardingStatusAction(locationId: string) {
         return null;
     }
 }
+

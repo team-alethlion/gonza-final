@@ -2,8 +2,7 @@
 'use server';
 
 import { db, ActivityType, ActivityModule } from '../../../prisma/db';
-import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export interface ActivityLogInput {
     userId: string;
@@ -21,6 +20,9 @@ export interface ActivityLogInput {
 
 export async function logActivityAction(data: ActivityLogInput) {
     try {
+        await verifyBranchAccess(data.locationId);
+        await verifyUserAccess(data.userId);
+        
         await db.activityHistory.create({
             data: {
                 userId: data.userId,
@@ -59,29 +61,9 @@ export async function getActivityHistoryAction(
     pageSize: number = 20,
     filters?: ActivityFilters
 ) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== locationId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: locationId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        const sessionUser = await verifyBranchAccess(locationId);
+        const userRole = sessionUser.role?.toLowerCase();
 
         const actualPage = Math.max(1, Number(page) || 1);
         const actualPageSize = Math.max(1, Number(pageSize) || 20);
@@ -96,7 +78,7 @@ export async function getActivityHistoryAction(
 
         if (!canViewAll) {
             // Force filter to current user's profile
-            where.userId = session.user.id;
+            where.userId = sessionUser.id;
         } else if (userId && userId !== 'ALL') {
             where.userId = userId;
         }
@@ -164,29 +146,8 @@ export async function getActivityHistoryAction(
 }
 
 export async function getActivityHistoryByTypeAction(locationId: string, module: string, activityType: string) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== locationId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: locationId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(locationId);
 
         const records = await db.activityHistory.findMany({
             where: { locationId, module: module as any, activityType: activityType as any },

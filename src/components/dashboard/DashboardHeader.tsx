@@ -42,7 +42,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </Button>
           <span className="text-xs text-gray-500 mt-1 hidden md:block">Update App</span>
         </div>
-        <Button onClick={() => router.push('/new-sale')} className="gap-2" size={isMobile ? "sm" : "default"}>
+        <Button onClick={() => router.push('/agency/new-sale')} className="gap-2" size={isMobile ? "sm" : "default"}>
           <Plus size={16} />
           {!isMobile && "New Sale"}
         </Button>

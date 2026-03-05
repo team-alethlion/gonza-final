@@ -2,6 +2,7 @@
 'use server';
 
 import { db } from '../../../prisma/db';
+import { verifyUserAccess } from '@/lib/auth-guard';
 
 /**
  * Updates the lastSeen timestamp for a user.
@@ -10,6 +11,7 @@ import { db } from '../../../prisma/db';
 export async function updateLastSeenAction(userId: string) {
     try {
         if (!userId) return { success: false, error: "User ID is required" };
+        await verifyUserAccess(userId);
 
         await db.user.update({
             where: { id: userId },
@@ -22,3 +24,4 @@ export async function updateLastSeenAction(userId: string) {
         return { success: false, error: error.message };
     }
 }
+

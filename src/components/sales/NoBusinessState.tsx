@@ -12,7 +12,7 @@ const NoBusinessState: React.FC = () => {
           No business location found. Please create a business location to manage sales.
         </p>
         <button
-          onClick={() => router.push('/business-management')}
+          onClick={() => router.push('/agency/business-management')}
           className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700"
         >
           Manage Business Locations

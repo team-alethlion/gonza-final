@@ -17,7 +17,7 @@ const EmptyProductState: React.FC = () => {
         Start managing your inventory by adding your first product.
       </p>
       <div className="mt-6">
-        <Button onClick={() => router.push('/inventory/new')} className="gap-2">
+        <Button onClick={() => router.push('/agency/inventory/new')} className="gap-2">
           <Plus size={16} /> Add New Product
         </Button>
       </div>

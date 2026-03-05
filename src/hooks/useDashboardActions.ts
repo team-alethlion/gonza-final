@@ -43,7 +43,7 @@ export const useDashboardActions = () => {
   }, [toast]);
 
   const handleQuickCreate = useCallback((paymentStatus: 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale') => {
-    router.push(`/new-sale?defaultPaymentStatus=${paymentStatus}`);
+    router.push(`/agency/new-sale?defaultPaymentStatus=${paymentStatus}`);
   }, [router]);
 
   return {

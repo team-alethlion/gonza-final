@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PaymentStatus } from '@prisma/client';
 import { checkSalesQuota } from '@/lib/quota-check';
-import { auth } from '@/auth';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
+import { verifyEntitiesBelongToBranch, validateSaleItems } from '@/lib/data-integrity';
 
 const saleItemSchema = z.object({
     productId: z.string().optional().nullable(),
@@ -33,6 +34,12 @@ const createReceiptSchema = z.object({
     taxRate: z.number().nonnegative().optional().default(0)
 });
 
+// Robust number conversion to prevent null/NaN in DB
+const toValidNum = (val: any) => {
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+};
+
 function calculateSaleFinancials(items: any[], taxRate: number) {
     let subtotal = 0;
     let totalCost = 0;
@@ -43,21 +50,21 @@ function calculateSaleFinancials(items: any[], taxRate: number) {
     }
 
     items.forEach((item: any) => {
-        const qty = Number(item.quantity) || 0;
-        const price = Number(item.price) || 0;
-        const cost = Number(item.cost) || 0;
+        const qty = toValidNum(item.quantity);
+        const price = toValidNum(item.price);
+        const cost = toValidNum(item.cost);
         const itemSubtotal = price * qty;
         
         const discountAmount = item.discountType === 'amount'
-            ? (Number(item.discountAmount) || 0)
-            : (itemSubtotal * (Number(item.discountPercentage) || 0)) / 100;
+            ? toValidNum(item.discountAmount)
+            : (itemSubtotal * toValidNum(item.discountPercentage)) / 100;
         
         subtotal += (itemSubtotal - discountAmount);
         totalDiscount += discountAmount;
         totalCost += cost * qty;
     });
 
-    const taxAmount = subtotal * (Number(taxRate || 0) / 100);
+    const taxAmount = subtotal * (toValidNum(taxRate) / 100);
     const total = subtotal + taxAmount;
     const profit = total - totalCost;
 
@@ -71,25 +78,9 @@ function calculateSaleFinancials(items: any[], taxRate: number) {
     };
 }
 
-// Robust number conversion to prevent null/NaN in DB
-const toValidNum = (val: any) => {
-    const num = Number(val);
-    return isNaN(num) ? 0 : num;
-};
-
 export async function getSalesAction(businessId: string, sortOrder: 'asc' | 'desc' = 'desc', pageSize?: number) {
     try {
-        const session = await auth();
-        if (!session || !session.user) return [];
-        
-        const userRole = (session.user as any).role?.toLowerCase();
-        const userBranchId = (session.user as any).branchId;
-        const userAgencyId = (session.user as any).agencyId;
-
-        // Authorization check
-        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
-            return [];
-        }
+        await verifyBranchAccess(businessId);
 
         const queryOptions: any = {
             where: {
@@ -184,29 +175,8 @@ async function processSaleInventory(tx: any, items: any[], branchId: string, use
 }
 
 export async function deleteSaleAction(id: string, businessId: string) {
-    const session = await auth();
-    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
-        return { success: false, error: 'Unauthorized: Branch mismatch' };
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: businessId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                return { success: false, error: 'Unauthorized: Agency mismatch' };
-            }
-        }
+        await verifyBranchAccess(businessId);
 
         const sale = await db.sale.findUnique({
             where: { id },
@@ -308,13 +278,17 @@ export async function deleteSaleAction(id: string, businessId: string) {
 
 export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updateId?: string) {
     try {
-        const session = await auth();
-        if (!session || !session.user) throw new Error("Unauthorized");
-        
-        const agencyId = (session?.user as any)?.agencyId;
-
         if (!saleDbData.location_id) throw new Error("Location ID is required");
-        if (!saleDbData.user_id) throw new Error("User ID is required");
+
+        const sessionUser = await verifyBranchAccess(saleDbData.location_id);
+        const userId = sessionUser.id; // DO NOT trust saleDbData.user_id if session is available
+        const agencyId = sessionUser.agencyId;
+
+        // Data Integrity: Verify entities belong to the branch
+        await verifyEntitiesBelongToBranch(saleDbData.location_id, {
+            customerId: saleDbData.customer_id,
+            categoryId: saleDbData.category_id
+        });
 
         let status = saleDbData.payment_status;
         if (status === 'NOT PAID') status = 'UNPAID';
@@ -326,10 +300,13 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
         const validItems = (saleDbData.items || []).filter((item: any) => item.description?.trim());
         if (validItems.length === 0) throw new Error("At least one valid item is required");
 
+        // Data Integrity: Verify products belong to the branch
+        await validateSaleItems(saleDbData.location_id, validItems);
+
         const financials = calculateSaleFinancials(validItems, saleDbData.tax_rate);
 
         const prismaData: any = {
-            user: { connect: { id: saleDbData.user_id } },
+            user: { connect: { id: userId } },
             branch: { connect: { id: saleDbData.location_id } },
             saleNumber: saleDbData.receipt_number,
             customerName: saleDbData.customer_name || "Valued Customer",
@@ -388,7 +365,7 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
                     }
 
                     if (status !== 'QUOTE') {
-                        await processSaleInventory(tx, newItems, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
+                        await processSaleInventory(tx, newItems, saleDbData.location_id, userId, saleDbData.receipt_number, prismaData.date);
                     }
                 }
             } else {
@@ -397,7 +374,7 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
                 });
 
                 if (status !== 'QUOTE') {
-                    await processSaleInventory(tx, validItems, saleDbData.location_id, saleDbData.user_id, saleDbData.receipt_number, prismaData.date);
+                    await processSaleInventory(tx, validItems, saleDbData.location_id, userId, saleDbData.receipt_number, prismaData.date);
                 }
             }
             return sale;
@@ -429,17 +406,9 @@ export async function upsertSaleAction(saleDbData: any, isUpdate: boolean, updat
 
 export async function createReceiptAction(saleData: any, businessId: string, userId: string) {
     try {
-        const session = await auth();
-        if (!session || !session.user) return { success: false, error: 'Unauthorized' };
-        
-        const userRole = (session.user as any).role?.toLowerCase();
-        const userBranchId = (session.user as any).branchId;
-        const userAgencyId = (session.user as any).agencyId;
-
-        // Authorization check
-        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
-            return { success: false, error: 'Unauthorized: Branch mismatch' };
-        }
+        const sessionUser = await verifyBranchAccess(businessId);
+        const userIdFromSession = sessionUser.id; // DO NOT trust userId from client if session is available
+        const userAgencyId = sessionUser.agencyId;
 
         if (userAgencyId) {
             await checkSalesQuota(userAgencyId);
@@ -447,6 +416,15 @@ export async function createReceiptAction(saleData: any, businessId: string, use
 
         // Validate input data
         const validatedData = createReceiptSchema.parse(saleData);
+
+        // Data Integrity: Verify entities belong to the branch
+        await verifyEntitiesBelongToBranch(businessId, {
+            customerId: validatedData.customerId,
+            cashAccountId: validatedData.cashAccountId
+        });
+
+        // Data Integrity: Verify products belong to the branch
+        await validateSaleItems(businessId, validatedData.items);
 
         let status = validatedData.paymentStatus;
         if (status === 'NOT PAID') status = 'UNPAID';
@@ -458,7 +436,7 @@ export async function createReceiptAction(saleData: any, businessId: string, use
         const saleDate = new Date(validatedData.date);
 
         const prismaData: any = {
-            user: { connect: { id: userId } },
+            user: { connect: { id: userIdFromSession } },
             branch: { connect: { id: businessId } },
             saleNumber: validatedData.receiptNumber,
             customerName: validatedData.customerName || "Valued Customer",
@@ -489,7 +467,7 @@ export async function createReceiptAction(saleData: any, businessId: string, use
             });
 
             if (status !== 'QUOTE') {
-                await processSaleInventory(tx, validatedData.items, businessId, userId, validatedData.receiptNumber, saleDate);
+                await processSaleInventory(tx, validatedData.items, businessId, userIdFromSession, validatedData.receiptNumber, saleDate);
             }
             return created;
         });
@@ -529,6 +507,7 @@ export async function createReceiptAction(saleData: any, businessId: string, use
 
 export async function getSalesCategoriesAction(businessId: string) {
     try {
+        await verifyBranchAccess(businessId);
         const categories = await db.saleCategory.findMany({
             where: { branchId: businessId },
             orderBy: { name: 'asc' }
@@ -543,10 +522,13 @@ export async function getSalesCategoriesAction(businessId: string) {
 
 export async function createSalesCategoryAction(businessId: string, userId: string, name: string, isDefault: boolean = false) {
     try {
+        const sessionUser = await verifyBranchAccess(businessId);
+        const userIdFromSession = sessionUser.id; // DO NOT trust userId from client if session is available
+        
         const category = await db.saleCategory.create({
             data: {
                 branch: { connect: { id: businessId } },
-                user: { connect: { id: userId } },
+                user: { connect: { id: userIdFromSession } },
                 name,
             }
         });
@@ -593,6 +575,7 @@ export async function deleteSalesCategoryAction(id: string) {
 export async function getCustomerByNameAction(branchId: string, name: string) {
     if (!branchId || !name) return null;
     try {
+        await verifyBranchAccess(branchId);
         const customer = await db.customer.findFirst({
             where: {
                 branchId,
@@ -607,8 +590,16 @@ export async function getCustomerByNameAction(branchId: string, name: string) {
     }
 }
 
-export async function updateSaleCustomerAction(saleId: string, customerId: string) {
+export async function updateSaleCustomerAction(saleId: string, customerId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
+        
+        // Data Integrity: Verify both sale and customer belong to the branch
+        await verifyEntitiesBelongToBranch(branchId, {
+            saleId,
+            customerId
+        });
+
         await db.sale.update({
             where: { id: saleId },
             data: { customerId }
@@ -624,28 +615,8 @@ export async function updateSaleCustomerAction(saleId: string, customerId: strin
 
 export async function getSalesGoalAction(userId: string, branchId: string, month: number, year: number) {
     try {
-        const session = await auth();
-        if (!session || !session.user) throw new Error("Unauthorized");
-        
-        const userRole = (session.user as any).role?.toLowerCase();
-        const userBranchId = (session.user as any).branchId;
-        const userAgencyId = (session.user as any).agencyId;
-
-        // Authorization check
-        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-            throw new Error("Unauthorized: Branch mismatch");
-        }
-
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyUserAccess(userId);
+        await verifyBranchAccess(branchId);
 
         const goal = await db.salesGoal.findFirst({
             where: { branchId, period: `${year}-${String(month).padStart(2, '0')}` }
@@ -677,17 +648,8 @@ export async function upsertSalesGoalAction(
     existingGoalId?: string | null
 ) {
     try {
-        const session = await auth();
-        if (!session || !session.user) throw new Error("Unauthorized");
-        
-        const userRole = (session.user as any).role?.toLowerCase();
-        const userBranchId = (session.user as any).branchId;
-        const userAgencyId = (session.user as any).agencyId;
-
-        // Authorization check
-        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-            throw new Error("Unauthorized: Branch mismatch");
-        }
+        await verifyUserAccess(userId);
+        await verifyBranchAccess(branchId);
 
         const period = `${year}-${String(month).padStart(2, '0')}`;
 
@@ -722,28 +684,7 @@ export async function upsertSalesGoalAction(
 
 export async function getPeriodSalesAction(branchId: string, startDate: Date, endDate: Date) {
     try {
-        const session = await auth();
-        if (!session || !session.user) throw new Error("Unauthorized");
-        
-        const userRole = (session.user as any).role?.toLowerCase();
-        const userBranchId = (session.user as any).branchId;
-        const userAgencyId = (session.user as any).agencyId;
-
-        // Authorization check
-        if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-            throw new Error("Unauthorized: Branch mismatch");
-        }
-
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(branchId);
 
         const aggregate = await db.sale.aggregate({
             where: {

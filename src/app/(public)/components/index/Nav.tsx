@@ -6,8 +6,9 @@ import { ArrowRight, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const Nav = () => {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", fn);
@@ -37,7 +38,9 @@ const Nav = () => {
           </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {user ? (
+          {status === 'loading' ? (
+            <div className="w-24 h-9 bg-slate-100/50 animate-pulse rounded-lg" />
+          ) : user ? (
             <Link
               href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
               className="lp-btn-primary"

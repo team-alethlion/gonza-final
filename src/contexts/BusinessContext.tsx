@@ -42,7 +42,11 @@ export const useBusiness = () => {
   return context;
 };
 
-export const BusinessProvider: React.FC<{ children: React.ReactNode, initialLocations?: BusinessLocation[] }> = ({ children, initialLocations = [] }) => {
+export const BusinessProvider: React.FC<{ 
+  children: React.ReactNode, 
+  initialLocations?: BusinessLocation[],
+  initialAccountStatus?: any
+}> = ({ children, initialLocations = [], initialAccountStatus = null }) => {
   console.log('[DEBUG] BusinessProvider: Initializing...');
   const { user, updateSession } = useAuth();
   
@@ -80,6 +84,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode, initialLoca
     },
     enabled: !!user?.id,
     staleTime: 10 * 1000,
+    initialData: initialAccountStatus
   });
 
   const locationLimit = globalStatus?.location_limit || 1;

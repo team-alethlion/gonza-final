@@ -59,7 +59,7 @@ const UserMenu = () => {
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/business-management" className="flex items-center bg-blue-50 text-blue-700 font-medium">
+            <Link href="/agency/business-management" className="flex items-center bg-blue-50 text-blue-700 font-medium">
               <Building2 className="mr-2 h-4 w-4" />
               <span>Manage Businesses</span>
             </Link>
@@ -68,7 +68,7 @@ const UserMenu = () => {
 
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href="/settings" className="flex items-center">
+              <Link href="/agency/settings" className="flex items-center">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </Link>

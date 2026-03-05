@@ -7,7 +7,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 
 const CTA = ({ B }: { B: any }) => {
   const { ref, visible } = useReveal();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
+  
   return (
     <section
       ref={ref}
@@ -104,7 +105,9 @@ const CTA = ({ B }: { B: any }) => {
               justifyContent: "center",
               flexWrap: "wrap",
             }}>
-            {user ? (
+            {status === 'loading' ? (
+              <div className="w-48 h-12 bg-white/10 animate-pulse rounded-xl" />
+            ) : user ? (
               <Link
                 href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
                 className="lp-btn-primary"

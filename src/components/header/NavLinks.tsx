@@ -57,8 +57,6 @@ const NavLinks = ({ className = '', onClick, isSidebar = false, isCollapsed = fa
   ].filter(link => !link.module || hasPermission(link.module, 'view'));
 
   const systemLinks: NavLink[] = [
-    { name: 'Profiles', path: '/agency/profiles', icon: <UserCircle className="w-4 h-4" />, module: 'profiles' },
-    { name: 'Billing History', path: '/agency/billing', icon: <CreditCard className="w-4 h-4" /> },
     { name: 'Settings', path: '/agency/settings', icon: <Settings className="w-4 h-4" />, module: 'settings' },
     { name: 'Help', path: '/agency/help', icon: <HelpCircle className="w-4 h-4" /> },
     { name: 'Privacy Policy', path: '/agency/privacy-policy', icon: <HelpCircle className="w-4 h-4" /> },

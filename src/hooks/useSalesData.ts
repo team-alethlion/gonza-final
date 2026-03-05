@@ -4,8 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { useProducts } from '@/hooks/useProducts';
-import { useInventoryActions } from '@/hooks/useInventoryActions';
 import { clearInventoryCaches } from '@/utils/inventoryCacheUtils';
 import { getSalesAction, deleteSaleAction } from '@/app/actions/sales';
 

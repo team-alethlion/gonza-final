@@ -14,7 +14,7 @@ const SalesHeader: React.FC = () => {
       <h1 className="text-3xl font-bold text-sales-dark">Overview</h1>
       <div className="flex gap-2">
         <SalesCategoryManager />
-        <Button onClick={() => router.push('/new-sale')} className="gap-2">
+        <Button onClick={() => router.push('/agency/new-sale')} className="gap-2">
           <Plus size={16} /> New Sale
         </Button>
 

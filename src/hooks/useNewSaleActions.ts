@@ -26,8 +26,6 @@ export const useNewSaleActions = (
   const { toast: uiToast } = useToast();
   const { customers, createCustomer } = useCustomers();
   const { addSale, updateSale } = useSalesData(user?.id);
-  const { updateInventoryForSale, updateInventoryForEditedSale } =
-    useSaleProductSelection(user?.id);
   const { logActivity } = useActivityLogger();
   const { currentBusiness } = useBusiness();
   const { settings } = useBusinessSettings();
@@ -94,7 +92,7 @@ export const useNewSaleActions = (
 
         if (customerId && sale.id) {
           try {
-            await updateSaleCustomerAction(sale.id, customerId);
+            await updateSaleCustomerAction(sale.id, customerId, currentBusiness?.id || "");
           } catch (error) {
             console.error("Error associating sale with customer:", error);
           }
@@ -204,7 +202,7 @@ export const useNewSaleActions = (
         if (!editSale && onSaveSuccess) {
           onSaveSuccess();
         } else {
-          router.push("/sales");
+          router.push("/agency/sales");
         }
       }
     },

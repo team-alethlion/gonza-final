@@ -35,7 +35,7 @@ export async function verifyPlatformAdmin(params: any) {
 
 export async function getPlatformUserSummary() {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -142,7 +142,7 @@ export async function getPlatformUserSummary() {
 
 export async function toggleUserFreeze(userId: string, isFrozen: boolean) {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -161,7 +161,7 @@ export async function toggleUserFreeze(userId: string, isFrozen: boolean) {
 
 export async function getPlatformUserDetail(userId: string) {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -258,7 +258,7 @@ export async function getPlatformUserDetail(userId: string) {
 
 export async function getPlatformOnboardingData() {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -311,7 +311,7 @@ export async function getPlatformOnboardingData() {
 
 export async function deletePlatformUserAccount(userId: string) {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -327,7 +327,7 @@ export async function deletePlatformUserAccount(userId: string) {
 
 export async function updatePlatformOnboardingData(params: any) {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -411,7 +411,7 @@ export async function updatePlatformOnboardingData(params: any) {
 
 export async function getSystemStatsAction() {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 
@@ -456,7 +456,7 @@ export async function getSystemStatsAction() {
 
 export async function updateUserAccountStatus(params: any) {
     const session = await auth();
-    if (!session || (session.user as any).role !== 'superadmin' && (session.user as any).role !== 'Admin') {
+    if (!session || (session.user as any).role !== 'superadmin') {
         throw new Error('Unauthorized');
     }
 

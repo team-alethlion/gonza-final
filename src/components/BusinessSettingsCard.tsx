@@ -23,7 +23,7 @@ const BusinessSettingsCard: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-center">
         <Button asChild variant="secondary" className="gap-2">
-          <Link href="/settings">
+          <Link href="/agency/settings">
             <Settings size={16} />
             Configure Settings
           </Link>

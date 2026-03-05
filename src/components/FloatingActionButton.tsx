@@ -46,23 +46,23 @@ const FloatingActionButton = () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem onClick={() => handleNavigation('/new-sale')}>
+          <DropdownMenuItem onClick={() => handleNavigation('/agency/new-sale')}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Create Sale
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleNavigation('/new-sale', { defaultPaymentStatus: 'Installment Sale' })}>
+          <DropdownMenuItem onClick={() => handleNavigation('/agency/new-sale', { defaultPaymentStatus: 'Installment Sale' })}>
             <CreditCard className="mr-2 h-4 w-4" />
             Create Installment Sale
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleNavigation('/inventory/new')}>
+          <DropdownMenuItem onClick={() => handleNavigation('/agency/inventory/new')}>
             <Package className="mr-2 h-4 w-4" />
             Add Product
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleNavigation('/customers')}>
+          <DropdownMenuItem onClick={() => handleNavigation('/agency/customers')}>
             <Users className="mr-2 h-4 w-4" />
             Add Customer
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleNavigation('/expenses')}>
+          <DropdownMenuItem onClick={() => handleNavigation('/agency/expenses')}>
             <DollarSign className="mr-2 h-4 w-4" />
             Add Expense
           </DropdownMenuItem>

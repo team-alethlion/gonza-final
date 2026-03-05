@@ -70,8 +70,8 @@ const AgencyLayout = ({ children }: AgencyLayoutProps) => {
             <FloatingActionButton />
           </div>
         )}
-        <ProfileSelectionOverlay />
-        <PinEntryOverlay />
+        {/* <ProfileSelectionOverlay /> */}
+        {/* <PinEntryOverlay /> */}
         <FirstTimePinSetup />
       </TooltipProvider>
     </SidebarProvider>

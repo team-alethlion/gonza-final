@@ -2,12 +2,14 @@
 'use server';
 
 import { db } from '../../../prisma/db';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getExpensesForChartAction(
     branchId: string,
     from?: string,
     to?: string
 ): Promise<{ date: string; amount: number }[]> {
+    await verifyBranchAccess(branchId);
     try {
         const where: any = { branchId };
         if (from || to) {
@@ -30,6 +32,8 @@ export async function getExpensesForChartAction(
 }
 
 export async function getBusinessBackupDataAction(userId: string, branchId: string) {
+    await verifyBranchAccess(branchId);
+    await verifyUserAccess(userId);
     try {
         const [
             products,
@@ -82,6 +86,8 @@ export async function createSubscriptionPaymentAction(
     amount: number,
     billingCycle: string
 ) {
+    await verifyBranchAccess(branchId);
+    await verifyUserAccess(userId);
     try {
         // Use a raw query or custom model if subscription_payments is not in Prisma schema
         // For now, log and return – implement when schema supports it
@@ -93,6 +99,7 @@ export async function createSubscriptionPaymentAction(
 }
 
 export async function getLatestSubscriptionPaymentAction(userId: string) {
+    await verifyUserAccess(userId);
     try {
         // Return null if subscription_payments table isn't in Prisma schema yet
         return { success: true, data: null };

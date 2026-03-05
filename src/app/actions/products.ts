@@ -2,12 +2,11 @@
 "use server";
 
 import { db } from '../../../prisma/db';
-import { Prisma } from '@prisma/client';
 import { Product, ProductFormData, mapDbProductToProduct, mapProductToDbProduct } from '@/types';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
 import { z } from 'zod';
 import { checkProductQuota } from '@/lib/quota-check';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 // Validation for bulk update
 const bulkUpdateSchema = z.array(z.object({
@@ -34,39 +33,36 @@ export async function getProductsAction({
   category?: string;
   stockStatus?: 'inStock' | 'outOfStock' | 'lowStock' | 'all';
 }) {
-  const session = await auth();
-  if (!session || !session.user) return { products: [], count: 0 };
-  
-  const userBranchId = (session.user as any).branchId;
-  if (userBranchId && userBranchId !== businessId) return { products: [], count: 0 };
-
-  const skip = (page - 1) * pageSize;
-  const take = pageSize;
-
-  const whereClause: any = {
-    branchId: businessId,
-  };
-
-  if (search) {
-    whereClause.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-      { sku: { contains: search, mode: 'insensitive' } },
-      { barcode: { contains: search, mode: 'insensitive' } },
-    ];
-  }
-
-  if (category && category !== 'all') {
-    whereClause.category = { name: category };
-  }
-
-  if (stockStatus === 'outOfStock') {
-    whereClause.stock = 0;
-  } else if (stockStatus === 'inStock') {
-    whereClause.stock = { gt: 0 };
-  }
-
   try {
+    await verifyBranchAccess(businessId);
+    await verifyUserAccess(userId);
+
+    const skip = (page - 1) * pageSize;
+    const take = pageSize;
+
+    const whereClause: any = {
+      branchId: businessId,
+    };
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { barcode: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (category && category !== 'all') {
+      whereClause.category = { name: category };
+    }
+
+    if (stockStatus === 'outOfStock') {
+      whereClause.stock = 0;
+    } else if (stockStatus === 'inStock') {
+      whereClause.stock = { gt: 0 };
+    }
+
     let productsData: any[];
     let totalCount: number;
 
@@ -162,25 +158,10 @@ export async function getProductsAction({
 }
 
 export async function getAllProductsAction(userId: string, businessId: string) {
-  const session = await auth();
-  if (!session || !session.user) return [];
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) return [];
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return [];
-    }
+    await verifyBranchAccess(businessId);
+    await verifyUserAccess(userId);
+
     const productsData = await db.product.findMany({
       where: {
         branchId: businessId,
@@ -214,25 +195,9 @@ export async function getAllProductsAction(userId: string, businessId: string) {
 }
 
 export async function getProductsByIdsAction(ids: string[], businessId: string) {
-  const session = await auth();
-  if (!session || !session.user) return [];
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) return [];
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return [];
-    }
+    await verifyBranchAccess(businessId);
+
     const products = await db.product.findMany({
       where: {
         id: { in: ids },
@@ -266,29 +231,8 @@ export async function getProductsByIdsAction(ids: string[], businessId: string) 
 }
 
 export async function getProductsDeltaAction(businessId: string, since?: number) {
-  const session = await auth();
-  if (!session || !session.user) return { success: false, error: 'Unauthorized' };
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) {
-    return { success: false, error: 'Unauthorized' };
-  }
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-        return { success: false, error: 'Unauthorized' };
-      }
-    }
+    await verifyBranchAccess(businessId);
 
     const where: any = {
       branchId: businessId,
@@ -334,27 +278,11 @@ export async function getProductsDeltaAction(businessId: string, since?: number)
 }
 
 export async function createProductAction(data: any) {
-  const session = await auth();
-  if (!session || !session.user) return null;
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== data.businessId) return null;
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: data.businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return null;
-    }
+    const sessionUser = await verifyBranchAccess(data.businessId);
+    await verifyUserAccess(data.userId);
 
-    const agencyId = (session.user as any).agencyId;
+    const agencyId = sessionUser.agencyId;
     if (agencyId) {
       try {
         await checkProductQuota(agencyId);
@@ -451,25 +379,9 @@ export async function createProductAction(data: any) {
 }
 
 export async function updateProductAction(id: string, branchId: string, updates: any) {
-  const session = await auth();
-  if (!session || !session.user) return null;
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) return null;
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: branchId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return null;
-    }
+    await verifyBranchAccess(branchId);
+    await verifyUserAccess(updates.userId);
 
     const result = await db.$transaction(async (tx: any) => {
       // 1. Get current product state
@@ -543,25 +455,8 @@ export async function updateProductAction(id: string, branchId: string, updates:
 }
 
 export async function deleteProductAction(id: string, branchId: string) {
-  const session = await auth();
-  if (!session || !session.user) return false;
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) return false;
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: branchId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return false;
-    }
+    await verifyBranchAccess(branchId);
 
     await db.product.delete({
       where: { id, branchId: branchId }
@@ -577,25 +472,8 @@ export async function updateProductsBulkAction(
   updates: Array<{ id: string; updated: Partial<any> }>,
   businessId: string
 ) {
-  const session = await auth();
-  if (!session || !session.user) return false;
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) return false;
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return false;
-    }
+    await verifyBranchAccess(businessId);
 
     // Validate updates array length and structure
     const validatedUpdates = bulkUpdateSchema.parse(updates);
@@ -635,6 +513,8 @@ export async function updateProductsBulkAction(
 
 export async function getProductCategoriesAction(locationId: string) {
   try {
+    await verifyBranchAccess(locationId);
+
     const categories = await db.category.findMany({
       where: { branchId: locationId },
       orderBy: { name: 'asc' }
@@ -656,6 +536,9 @@ export async function getProductCategoriesAction(locationId: string) {
 
 export async function createProductCategoryAction(locationId: string, userId: string, name: string) {
   try {
+    await verifyBranchAccess(locationId);
+    await verifyUserAccess(userId);
+
     const category = await db.category.create({
       data: {
         branchId: locationId,
@@ -674,6 +557,8 @@ export async function createProductCategoryAction(locationId: string, userId: st
 
 export async function updateProductCategoryAction(id: string, branchId: string, name: string) {
   try {
+    await verifyBranchAccess(branchId);
+
     const category = await db.category.update({
       where: { id, branchId: branchId },
       data: { name }
@@ -689,6 +574,8 @@ export async function updateProductCategoryAction(id: string, branchId: string, 
 
 export async function deleteProductCategoryAction(id: string, branchId: string) {
   try {
+    await verifyBranchAccess(branchId);
+
     // Check if any products are using this category
     const usageCount = await db.product.count({
       where: { categoryId: id, branchId: branchId }
@@ -716,27 +603,9 @@ export async function deleteProductCategoryAction(id: string, branchId: string) 
 // --- PRODUCT STATS ---
 
 export async function getProductStatsAction(businessId: string) {
-  const session = await auth();
-  if (!session || !session.user) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== businessId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
-
-  if (!businessId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
-
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: businessId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
-    }
+    if (!businessId) return { costValue: 0, lowStock: 0, outOfStock: 0, stockValue: 0 };
+    await verifyBranchAccess(businessId);
 
     const stats = await db.$queryRaw`
       SELECT 
@@ -765,26 +634,9 @@ export async function getProductStatsAction(businessId: string) {
 // --- BARCODE LOOKUP ---
 
 export async function lookupProductByBarcodeAction(code: string, branchId: string) {
-  const session = await auth();
-  if (!session || !session.user) return null;
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) return null;
-
-  if (!code || !branchId) return null;
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: branchId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return null;
-    }
+    if (!code || !branchId) return null;
+    await verifyBranchAccess(branchId);
 
     const lowerCode = code.toLowerCase();
     const product = await db.product.findFirst({
@@ -827,6 +679,16 @@ export async function lookupProductByBarcodeAction(code: string, branchId: strin
 
 export async function updateSaleCashTransactionAction(saleId: string, cashTransactionId: string) {
   try {
+    // This action is usually internal or called after auth, but let's add safety
+    const sale = await db.sale.findUnique({
+      where: { id: saleId },
+      select: { branchId: true }
+    });
+    
+    if (sale) {
+      await verifyBranchAccess(sale.branchId);
+    }
+
     await db.sale.update({
       where: { id: saleId },
       data: { cashTransactionId },
@@ -844,26 +706,9 @@ export async function getFilteredProductsForExportAction(
   branchId: string,
   filters?: { search?: string; category?: string; stockStatus?: string }
 ) {
-  const session = await auth();
-  if (!session || !session.user) return [];
-  
-  const userRole = (session.user as any).role?.toLowerCase();
-  const userBranchId = (session.user as any).branchId;
-  const userAgencyId = (session.user as any).agencyId;
-
-  // Authorization check: Superadmins and Admins can view any branch in their agency
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) return [];
-
-  if (!branchId) return [];
   try {
-    // For Admin role, ensure they belong to the same agency
-    if (userRole === 'admin' && userAgencyId) {
-      const branch = await db.branch.findUnique({
-        where: { id: branchId },
-        select: { agencyId: true, adminId: true }
-      });
-      if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) return [];
-    }
+    if (!branchId) return [];
+    await verifyBranchAccess(branchId);
 
     const where: any = { branchId };
 

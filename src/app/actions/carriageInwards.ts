@@ -2,8 +2,10 @@
 'use server';
 
 import { db } from '../../../prisma/db';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getCarriageInwardsAction(branchId: string) {
+    await verifyBranchAccess(branchId);
     try {
         const records = await db.carriageInward.findMany({
             where: { branchId },
@@ -35,6 +37,8 @@ export async function createCarriageInwardAction(
     branchId: string,
     data: { supplierName: string; details: string; amount: number; date: Date; cashAccountId?: string }
 ) {
+    await verifyBranchAccess(branchId);
+    await verifyUserAccess(userId);
     try {
         const record = await db.carriageInward.create({
             data: {
@@ -58,6 +62,7 @@ export async function updateCarriageInwardAction(
     branchId: string,
     updates: Partial<{ supplierName: string; details: string; amount: number; date: Date }>
 ) {
+    await verifyBranchAccess(branchId);
     try {
         const updateData: any = {};
         if (updates.supplierName !== undefined) updateData.supplierName = updates.supplierName;
@@ -73,6 +78,7 @@ export async function updateCarriageInwardAction(
 }
 
 export async function deleteCarriageInwardAction(id: string, branchId: string) {
+    await verifyBranchAccess(branchId);
     try {
         await db.carriageInward.delete({ where: { id, branchId } });
         return { success: true };

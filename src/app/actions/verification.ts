@@ -88,32 +88,13 @@ export async function verifyAndCreateAccountAction(data: any) {
       return { success: false, error: "Verification code has expired. Please request a new one." };
     }
 
-    // 2. Proceed with account creation (Logic from original signUpAction)
     const hashedPassword = await hash(password, 10);
-
-    // Find or create the 'admin' role
-    let role = await db.role.findFirst({
-      where: {
-        name: {
-          equals: "admin",
-          mode: "insensitive",
-        },
-      },
-    });
-
-    if (!role) {
-      role = await db.role.create({
-        data: { name: "admin", description: "Agency Owner / Admin" },
-      });
-    }
-
-    const finalRole = role;
 
     const result = await db.$transaction(async (tx) => {
       const crypto = await import('crypto');
       const uniqueId = crypto.randomBytes(3).toString('hex');
 
-      // Create Agency
+      // 1. Create Agency
       const agency = await tx.agency.create({
         data: {
           name: `${name || 'New'} Agency (${uniqueId})`,
@@ -123,56 +104,63 @@ export async function verifyAndCreateAccountAction(data: any) {
         },
       });
 
-      // Create User
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          roleId: finalRole.id,
-          agencyId: agency.id,
-          status: "ACTIVE",
-          emailVerified: new Date(), // Mark as verified since they just used an OTP
-        },
-      });
-
-      // Create Default Branch with unique suffix to avoid constraint failure
+      // 2. Create Default Branch
       const branchName = `Main Branch (${uniqueId})`;
-      
       const branch = await tx.branch.create({
         data: {
           name: branchName,
           location: "Default Location",
           agencyId: agency.id,
-          adminId: user.id,
+          adminId: 'placeholder', // Update after user creation
         },
       });
 
-      // Update User with branchId
-      const updatedUser = await tx.user.update({
-        where: { id: user.id },
-        data: { branchId: branch.id },
-        include: {
-          agency: true,
-          role: true
+      // 3. Create 'admin' Role for this Branch
+      const role = await tx.role.create({
+        data: {
+          name: 'admin',
+          description: 'Agency Admin',
+          branchId: branch.id
         }
       });
 
-      // 3. Clean up verification record
+      // 4. Create User
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          roleId: role.id,
+          agencyId: agency.id,
+          branchId: branch.id,
+          status: "ACTIVE",
+          emailVerified: new Date(),
+        },
+      });
+
+      // 5. Link Branch adminId to the User
+      await tx.branch.update({
+        where: { id: branch.id },
+        data: { adminId: user.id }
+      });
+
+      // 6. Clean up verification record
       await tx.emailVerification.delete({
         where: { email },
       });
 
-      return updatedUser;
+      return { user, agency, role };
+    }, {
+        timeout: 15000
     });
 
     return { 
       success: true, 
       user: { 
-        id: result.id, 
-        email: result.email,
-        name: result.name,
-        role: result.role?.name,
+        id: result.user.id, 
+        email: result.user.email,
+        name: result.user.name,
+        role: result.role.name,
         agency: result.agency
       } 
     };

@@ -18,7 +18,7 @@ const EmptySalesState: React.FC = () => {
         <p className="text-gray-500 mb-4">
           Create your first sale to start tracking your business performance
         </p>
-        <Button onClick={() => router.push('/new-sale')} className="mt-2">
+        <Button onClick={() => router.push('/agency/new-sale')} className="mt-2">
           Create Your First Sale
         </Button>
       </div>

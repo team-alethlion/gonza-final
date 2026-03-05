@@ -68,24 +68,37 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
   const [isLoading, setIsLoading] = useState(initialProfiles.length === 0 && !!userId && !!currentBusiness?.id);
   const [isFirstTimeSetupNeeded, setIsFirstTimeSetupNeeded] = useState(false);
 
-  // Restore current profile from localStorage after hydration
+  // Sync with next-auth user and auto-select profile
   useEffect(() => {
-    if (typeof window !== 'undefined' && currentBusiness?.id && !currentProfile && profiles.length > 0) {
+    if (!currentBusiness?.id || profiles.length === 0 || isLoading) return;
+
+    if (!currentProfile) {
+      // 1. Try local storage
       const savedProfileId = localStorage.getItem(`currentProfile_${currentBusiness.id}`);
       if (savedProfileId) {
         const profile = profiles.find(p => p.id === savedProfileId);
         if (profile) {
-          console.log(`ProfileContext: Restoring profile ${profile.profile_name} from localStorage`);
+          console.log(`ProfileContext: Restoring profile ${profile.profile_name}`);
           setCurrentProfile(profile);
-          setIsProfileVerified(false);
+          return;
         }
-      } else if (profiles.length === 1) {
-        console.log(`ProfileContext: Auto-selecting single profile ${profiles[0].profile_name}`);
-        setCurrentProfile(profiles[0]);
-        setIsProfileVerified(false);
       }
+
+      // 2. Try email match (Strongest auto-selection for the logged in user)
+      if (user?.email) {
+        const matchingProfile = profiles.find(p => p.email.toLowerCase() === user.email?.toLowerCase());
+        if (matchingProfile) {
+          console.log(`ProfileContext: Auto-selecting profile for ${user.email}`);
+          setCurrentProfile(matchingProfile);
+          return;
+        }
+      }
+
+      // 3. Fallback to first profile
+      console.log(`ProfileContext: Defaulting to first profile ${profiles[0].profile_name}`);
+      setCurrentProfile(profiles[0]);
     }
-  }, [currentBusiness?.id, profiles]);
+  }, [currentBusiness?.id, profiles, user?.email, isLoading, currentProfile]);
 
   // Restore verification state from sessionStorage when business and profile are loaded
   useEffect(() => {

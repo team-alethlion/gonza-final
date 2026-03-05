@@ -2,7 +2,7 @@
 "use server";
 
 import { db } from "../../../prisma/db";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { auth } from "@/auth";
 
 export async function signInAction(email: string, password: string) {

@@ -27,6 +27,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  status: 'authenticated' | 'loading' | 'unauthenticated';
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -38,8 +39,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status, update } = useSession();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Initialize user from session if available to avoid flicker
+  const [user, setUser] = useState<User | null>(() => {
+    if (status === 'authenticated' && session?.user) {
+      return {
+        id: session.user.id || '',
+        email: session.user.email || undefined,
+        name: session.user.name || undefined,
+        image: session.user.image || undefined,
+        role: (session.user as any).role,
+        status: (session.user as any).status,
+        branchId: (session.user as any).branchId,
+        agencyId: (session.user as any).agencyId,
+        isOnboarded: (session.user as any).isOnboarded,
+        agencyOnboarded: (session.user as any).agencyOnboarded,
+        subscriptionStatus: (session.user as any).subscriptionStatus,
+        subscriptionExpiry: (session.user as any).subscriptionExpiry,
+        trialEndDate: (session.user as any).trialEndDate,
+      };
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(status === 'loading');
 
   // Sync with next-auth session
   useEffect(() => {
@@ -99,6 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider value={{
       user,
       loading,
+      status,
       signIn,
       signInWithGoogle,
       signOut,

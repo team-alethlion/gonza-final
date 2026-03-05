@@ -86,7 +86,7 @@ const ItemSalesDialog: React.FC<ItemSalesDialogProps> = ({
 
   const handleEditSale = (sale: Sale) => {
     // In Next.js App Router, we use search parameters instead of location state
-    router.push(`/new-sale?editId=${sale.id}`);
+    router.push(`/agency/new-sale?editId=${sale.id}`);
     onOpenChange(false); // Close the dialog
   };
 

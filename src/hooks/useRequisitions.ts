@@ -128,7 +128,7 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     if (!userId || !locationId) return false;
 
     try {
-      const result = await updateRequisitionAction(id, userId, updates);
+      const result = await updateRequisitionAction(id, locationId, userId, updates);
 
       if (!result.success || !result.data) {
         throw new Error(result.error);
@@ -165,7 +165,7 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     if (!userId || !locationId) return false;
 
     try {
-      const result = await deleteRequisitionAction(id, userId);
+      const result = await deleteRequisitionAction(id, locationId, userId);
 
       if (!result.success) {
         throw new Error(result.error);

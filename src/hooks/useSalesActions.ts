@@ -11,8 +11,8 @@ export const useSalesActions = () => {
   const handleEditSale = useCallback((sale: Sale) => {
     // Next.js params will be handled differently perhaps, but router.push does not take state object easily.
     // Assuming edit goes to new-sale page, but new-sale usually uses id param instead of passing the whole object
-    // For now we push to /new-sale?editId=${sale.id} or similar.
-    router.push(`/new-sale?editId=${sale.id}`);
+    // For now we push to /agency/new-sale?editId=${sale.id} or similar.
+    router.push(`/agency/new-sale?editId=${sale.id}`);
   }, [router]);
 
   const handleViewReceipt = useCallback((sale: Sale) => {

@@ -22,7 +22,7 @@ const WelcomeState: React.FC = () => {
         Start by creating your first sale record. Once you have sales data,
         you'll see analytics and insights here on your dashboard.
       </p>
-      <Button onClick={() => router.push('/new-sale')} size={isMobile ? "default" : "lg"} className="gap-2">
+      <Button onClick={() => router.push('/agency/new-sale')} size={isMobile ? "default" : "lg"} className="gap-2">
         <Plus size={18} /> Record Your First Sale
       </Button>
     </div>

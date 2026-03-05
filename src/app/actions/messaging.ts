@@ -3,8 +3,11 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
 
 export async function getMessagesAction(userId: string, businessId: string) {
+    await verifyBranchAccess(businessId);
+    await verifyUserAccess(userId);
     try {
         const messages = await db.message.findMany({
             where: {
@@ -44,6 +47,8 @@ export async function getMessagesAction(userId: string, businessId: string) {
 }
 
 export async function createMessageAction(data: any) {
+    await verifyBranchAccess(data.locationId);
+    await verifyUserAccess(data.userId);
     try {
         const smsCreditsToDeduct = data.smsCreditsUsed || 0;
         const isSent = data.status === 'sent';
@@ -104,6 +109,8 @@ export async function createMessageAction(data: any) {
 }
 
 export async function getMessageTemplatesAction(userId: string, businessId: string) {
+    await verifyBranchAccess(businessId);
+    await verifyUserAccess(userId);
     try {
         const templates = await db.messageTemplate.findMany({
             where: {
@@ -123,6 +130,8 @@ export async function getMessageTemplatesAction(userId: string, businessId: stri
 }
 
 export async function createMessageTemplateAction(data: any) {
+    await verifyBranchAccess(data.locationId);
+    await verifyUserAccess(data.userId);
     try {
         const template = await db.messageTemplate.create({
             data: {
@@ -145,6 +154,8 @@ export async function createMessageTemplateAction(data: any) {
 }
 
 export async function updateMessageTemplateAction(id: string, data: any) {
+    if (data.locationId) await verifyBranchAccess(data.locationId);
+    if (data.userId) await verifyUserAccess(data.userId);
     try {
         const template = await db.messageTemplate.update({
             where: { id },
@@ -166,6 +177,8 @@ export async function updateMessageTemplateAction(id: string, data: any) {
 }
 
 export async function deleteMessageTemplateAction(id: string) {
+    const session = await import("@/auth").then(m => m.auth());
+    if (!session?.user) throw new Error("Unauthorized");
     try {
         await db.messageTemplate.delete({
             where: { id }

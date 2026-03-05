@@ -31,7 +31,7 @@ const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ recentSales, curren
   } = useFinancialVisibility();
 
   const handleSaleClick = (sale: Sale) => {
-    router.push(`/new-sale?editSaleId=${sale.id}`);
+    router.push(`/agency/new-sale?editSaleId=${sale.id}`);
   };
 
   if (recentSales.length === 0) {

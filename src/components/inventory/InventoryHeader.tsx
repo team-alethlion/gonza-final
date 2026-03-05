@@ -52,7 +52,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
             <div className="flex gap-2">
               {hasPermission("inventory", "create") && (
                 <Button
-                  onClick={() => router.push("/inventory/new")}
+                  onClick={() => router.push("/agency/inventory/new")}
                   className="flex-1 gap-2 min-h-[44px]">
                   <Plus size={16} /> Add Product
                 </Button>
@@ -70,14 +70,14 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button
-                onClick={() => router.push("/products")}
+                onClick={() => router.push("/agency/inventory/products")}
                 variant="outline"
                 className="gap-1 text-xs min-h-[40px]">
                 <ListFilter size={14} /> Products
               </Button>
               {hasPermission("inventory", "view") && (
                 <Button
-                  onClick={() => router.push("/inventory/carriage-inwards")}
+                  onClick={() => router.push("/agency/inventory/carriage-inwards")}
                   variant="outline"
                   className="gap-1 text-xs min-h-[40px]">
                   <Truck size={14} /> Carriage
@@ -137,7 +137,7 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
             )}
             {hasPermission("inventory", "view") && (
               <Button
-                onClick={() => router.push("/inventory/carriage-inwards")}
+                onClick={() => router.push("/agency/inventory/carriage-inwards")}
                 variant="outline"
                 className="gap-2">
                 <Truck size={16} /> Carriage Inwards
@@ -145,14 +145,14 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
             )}
 
             <Button
-              onClick={() => router.push("/products")}
+              onClick={() => router.push("/agency/inventory/products")}
               variant="outline"
               className="gap-2">
               <ListFilter size={16} /> All Products
             </Button>
             {hasPermission("inventory", "create") && (
               <Button
-                onClick={() => router.push("/inventory/new")}
+                onClick={() => router.push("/agency/inventory/new")}
                 className="gap-2">
                 <Plus size={16} /> Add Product
               </Button>

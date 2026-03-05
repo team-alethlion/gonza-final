@@ -4,6 +4,7 @@ export const onboardingProxy = (auth: any, nextUrl: any) => {
   const isLoggedIn = !!auth?.user
   const role = (auth?.user as any)?.role?.toLowerCase()
   const isOnboarded = (auth?.user as any)?.isOnboarded
+  const isAgencyOnboarded = (auth?.user as any)?.agencyOnboarded
 
   if (!isLoggedIn) {
      return NextResponse.redirect(new URL("/login", nextUrl));
@@ -14,7 +15,7 @@ export const onboardingProxy = (auth: any, nextUrl: any) => {
   }
 
   // If already onboarded, don't let them stay here
-  if (isOnboarded) {
+  if (isOnboarded || isAgencyOnboarded) {
     return NextResponse.redirect(new URL("/agency", nextUrl));
   }
 

@@ -449,7 +449,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     type="button"
                     variant="link"
                     className="p-0 h-auto text-blue-600 underline"
-                    onClick={() => router.push(`/categories?returnTo=${encodeURIComponent(window.location.pathname)}`)}
+                    onClick={() => router.push(`/agency/categories?returnTo=${encodeURIComponent(window.location.pathname)}`)}
                     disabled={isSubmitting}
                   >
                     Categories page <ExternalLink className="h-3 w-3 ml-1 inline" />
@@ -793,7 +793,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
             <Button
               variant="outline"
               type="button"
-              onClick={() => router.push('/inventory')}
+              onClick={() => router.push('/agency/inventory')}
               disabled={isSubmitting || compressing}
             >
               Cancel

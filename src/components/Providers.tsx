@@ -10,12 +10,16 @@ import { SyncManager } from "./SyncManager";
 
 export function Providers({ 
     children, 
+    initialSession = null,
     initialBusinessLocations = [],
-    initialProfiles = []
+    initialProfiles = [],
+    initialAccountStatus = null
 }: { 
     children: React.ReactNode,
+    initialSession?: any,
     initialBusinessLocations?: any[],
-    initialProfiles?: any[]
+    initialProfiles?: any[],
+    initialAccountStatus?: any
 }) {
     const [queryClient] = useState(
         () =>
@@ -32,10 +36,13 @@ export function Providers({
     );
 
     return (
-        <SessionProvider>
+        <SessionProvider session={initialSession}>
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
-                    <BusinessProvider initialLocations={initialBusinessLocations}>
+                    <BusinessProvider 
+                        initialLocations={initialBusinessLocations}
+                        initialAccountStatus={initialAccountStatus}
+                    >
                         <ProfileProvider initialProfiles={initialProfiles}>
                             <SyncManager />
                             {children}

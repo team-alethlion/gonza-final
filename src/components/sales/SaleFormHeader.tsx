@@ -46,7 +46,7 @@ const SaleFormHeader: React.FC<SaleFormHeaderProps> = ({
   const router = useRouter();
 
   const handleBackClick = () => {
-    router.push('/sales');
+    router.push('/agency/sales');
   };
 
   return (

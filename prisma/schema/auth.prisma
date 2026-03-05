@@ -37,6 +37,8 @@ model Agency {
   systemNotifications SystemNotification[]
 
   notifications Notification[]
+
+  @@index([subscriptionStatus])
 }
 
 model AuditLog {
@@ -49,6 +51,9 @@ model AuditLog {
   action    String // "IMPERSONATION_START", "PASSWORD_RESET", "TRIAL_EXTENSION"
   metadata  Json? // Store old_value vs new_value or IP address
   createdAt DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([actorId])
 }
 
 model User {
@@ -119,6 +124,10 @@ model User {
 
   cashAccounts CashAccount[]
   categories   Category[]
+
+  @@index([agencyId])
+  @@index([branchId])
+  @@index([roleId])
 }
 
 model DeletionRequest {

@@ -84,7 +84,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     const result = await deleteProduct(product.id);
     if (result) {
       toast.success("Product deleted successfully");
-      router.push('/inventory');
+      router.push('/agency/inventory');
       return true;
     }
     return false;
@@ -93,7 +93,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   const handleDuplicateProduct = () => {
     toast.success("Duplicating product...");
     // Navigate to new product page with product id for duplication (Next.js query param)
-    router.push(`/inventory/new?duplicateId=${product.id}`);
+    router.push(`/agency/inventory/new?duplicateId=${product.id}`);
   };
 
   const getStockStatusBadge = () => {
@@ -228,7 +228,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/products')}
+              onClick={() => router.push('/agency/inventory/products')}
               className="flex items-center gap-2 hover:bg-gray-50 text-sm"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -264,7 +264,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             {/* Primary Action - Edit Button with Secondary Color */}
             {hasPermission('inventory', 'edit') && (
               <Button
-                onClick={() => router.push(`/inventory/edit/${product.id}`)}
+                onClick={() => router.push(`/agency/inventory/edit/${product.id}`)}
                 className="flex items-center justify-center gap-2 w-full lg:w-auto bg-secondary hover:bg-secondary/90 text-sm"
                 size="sm"
               >

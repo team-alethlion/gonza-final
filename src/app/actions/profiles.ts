@@ -3,40 +3,18 @@
 
 import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
 import { checkUserQuota } from '@/lib/quota-check';
+import { verifyBranchAccess } from '@/lib/auth-guard';
 
 // Profiles Server Actions (Using the User model from Prisma Auth map)
 export async function getProfilesAction(branchId: string) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userBranchId = (session.user as any).branchId;
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userId = session.user.id;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    // Managers and Staff are restricted to their assigned branch
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
+        await verifyBranchAccess(branchId);
+
         const branch = await db.branch.findUnique({
             where: { id: branchId },
             select: { adminId: true, agencyId: true }
         });
-
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin') {
-            const user = await db.user.findUnique({
-                where: { id: userId },
-                select: { agencyId: true }
-            });
-            if (user?.agencyId !== branch?.agencyId && userId !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
 
         const users = await db.user.findMany({
             where: {
@@ -61,12 +39,10 @@ export async function getProfilesAction(branchId: string) {
         return users.map((u: any) => {
             let roleName = u.role?.name || 'staff';
             
-            // User requested to change "admin" to "manager" for managers if applicable.
-            // In a branch context, the "admin" is usually the Manager.
             if (roleName.toLowerCase() === 'admin') {
-                roleName = 'Manager';
-            } else if (roleName.toLowerCase() === 'manager') {
-                roleName = 'Supervisor'; // Or keep as manager if preferred, but we need to distinguish
+                roleName = 'Admin';
+            } else if (roleName.toLowerCase() === 'superadmin') {
+                roleName = 'superadmin';
             } else {
                 // Capitalize other roles
                 roleName = roleName.charAt(0).toUpperCase() + roleName.slice(1).toLowerCase();
@@ -105,29 +81,9 @@ export async function getProfilesAction(branchId: string) {
 }
 
 export async function createProfileAction(branchId: string, profileData: any) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        const sessionUser = await verifyBranchAccess(branchId);
+        const userAgencyId = (sessionUser as any).agencyId;
         
         if (userAgencyId) { 
             await checkUserQuota(userAgencyId); 
@@ -155,7 +111,8 @@ export async function createProfileAction(branchId: string, profileData: any) {
                 pin: profileData.pin,
                 status: profileData.is_active !== undefined ? (profileData.is_active ? 'ACTIVE' : 'INACTIVE') : 'ACTIVE',
                 roleId: roleId,
-                branchId: branchId
+                branchId: branchId,
+                agencyId: userAgencyId
             }
         });
 
@@ -168,29 +125,8 @@ export async function createProfileAction(branchId: string, profileData: any) {
 }
 
 export async function updateProfileAction(userId: string, branchId: string, updateData: any) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(branchId);
 
         const data: any = {};
         if (updateData.profile_name !== undefined) data.name = updateData.profile_name;
@@ -213,29 +149,8 @@ export async function updateProfileAction(userId: string, branchId: string, upda
 }
 
 export async function deleteProfileAction(userId: string, branchId: string) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(branchId);
         await db.user.delete({
             where: { id: userId, branchId: branchId }
         });
@@ -250,6 +165,7 @@ export async function deleteProfileAction(userId: string, branchId: string) {
 
 export async function getRolesAction(branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         const roles = await db.role.findMany({
             where: {
                 OR: [
@@ -281,29 +197,8 @@ export async function getRolesAction(branchId: string) {
 }
 
 export async function upsertRoleAction(branchId: string, roleData: any) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(branchId);
         const flatPermissions: string[] = [];
         if (roleData.permissions) {
             Object.keys(roleData.permissions).forEach(module => {
@@ -360,29 +255,8 @@ export async function upsertRoleAction(branchId: string, roleData: any) {
 }
 
 export async function deleteRoleAction(roleId: string, branchId: string) {
-    const session = await auth();
-    if (!session || !session.user) throw new Error("Unauthorized");
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    // Authorization check: Superadmins and Admins can view any branch in their agency
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== branchId) {
-        throw new Error("Unauthorized: Branch mismatch");
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: branchId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                throw new Error("Unauthorized: Agency mismatch");
-            }
-        }
+        await verifyBranchAccess(branchId);
         await db.role.delete({
             where: { id: roleId, branchId: branchId }
         });

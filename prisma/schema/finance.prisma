@@ -29,6 +29,9 @@ model CashAccount {
   expenses     Expense[]
 
   carriageInwards CarriageInward[]
+
+  @@index([branchId])
+  @@index([agencyId])
 }
 
 model CashTransaction {
@@ -59,6 +62,10 @@ model CashTransaction {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([accountId])
+  @@index([userId])
 }
 
 model InstallmentPayment {
@@ -78,6 +85,9 @@ model InstallmentPayment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([saleId])
+  @@index([userId])
 }
 
 model Expense {
@@ -106,6 +116,10 @@ model Expense {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([agencyId])
+  @@index([userId])
 }
 
 model ExpenseCategory {
@@ -123,6 +137,7 @@ model ExpenseCategory {
   updatedAt DateTime @updatedAt
 
   @@unique([branchId, name])
+  @@index([branchId])
 }
 
 model Transaction {
@@ -144,4 +159,7 @@ model Transaction {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agencyId])
 }

@@ -4,7 +4,19 @@
 import { db, PaymentStatus, ActivityType, ActivityModule } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { auth } from '@/auth';
+import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
+import { verifyEntitiesBelongToBranch } from '@/lib/data-integrity';
+
+/**
+ * Robust number conversion to eliminate potential floating-point or null value issues.
+ */
+const toSafeNumber = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    const num = typeof val === 'number' ? val : parseFloat(val);
+    if (isNaN(num)) return 0;
+    // Round to 2 decimal places to avoid floating point issues
+    return Math.round(num * 100) / 100;
+};
 
 const cashTransactionSchema = z.object({
     userId: z.string().min(1),
@@ -40,36 +52,23 @@ export interface ExpenseInput {
 }
 
 export async function createExpenseAction(data: ExpenseInput, linkToCash: boolean) {
-    const session = await auth();
-    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== data.locationId) {
-        return { success: false, error: 'Unauthorized: Branch mismatch' };
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: data.locationId },
-                select: { agencyId: true, adminId: true }
+        const sessionUser = await verifyBranchAccess(data.locationId);
+        
+        // Ensure cash account belongs to this branch if provided
+        if (linkToCash && data.cashAccountId) {
+            await verifyEntitiesBelongToBranch(data.locationId, {
+                cashAccountId: data.cashAccountId
             });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                return { success: false, error: 'Unauthorized: Agency mismatch' };
-            }
         }
 
         const result = await db.$transaction(async (tx: any) => {
             // 1. Create the expense
             const expense = await tx.expense.create({
                 data: {
-                    userId: data.userId,
+                    userId: sessionUser.id,
                     branchId: data.locationId,
-                    amount: data.amount,
+                    amount: toSafeNumber(data.amount),
                     description: data.description,
                     category: data.category || null,
                     date: data.date,
@@ -84,10 +83,10 @@ export async function createExpenseAction(data: ExpenseInput, linkToCash: boolea
             if (linkToCash && data.cashAccountId) {
                 const cashTx = await tx.cashTransaction.create({
                     data: {
-                        userId: data.userId,
+                        userId: sessionUser.id,
                         branchId: data.locationId,
                         accountId: data.cashAccountId,
-                        amount: data.amount,
+                        amount: toSafeNumber(data.amount),
                         transactionType: 'cash_out',
                         category: data.category || 'Expense',
                         description: `Expense: ${data.description}`,
@@ -123,28 +122,8 @@ export async function createExpenseAction(data: ExpenseInput, linkToCash: boolea
 }
 
 export async function getExpensesAction(locationId: string) {
-    const session = await auth();
-    if (!session || !session.user) return { success: false, error: 'Unauthorized' };
-    
-    const userRole = (session.user as any).role?.toLowerCase();
-    const userBranchId = (session.user as any).branchId;
-    const userAgencyId = (session.user as any).agencyId;
-
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userBranchId && userBranchId !== locationId) {
-        return { success: false, error: 'Unauthorized: Branch mismatch' };
-    }
-
     try {
-        // For Admin role, ensure they belong to the same agency
-        if (userRole === 'admin' && userAgencyId) {
-            const branch = await db.branch.findUnique({
-                where: { id: locationId },
-                select: { agencyId: true, adminId: true }
-            });
-            if (branch?.agencyId !== userAgencyId && session.user.id !== branch?.adminId) {
-                return { success: false, error: 'Unauthorized: Agency mismatch' };
-            }
-        }
+        await verifyBranchAccess(locationId);
 
         const expenses = await db.expense.findMany({
             where: { branchId: locationId },
@@ -155,7 +134,7 @@ export async function getExpensesAction(locationId: string) {
             success: true,
             data: expenses.map((e: any) => ({
                 ...e,
-                amount: Number(e.amount),
+                amount: toSafeNumber(e.amount),
                 created_at: e.createdAt.toISOString(),
                 updated_at: e.updatedAt.toISOString(),
                 payment_method: e.paymentMethod,
@@ -173,6 +152,7 @@ export async function getExpensesAction(locationId: string) {
 
 export async function updateExpenseAction(id: string, branchId: string, updates: any, currentExpense: any) {
     try {
+        await verifyBranchAccess(branchId);
         const result = await db.$transaction(async (tx: any) => {
             // Update expense
             const updatedExpense = await tx.expense.update({
@@ -252,6 +232,7 @@ export async function updateExpenseAction(id: string, branchId: string, updates:
 
 export async function deleteExpenseAction(id: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.$transaction(async (tx: any) => {
             const expense = await tx.expense.findUnique({
                 where: { id, branchId },
@@ -283,6 +264,7 @@ export async function deleteExpenseAction(id: string, branchId: string) {
 
 export async function getInstallmentPaymentsAction(saleId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         const payments = await db.installmentPayment.findMany({
             where: { 
                 saleId,
@@ -297,7 +279,7 @@ export async function getInstallmentPaymentsAction(saleId: string, branchId: str
                 id: p.id,
                 saleId: p.saleId,
                 userId: p.userId,
-                amount: Number(p.amount),
+                amount: toSafeNumber(p.amount),
                 paymentDate: p.paymentDate.toISOString(),
                 notes: p.notes,
                 cashTransactionId: p.cashTransactionId,
@@ -313,6 +295,14 @@ export async function getInstallmentPaymentsAction(saleId: string, branchId: str
 
 export async function createInstallmentPaymentAction(data: any) {
     try {
+        const sessionUser = await verifyBranchAccess(data.locationId);
+        
+        // Ensure entities belong to the correct branch
+        await verifyEntitiesBelongToBranch(data.locationId, {
+            saleId: data.saleId,
+            cashAccountId: data.accountId
+        });
+
         const result = await db.$transaction(async (tx: any) => {
             let cashTxId = data.cashTransactionId;
 
@@ -328,10 +318,10 @@ export async function createInstallmentPaymentAction(data: any) {
 
                 const cashTx = await tx.cashTransaction.create({
                     data: {
-                        userId: data.userId,
+                        userId: sessionUser.id,
                         branchId: data.locationId,
                         accountId: data.accountId,
-                        amount: data.amount,
+                        amount: toSafeNumber(data.amount),
                         transactionType: 'cash_in',
                         category: 'Installment payment',
                         description: description,
@@ -344,8 +334,8 @@ export async function createInstallmentPaymentAction(data: any) {
             const payment = await tx.installmentPayment.create({
                 data: {
                     saleId: data.saleId,
-                    userId: data.userId,
-                    amount: data.amount,
+                    userId: sessionUser.id,
+                    amount: toSafeNumber(data.amount),
                     notes: data.notes,
                     cashTransactionId: cashTxId,
                     paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date()
@@ -354,7 +344,7 @@ export async function createInstallmentPaymentAction(data: any) {
 
             return {
                 ...payment,
-                amount: Number(payment.amount),
+                amount: toSafeNumber(payment.amount),
                 paymentDate: payment.paymentDate.toISOString(),
                 createdAt: payment.createdAt.toISOString(),
                 updatedAt: payment.updatedAt.toISOString()
@@ -371,6 +361,7 @@ export async function createInstallmentPaymentAction(data: any) {
 
 export async function updateInstallmentPaymentAction(id: string, branchId: string, updates: any) {
     try {
+        await verifyBranchAccess(branchId);
         const result = await db.$transaction(async (tx: any) => {
             const current = await tx.installmentPayment.findUnique({
                 where: { id },
@@ -402,7 +393,7 @@ export async function updateInstallmentPaymentAction(id: string, branchId: strin
 
             return {
                 ...updated,
-                amount: Number(updated.amount),
+                amount: toSafeNumber(updated.amount),
                 paymentDate: updated.paymentDate.toISOString(),
                 createdAt: updated.createdAt.toISOString(),
                 updatedAt: updated.updatedAt.toISOString()
@@ -419,6 +410,7 @@ export async function updateInstallmentPaymentAction(id: string, branchId: strin
 
 export async function deleteInstallmentPaymentAction(id: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id },
@@ -450,6 +442,13 @@ export async function deleteInstallmentPaymentAction(id: string, branchId: strin
 
 export async function linkInstallmentToCashAction(paymentId: string, branchId: string, accountId: string, locationId: string, userId: string) {
     try {
+        const sessionUser = await verifyBranchAccess(branchId);
+        
+        // Ensure cash account belongs to this branch
+        await verifyEntitiesBelongToBranch(branchId, {
+            cashAccountId: accountId
+        });
+
         const result = await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
@@ -465,10 +464,10 @@ export async function linkInstallmentToCashAction(paymentId: string, branchId: s
 
             const cashTx = await tx.cashTransaction.create({
                 data: {
-                    userId,
-                    branchId: locationId,
+                    userId: sessionUser.id,
+                    branchId: branchId,
                     accountId,
-                    amount: payment.amount,
+                    amount: toSafeNumber(payment.amount),
                     transactionType: 'cash_in',
                     category: 'Installment payment',
                     description,
@@ -494,6 +493,7 @@ export async function linkInstallmentToCashAction(paymentId: string, branchId: s
 
 export async function unlinkInstallmentFromCashAction(paymentId: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.$transaction(async (tx: any) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
@@ -525,6 +525,7 @@ export async function unlinkInstallmentFromCashAction(paymentId: string, branchI
 
 export async function getExpenseCategoriesAction(locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         const categories = await db.expenseCategory.findMany({
             where: { branchId: locationId },
             orderBy: [{ isDefault: 'desc' }, { name: 'asc' }]
@@ -547,6 +548,8 @@ export async function getExpenseCategoriesAction(locationId: string) {
 
 export async function createExpenseCategoryAction(data: any) {
     try {
+        await verifyBranchAccess(data.locationId);
+        await verifyUserAccess(data.userId);
         const result = await db.expenseCategory.create({
             data: {
                 userId: data.userId,
@@ -566,6 +569,7 @@ export async function createExpenseCategoryAction(data: any) {
 
 export async function deleteExpenseCategoryAction(id: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         await db.expenseCategory.delete({
             where: { id, branchId }
         });
@@ -580,6 +584,8 @@ export async function deleteExpenseCategoryAction(id: string, branchId: string) 
 
 export async function createDefaultExpenseCategoriesAction(userId: string, locationId: string, categoryNames: string[]) {
     try {
+        await verifyBranchAccess(locationId);
+        await verifyUserAccess(userId);
         for (const name of categoryNames) {
             await db.expenseCategory.upsert({
                 where: {
@@ -610,6 +616,7 @@ export async function createDefaultExpenseCategoriesAction(userId: string, locat
 
 export async function getCashAccountsAction(locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         const accounts = await db.cashAccount.findMany({
             where: { branchId: locationId },
             orderBy: [{ isDefault: 'desc' }, { name: 'asc' }]
@@ -621,7 +628,7 @@ export async function getCashAccountsAction(locationId: string) {
                 id: a.id,
                 name: a.name,
                 description: a.description,
-                openingBalance: Number(a.initialBalance),
+                openingBalance: toSafeNumber(a.initialBalance),
                 isDefault: a.isDefault,
                 createdAt: a.createdAt.toISOString(),
                 updatedAt: a.updatedAt.toISOString()
@@ -635,13 +642,15 @@ export async function getCashAccountsAction(locationId: string) {
 
 export async function createCashAccountAction(data: any) {
     try {
+        await verifyBranchAccess(data.locationId);
+        await verifyUserAccess(data.userId);
         const result = await db.cashAccount.create({
             data: {
                 userId: data.userId,
                 branchId: data.locationId,
                 name: data.name,
                 description: data.description || null,
-                initialBalance: data.openingBalance || 0,
+                initialBalance: toSafeNumber(data.openingBalance),
                 isDefault: data.isDefault || false
             }
         });
@@ -656,12 +665,13 @@ export async function createCashAccountAction(data: any) {
 
 export async function updateCashAccountAction(id: string, branchId: string, updates: any) {
     try {
+        await verifyBranchAccess(branchId);
         const result = await db.cashAccount.update({
             where: { id, branchId },
             data: {
                 name: updates.name,
                 description: updates.description,
-                initialBalance: updates.openingBalance,
+                initialBalance: toSafeNumber(updates.openingBalance),
                 isDefault: updates.isDefault
             }
         });
@@ -676,6 +686,7 @@ export async function updateCashAccountAction(id: string, branchId: string, upda
 
 export async function deleteCashAccountAction(id: string, locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         const result = await db.$transaction(async (tx: any) => {
             const txCount = await tx.cashTransaction.count({
                 where: { accountId: id, branchId: locationId }
@@ -710,6 +721,7 @@ export async function deleteCashAccountAction(id: string, locationId: string) {
 
 export async function deleteCashAccountWithTransactionsAction(id: string, locationId: string, deleteTransactions: boolean) {
     try {
+        await verifyBranchAccess(locationId);
         await db.$transaction(async (tx: any) => {
             if (deleteTransactions) {
                 await tx.cashTransaction.deleteMany({
@@ -745,6 +757,7 @@ export async function deleteCashAccountWithTransactionsAction(id: string, locati
 
 export async function getCashAccountBalanceAction(accountId: string, locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         const account = await db.cashAccount.findUnique({
             where: { id: accountId, branchId: locationId },
             select: { initialBalance: true }
@@ -761,14 +774,14 @@ export async function getCashAccountBalanceAction(accountId: string, locationId:
             }
         });
 
-        let balance = Number(account.initialBalance);
+        let balance = toSafeNumber(account.initialBalance);
 
         for (const agg of aggregates) {
-            const sum = Number(agg._sum.amount || 0);
+            const sum = toSafeNumber(agg._sum.amount);
             if (agg.transactionType === 'cash_in' || agg.transactionType === 'transfer_in') {
-                balance += sum;
+                balance = toSafeNumber(balance + sum);
             } else if (agg.transactionType === 'cash_out' || agg.transactionType === 'transfer_out') {
-                balance -= sum;
+                balance = toSafeNumber(balance - sum);
             }
         }
 
@@ -783,6 +796,7 @@ export async function getCashAccountBalanceAction(accountId: string, locationId:
 
 export async function getCashTransactionsAction(locationId: string, accountId?: string, skip: number = 0, take: number = 50) {
     try {
+        await verifyBranchAccess(locationId);
         const where: any = { branchId: locationId };
         if (accountId) where.accountId = accountId;
 
@@ -800,7 +814,7 @@ export async function getCashTransactionsAction(locationId: string, accountId?: 
             success: true,
             data: transactions.map((t: any) => ({
                 ...t,
-                amount: Number(t.amount),
+                amount: toSafeNumber(t.amount),
                 created_at: t.createdAt.toISOString(),
                 updated_at: t.updatedAt.toISOString(),
                 user_id: t.userId,
@@ -821,14 +835,28 @@ export async function getCashTransactionsAction(locationId: string, accountId?: 
 
 export async function createCashTransactionAction(data: any) {
     try {
+        const sessionUser = await verifyBranchAccess(data.locationId);
+        
+        // Verify source account
+        await verifyEntitiesBelongToBranch(data.locationId, {
+            cashAccountId: data.accountId
+        });
+
+        // Verify destination account for transfers
+        if (data.transactionType === 'transfer' && data.toAccountId) {
+            await verifyEntitiesBelongToBranch(data.locationId, {
+                cashAccountId: data.toAccountId
+            });
+        }
+
         const result = await db.$transaction(async (tx: any) => {
             if (data.transactionType === 'transfer' && data.toAccountId) {
                 const txOut = await tx.cashTransaction.create({
                     data: {
-                        userId: data.userId,
+                        userId: sessionUser.id,
                         branchId: data.locationId,
                         accountId: data.accountId,
-                        amount: data.amount,
+                        amount: toSafeNumber(data.amount),
                         transactionType: 'transfer_out',
                         description: data.description,
                         date: data.date ? new Date(data.date) : new Date(),
@@ -838,10 +866,10 @@ export async function createCashTransactionAction(data: any) {
 
                 const txIn = await tx.cashTransaction.create({
                     data: {
-                        userId: data.userId,
+                        userId: sessionUser.id,
                         branchId: data.locationId,
                         accountId: data.toAccountId,
-                        amount: data.amount,
+                        amount: toSafeNumber(data.amount),
                         transactionType: 'transfer_in',
                         description: data.description,
                         date: data.date ? new Date(data.date) : new Date(),
@@ -853,10 +881,10 @@ export async function createCashTransactionAction(data: any) {
             } else {
                 const transaction = await tx.cashTransaction.create({
                     data: {
-                        userId: data.userId,
+                        userId: sessionUser.id,
                         branchId: data.locationId,
                         accountId: data.accountId,
-                        amount: data.amount,
+                        amount: toSafeNumber(data.amount),
                         transactionType: data.transactionType,
                         category: data.category,
                         description: data.description,
@@ -881,6 +909,7 @@ export async function createCashTransactionAction(data: any) {
 
 export async function updateCashTransactionAction(id: string, branchId: string, updates: any) {
     try {
+        await verifyBranchAccess(branchId);
         const result = await db.cashTransaction.update({
             where: { id, branchId },
             data: {
@@ -907,6 +936,7 @@ export async function updateCashTransactionAction(id: string, branchId: string, 
 
 export async function findCashTransactionAction(id: string, branchId: string) {
     try {
+        await verifyBranchAccess(branchId);
         const transaction = await db.cashTransaction.findUnique({
             where: { id, branchId },
             select: { accountId: true }
@@ -921,6 +951,7 @@ export async function findCashTransactionAction(id: string, branchId: string) {
 
 export async function deleteCashTransactionAction(id: string, locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         await db.$transaction(async (tx: any) => {
             // Verify ownership through where clause in updateMany/delete
             await tx.installmentPayment.updateMany({
@@ -946,12 +977,13 @@ export async function deleteCashTransactionAction(id: string, locationId: string
 
 export async function getAccountOpeningBalanceAction(accountId: string, locationId: string) {
     try {
+        await verifyBranchAccess(locationId);
         const account = await db.cashAccount.findFirst({
             where: { id: accountId, branchId: locationId },
             select: { initialBalance: true }
         });
 
-        return { success: true, data: Number(account?.initialBalance || 0) };
+        return { success: true, data: toSafeNumber(account?.initialBalance) };
     } catch (error: any) {
         console.error('Error fetching opening balance:', error);
         return { success: false, error: error.message };
@@ -960,19 +992,47 @@ export async function getAccountOpeningBalanceAction(accountId: string, location
 
 export async function createBulkCashTransactionsAction(transactions: any[]) {
     try {
-        // Validate input data
+        if (!transactions || transactions.length === 0) return { success: true, data: [] };
+
+        // 1. Verify access for all unique branches
+        const uniqueLocationIds = Array.from(new Set(transactions.map(t => t.locationId)));
+        let sessionUser: any;
+        for (const locId of uniqueLocationIds) {
+            sessionUser = await verifyBranchAccess(locId);
+        }
+
+        // 2. Verify access for all unique users
+        const uniqueUserIds = Array.from(new Set(transactions.map(t => t.userId)));
+        for (const uId of uniqueUserIds) {
+            await verifyUserAccess(uId);
+        }
+
+        // 3. Validate input data schema
         const validatedTransactions = bulkCashTransactionSchema.parse(transactions);
+
+        // 4. Verify that all accounts belong to their respective branches
+        for (const t of validatedTransactions) {
+            await verifyEntitiesBelongToBranch(t.locationId, {
+                cashAccountId: t.accountId
+            });
+            if (t.transactionType === 'transfer' && t.toAccountId) {
+                await verifyEntitiesBelongToBranch(t.locationId, {
+                    cashAccountId: t.toAccountId
+                });
+            }
+        }
 
         const result = await db.$transaction(async (tx: any) => {
             const created = [];
             for (const data of validatedTransactions) {
+                const amount = toSafeNumber(data.amount);
                 if (data.transactionType === 'transfer' && data.toAccountId) {
                     created.push(await tx.cashTransaction.create({
                         data: {
-                            userId: data.userId,
+                            userId: sessionUser.id,
                             branchId: data.locationId,
                             accountId: data.accountId,
-                            amount: data.amount,
+                            amount: amount,
                             transactionType: 'transfer_out',
                             description: data.description || '',
                             date: data.date ? new Date(data.date) : new Date(),
@@ -981,10 +1041,10 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
                     }));
                     created.push(await tx.cashTransaction.create({
                         data: {
-                            userId: data.userId,
+                            userId: sessionUser.id,
                             branchId: data.locationId,
                             accountId: data.toAccountId,
-                            amount: data.amount,
+                            amount: amount,
                             transactionType: 'transfer_in',
                             description: data.description || '',
                             date: data.date ? new Date(data.date) : new Date(),
@@ -994,10 +1054,10 @@ export async function createBulkCashTransactionsAction(transactions: any[]) {
                 } else {
                     created.push(await tx.cashTransaction.create({
                         data: {
-                            userId: data.userId,
+                            userId: sessionUser.id,
                             branchId: data.locationId,
                             accountId: data.accountId,
-                            amount: data.amount,
+                            amount: amount,
                             transactionType: data.transactionType,
                             category: data.category || null,
                             description: data.description || null,
