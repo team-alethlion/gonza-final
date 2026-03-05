@@ -88,11 +88,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(status === 'loading');
   }, [session, status]);
 
-  const updateSession = async (data?: any) => {
+  const updateSession = React.useCallback(async (data?: any) => {
     return await update(data);
-  };
+  }, [update]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = React.useCallback(async (email: string, password: string) => {
     const result = await nextAuthSignIn('credentials', {
       email,
       password,
@@ -104,31 +104,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     toast.success('Signed in successfully');
-  };
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = React.useCallback(async () => {
     await nextAuthSignIn('google', { callbackUrl: '/public' });
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = React.useCallback(async () => {
     await nextAuthSignOut({ redirect: true, callbackUrl: '/public' });
-  };
+  }, []);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = React.useCallback(async (email: string) => {
     toast.success('Password reset email sent');
-  };
+  }, []);
+
+  const contextValue = React.useMemo(() => ({
+    user,
+    loading,
+    status,
+    signIn,
+    signInWithGoogle,
+    signOut,
+    resetPassword,
+    updateSession
+  }), [user, loading, status, signIn, signInWithGoogle, signOut, resetPassword, updateSession]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      status,
-      signIn,
-      signInWithGoogle,
-      signOut,
-      resetPassword,
-      updateSession
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

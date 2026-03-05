@@ -13,13 +13,17 @@ export function Providers({
     initialSession = null,
     initialBusinessLocations = [],
     initialProfiles = [],
-    initialAccountStatus = null
+    initialAccountStatus = null,
+    initialBusinessSettings = null,
+    initialAnalyticsSummary = null
 }: { 
     children: React.ReactNode,
     initialSession?: any,
     initialBusinessLocations?: any[],
     initialProfiles?: any[],
-    initialAccountStatus?: any
+    initialAccountStatus?: any,
+    initialBusinessSettings?: any,
+    initialAnalyticsSummary?: any
 }) {
     const [queryClient] = useState(
         () =>

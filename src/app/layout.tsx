@@ -32,6 +32,8 @@ export default async function RootLayout({
           initialBusinessLocations={initialData?.locations || []}
           initialProfiles={initialData?.profiles || []}
           initialAccountStatus={initialData?.accountStatus || null}
+          initialBusinessSettings={initialData?.businessSettings || null}
+          initialAnalyticsSummary={initialData?.analyticsSummary || null}
         >
           {children}
           <Toaster />

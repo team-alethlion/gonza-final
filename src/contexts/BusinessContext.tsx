@@ -30,6 +30,8 @@ interface BusinessContextType {
   isLoading: boolean;
   error: string | null;
   locationLimit: number;
+  initialBusinessSettings: any;
+  initialAnalyticsSummary: any;
 }
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -45,8 +47,16 @@ export const useBusiness = () => {
 export const BusinessProvider: React.FC<{ 
   children: React.ReactNode, 
   initialLocations?: BusinessLocation[],
-  initialAccountStatus?: any
-}> = ({ children, initialLocations = [], initialAccountStatus = null }) => {
+  initialAccountStatus?: any,
+  initialBusinessSettings?: any,
+  initialAnalyticsSummary?: any
+}> = ({ 
+  children, 
+  initialLocations = [], 
+  initialAccountStatus = null,
+  initialBusinessSettings = null,
+  initialAnalyticsSummary = null
+}) => {
   console.log('[DEBUG] BusinessProvider: Initializing...');
   const { user, updateSession } = useAuth();
   
@@ -154,9 +164,9 @@ export const BusinessProvider: React.FC<{
     if (user?.id && (initialLocations.length === 0 || !currentBusiness)) {
       loadBusinessLocations();
     }
-  }, [user?.id, initialLocations.length]);
+  }, [user?.id, initialLocations.length, loadBusinessLocations, currentBusiness]);
 
-  const switchBusiness = async (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => {
+  const switchBusiness = React.useCallback(async (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => {
     const business = businessLocations.find(b => b.id === businessId);
     if (!business) {
       console.error('Business not found:', businessId);
@@ -201,9 +211,9 @@ export const BusinessProvider: React.FC<{
 
     // No password protection or already verified
     await performSwitch();
-  };
+  }, [businessLocations, getStorageKey, isBusinessVerified, user?.id, updateSession]);
 
-  const createBusiness = async (name: string): Promise<BusinessLocation | null> => {
+  const createBusiness = React.useCallback(async (name: string): Promise<BusinessLocation | null> => {
     if (!user) {
       console.error('No user found when creating business');
       return null;
@@ -258,9 +268,9 @@ export const BusinessProvider: React.FC<{
       console.error('Error creating business:', error);
       return null;
     }
-  };
+  }, [user, businessLocations.length, locationLimit, getStorageKey]);
 
-  const updateBusiness = async (id: string, name: string): Promise<boolean> => {
+  const updateBusiness = React.useCallback(async (id: string, name: string): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -296,9 +306,9 @@ export const BusinessProvider: React.FC<{
       console.error('Error updating business:', error);
       return false;
     }
-  };
+  }, [user, currentBusiness?.id]);
 
-  const deleteBusiness = async (id: string): Promise<boolean> => {
+  const deleteBusiness = React.useCallback(async (id: string): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -330,9 +340,9 @@ export const BusinessProvider: React.FC<{
       console.error('Error deleting business:', error);
       return false;
     }
-  };
+  }, [user, currentBusiness?.id, businessLocations]);
 
-  const resetBusiness = async (id: string): Promise<boolean> => {
+  const resetBusiness = React.useCallback(async (id: string): Promise<boolean> => {
     if (!user) {
       console.error('No user found when resetting business');
       return false;
@@ -350,24 +360,40 @@ export const BusinessProvider: React.FC<{
       console.error('Error resetting business:', error);
       return false;
     }
-  };
+  }, [user, loadBusinessLocations]);
+
+  const contextValue = React.useMemo(() => ({
+    currentBusiness,
+    businessLocations,
+    switchBusiness,
+    loadBusinessLocations,
+    createBusiness,
+    updateBusiness,
+    deleteBusiness,
+    resetBusiness,
+    isLoading,
+    error,
+    locationLimit,
+    initialBusinessSettings,
+    initialAnalyticsSummary
+  }), [
+    currentBusiness,
+    businessLocations,
+    switchBusiness,
+    loadBusinessLocations,
+    createBusiness,
+    updateBusiness,
+    deleteBusiness,
+    resetBusiness,
+    isLoading,
+    error,
+    locationLimit,
+    initialBusinessSettings,
+    initialAnalyticsSummary
+  ]);
 
   return (
-    <BusinessContext.Provider
-      value={{
-        currentBusiness,
-        businessLocations,
-        switchBusiness,
-        loadBusinessLocations,
-        createBusiness,
-        updateBusiness,
-        deleteBusiness,
-        resetBusiness,
-        isLoading,
-        error,
-        locationLimit
-      }}
-    >
+    <BusinessContext.Provider value={contextValue}>
       {children}
     </BusinessContext.Provider>
   );

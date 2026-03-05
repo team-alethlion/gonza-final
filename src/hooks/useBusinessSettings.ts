@@ -64,10 +64,28 @@ const getDefaultSettings = (): BusinessSettings => ({
 });
 
 export const useBusinessSettings = () => {
-  const [settings, setSettings] = useState<BusinessSettings>(getDefaultSettings());
+  const { currentBusiness, initialBusinessSettings } = useBusiness();
+  
+  // Transform initial data if available
+  const initialData = initialBusinessSettings ? {
+    id: initialBusinessSettings.id,
+    businessName: initialBusinessSettings.business_name || '',
+    businessAddress: initialBusinessSettings.business_address || '',
+    businessPhone: initialBusinessSettings.business_phone || '',
+    businessEmail: initialBusinessSettings.business_email || '',
+    businessLogo: initialBusinessSettings.business_logo || undefined,
+    currency: initialBusinessSettings.currency || 'UGX',
+    signature: initialBusinessSettings.signature || undefined,
+    paymentInfo: initialBusinessSettings.metadata?.payment_info || '',
+    defaultPrintFormat: initialBusinessSettings.metadata?.default_print_format || 'standard',
+    defaultPrinterName: initialBusinessSettings.metadata?.default_printer_name || '',
+    defaultPrinterType: initialBusinessSettings.metadata?.default_printer_type || 'USB',
+    printerPaperSize: initialBusinessSettings.metadata?.printer_paper_size || '58mm'
+  } : getDefaultSettings();
+
+  const [settings, setSettings] = useState<BusinessSettings>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { currentBusiness } = useBusiness();
 
   const loadSettings = async (): Promise<BusinessSettings> => {
     if (!currentBusiness) {
@@ -190,6 +208,7 @@ export const useBusinessSettings = () => {
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    initialData: initialBusinessSettings ? initialData : undefined
   });
 
   // Sync React Query data with local state

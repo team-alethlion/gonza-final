@@ -26,15 +26,27 @@ interface UseAnalyticsDataProps {
 }
 
 export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, isCustomRange, isSpecificDate }: UseAnalyticsDataProps) {
-  const [summary, setSummary] = useState<any>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
-  const { currentBusiness } = useBusiness();
+  const { currentBusiness, initialAnalyticsSummary } = useBusiness();
+  const [summary, setSummary] = useState<any>(() => {
+    // Only use initial summary if the filter is 'all' (default dashboard view)
+    if (dateFilter === 'all' && initialAnalyticsSummary) {
+      return initialAnalyticsSummary;
+    }
+    return null;
+  });
+  const [isLoadingSummary, setIsLoadingSummary] = useState(!summary);
 
   // Fetch analytics summary from server based on filters
   useEffect(() => {
     const fetchSummary = async () => {
       if (!currentBusiness) {
         setSummary(null);
+        setIsLoadingSummary(false);
+        return;
+      }
+
+      // Skip fetch if we already have the initial summary for the 'all' filter
+      if (dateFilter === 'all' && initialAnalyticsSummary && summary === initialAnalyticsSummary) {
         setIsLoadingSummary(false);
         return;
       }

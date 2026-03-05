@@ -126,7 +126,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
     }
   }, [currentBusiness?.id, currentProfile?.id, isProfileVerified]);
 
-  const loadProfiles = async () => {
+  const loadProfiles = React.useCallback(async () => {
     console.log('ProfileContext: loadProfiles starting, userId:', userId, 'businessId:', currentBusiness?.id);
     if (!userId || !currentBusiness?.id) return;
 
@@ -141,9 +141,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId, currentBusiness?.id]);
 
-  const createProfile = async (data: Omit<BusinessProfile, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'business_location_id'>): Promise<BusinessProfile | null> => {
+  const createProfile = React.useCallback(async (data: Omit<BusinessProfile, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'business_location_id'>): Promise<BusinessProfile | null> => {
     if (!userId || !currentBusiness?.id) return null;
 
     try {
@@ -163,9 +163,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       toast.error('Failed to create profile');
       return null;
     }
-  };
+  }, [userId, currentBusiness?.id, loadProfiles]);
 
-  const updateProfile = async (id: string, data: Partial<BusinessProfile>): Promise<boolean> => {
+  const updateProfile = React.useCallback(async (id: string, data: Partial<BusinessProfile>): Promise<boolean> => {
     try {
       if (!currentBusiness) throw new Error("No business selected");
       const result = await updateProfileAction(id, currentBusiness.id, data);
@@ -182,9 +182,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       toast.error('Failed to update profile');
       return false;
     }
-  };
+  }, [currentBusiness, loadProfiles]);
 
-  const deleteProfile = async (id: string): Promise<boolean> => {
+  const deleteProfile = React.useCallback(async (id: string): Promise<boolean> => {
     try {
       if (!currentBusiness) throw new Error("No business selected");
       const result = await deleteProfileAction(id, currentBusiness.id);
@@ -204,13 +204,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       toast.error('Failed to delete profile');
       return false;
     }
-  };
+  }, [currentBusiness, currentProfile?.id]);
 
-  const toggleProfileStatus = async (id: string, isActive: boolean): Promise<boolean> => {
+  const toggleProfileStatus = React.useCallback(async (id: string, isActive: boolean): Promise<boolean> => {
     return updateProfile(id, { is_active: isActive });
-  };
+  }, [updateProfile]);
 
-  const verifyPin = async (pin: string): Promise<boolean> => {
+  const verifyPin = React.useCallback(async (pin: string): Promise<boolean> => {
     if (!currentProfile) return false;
 
     if (currentProfile.pin === pin) {
@@ -235,9 +235,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
 
     toast.error('Incorrect PIN');
     return false;
-  };
+  }, [currentProfile, currentBusiness?.id]);
 
-  const changePin = async (oldPin: string, newPin: string): Promise<boolean> => {
+  const changePin = React.useCallback(async (oldPin: string, newPin: string): Promise<boolean> => {
     if (!currentProfile) return false;
 
     if (currentProfile.pin !== oldPin) {
@@ -261,9 +261,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       }
     }
     return success;
-  };
+  }, [currentProfile, currentBusiness?.id, updateProfile]);
 
-  const resetProfilePin = async (id: string, newPin: string): Promise<boolean> => {
+  const resetProfilePin = React.useCallback(async (id: string, newPin: string): Promise<boolean> => {
     // This method is intended for owners/admins to reset PINs without the old one
     if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
       toast.error('PIN must be 4 digits');
@@ -275,9 +275,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
       toast.success('PIN reset successfully');
     }
     return success;
-  };
+  }, [updateProfile]);
 
-  const logoutProfile = async () => {
+  const logoutProfile = React.useCallback(async () => {
     // Clear sessionStorage verification for current profile
     if (currentBusiness?.id && currentProfile?.id) {
       sessionStorage.removeItem(`profileVerified_${currentBusiness.id}_${currentProfile.id}`);
@@ -293,18 +293,18 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
 
     // Sign out of Supabase session
     await signOut();
-  };
+  }, [currentBusiness?.id, currentProfile?.id, signOut]);
 
-  const dismissFirstTimeSetup = () => {
+  const dismissFirstTimeSetup = React.useCallback(() => {
     setIsFirstTimeSetupNeeded(false);
     // Remember that user has dismissed this dialog for this profile
     if (currentBusiness?.id && currentProfile?.id) {
       const dismissedKey = `firstTimeSetupDismissed_${currentBusiness.id}_${currentProfile.id}`;
       localStorage.setItem(dismissedKey, 'true');
     }
-  };
+  }, [currentBusiness?.id, currentProfile?.id]);
 
-  const hasPermission = (module: string, action: string = 'view'): boolean => {
+  const hasPermission = React.useCallback((module: string, action: string = 'view'): boolean => {
     if (!currentProfile) return false;
 
     const role = (currentProfile.role || "").toLowerCase();
@@ -337,39 +337,30 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
         console.log(`ProfileContext: Permission denied for ${module}:${action} for profile ${currentProfile.profile_name}`);
     }
     return hasPerm;
-  };
+  }, [currentProfile]);
 
   // Load profiles when business changes
   useEffect(() => {
-    console.log('ProfileContext: Business/User changed', {
-      businessId: currentBusiness?.id,
-      businessLoading,
-      userId
-    });
-
     if (businessLoading) {
-      console.log('ProfileContext: Business still loading, keeping spinner');
       setIsLoading(true);
       return;
     }
 
     if (currentBusiness?.id) {
       if (initialProfiles.length === 0 || profiles.length === 0 || profiles[0]?.business_location_id !== currentBusiness.id) {
-        console.log('ProfileContext: Calling loadProfiles');
         loadProfiles();
       }
     } else {
-      console.log('ProfileContext: No business found, clearing profiles');
       setProfiles([]);
       setCurrentProfile(null);
       setIsProfileVerified(false);
       setIsFirstTimeSetupNeeded(false);
       setIsLoading(false);
     }
-  }, [currentBusiness?.id, businessLoading, userId, initialProfiles.length]);
+  }, [currentBusiness?.id, businessLoading, userId, initialProfiles.length, loadProfiles]);
 
   // Save current profile to localStorage
-  const handleSetCurrentProfile = (profile: BusinessProfile | null) => {
+  const handleSetCurrentProfile = React.useCallback((profile: BusinessProfile | null) => {
     setCurrentProfile(profile);
     setIsProfileVerified(false); // Reset verification on manual switch
 
@@ -382,7 +373,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
         localStorage.removeItem(`currentProfile_${currentBusiness.id}`);
       }
     }
-  };
+  }, [currentBusiness?.id]);
 
   // Keep currentProfile in sync with fresh data from profiles list
   useEffect(() => {
@@ -403,26 +394,46 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode, initialProfi
     }
   }, [profiles]);
 
+  const contextValue = React.useMemo(() => ({
+    profiles,
+    currentProfile,
+    isProfileVerified,
+    isLoading,
+    setCurrentProfile: handleSetCurrentProfile,
+    loadProfiles,
+    createProfile,
+    updateProfile,
+    deleteProfile,
+    toggleProfileStatus,
+    verifyPin,
+    changePin,
+    resetProfilePin,
+    logoutProfile,
+    hasPermission,
+    isFirstTimeSetupNeeded,
+    dismissFirstTimeSetup
+  }), [
+    profiles,
+    currentProfile,
+    isProfileVerified,
+    isLoading,
+    handleSetCurrentProfile,
+    loadProfiles,
+    createProfile,
+    updateProfile,
+    deleteProfile,
+    toggleProfileStatus,
+    verifyPin,
+    changePin,
+    resetProfilePin,
+    logoutProfile,
+    hasPermission,
+    isFirstTimeSetupNeeded,
+    dismissFirstTimeSetup
+  ]);
+
   return (
-    <ProfileContext.Provider value={{
-      profiles,
-      currentProfile,
-      isProfileVerified,
-      isLoading,
-      setCurrentProfile: handleSetCurrentProfile,
-      loadProfiles,
-      createProfile,
-      updateProfile,
-      deleteProfile,
-      toggleProfileStatus,
-      verifyPin,
-      changePin,
-      resetProfilePin,
-      logoutProfile,
-      hasPermission,
-      isFirstTimeSetupNeeded,
-      dismissFirstTimeSetup
-    }}>
+    <ProfileContext.Provider value={contextValue}>
       {children}
     </ProfileContext.Provider>
   );
