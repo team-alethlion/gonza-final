@@ -6,6 +6,8 @@ import { compare, hash } from "bcryptjs";
 import { auth } from "@/auth";
 
 export async function signInAction(email: string, password: string) {
+  const startTime = Date.now();
+  console.log(`[PERF] signInAction starting for ${email}`);
   try {
     const user = await db.user.findUnique({
       where: { email },
@@ -14,12 +16,14 @@ export async function signInAction(email: string, password: string) {
         agency: true,
       },
     });
+    console.log(`[PERF] signInAction db lookup took ${Date.now() - startTime}ms`);
 
     if (!user || !user.password) {
       return { success: false, error: "Invalid email or password" };
     }
 
     const isPasswordValid = await compare(password, user.password);
+    console.log(`[PERF] signInAction bcrypt took ${Date.now() - startTime}ms`);
 
     if (!isPasswordValid) {
       return { success: false, error: "Invalid email or password" };

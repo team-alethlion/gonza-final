@@ -53,25 +53,30 @@ export const BusinessProvider: React.FC<{
   const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>(initialLocations);
   
   const [currentBusiness, setCurrentBusiness] = useState<BusinessLocation | null>(() => {
-    if (initialLocations.length > 0) {
-      if (user?.branchId) {
-        const branch = initialLocations.find(b => b.id === user.branchId);
-        if (branch) return branch;
-      }
-      
-      if (typeof window !== 'undefined') {
-         const key = user ? `selected_business_${user.id}` : null;
-         const saved = key ? localStorage.getItem(key) : null;
+    // Priority 1: session branchId
+    if (user?.branchId && initialLocations.length > 0) {
+      const branch = initialLocations.find(b => b.id === user.branchId);
+      if (branch) return branch;
+    }
+    
+    // Priority 2: localStorage
+    if (typeof window !== 'undefined') {
+       const key = user ? `selected_business_${user.id}` : null;
+       const saved = key ? localStorage.getItem(key) : null;
+       if (saved && initialLocations.length > 0) {
          const branch = initialLocations.find(b => b.id === saved);
          if (branch) return branch;
-      }
-      
+       }
+    }
+    
+    // Priority 3: Default/First location
+    if (initialLocations.length > 0) {
       return initialLocations.find(b => b.is_default) || initialLocations[0];
     }
     return null;
   });
 
-  const [isLoading, setIsLoading] = useState(initialLocations.length === 0 && !!user);
+  const [isLoading, setIsLoading] = useState(initialLocations.length === 0 && !!user?.id);
   const [error, setError] = useState<string | null>(null);
   const { isBusinessVerified } = useBusinessPassword();
 
@@ -80,34 +85,34 @@ export const BusinessProvider: React.FC<{
     queryKey: ['globalAccountStatus', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
+      console.log(`[PERF] globalAccountStatus fetch starting for user ${user.id}`);
       return await getAccountStatusAction(user.id);
     },
     enabled: !!user?.id,
-    staleTime: 10 * 1000,
+    staleTime: 60 * 1000, // Increase stale time from 10s to 60s
     initialData: initialAccountStatus
   });
 
   const locationLimit = globalStatus?.location_limit || 1;
 
 
-  const getStorageKey = () => user ? `selected_business_${user.id}` : null;
+  const getStorageKey = () => user?.id ? `selected_business_${user.id}` : null;
 
   const loadBusinessLocations = async () => {
-    console.log('BusinessContext: loadBusinessLocations starting, user:', user?.id);
-    if (!user) {
+    if (!user?.id) {
       setIsLoading(false);
-      setError(null);
-      setCurrentBusiness(null);
-      setBusinessLocations([]);
       return;
     }
 
+    const startTime = Date.now();
+    console.log(`[PERF] BusinessContext: loadBusinessLocations starting for user ${user.id}`);
+    
     try {
       setIsLoading(true);
       setError(null);
 
       const data = await getBusinessLocationsAction(user.id);
-      console.log('BusinessContext: getBusinessLocationsAction result:', data?.length, 'locations found');
+      console.log(`[PERF] BusinessContext: getBusinessLocationsAction took ${Date.now() - startTime}ms. Found ${data?.length || 0} locations.`);
 
       if (!data) {
         throw new Error('Failed to load locations');
@@ -115,43 +120,41 @@ export const BusinessProvider: React.FC<{
 
       setBusinessLocations((data as any) || []);
 
-      // Always try to set a current business if we have locations
+      // If we don't have a current business, or the current business is not in the new data, update it
       if (data && data.length > 0) {
-        // First check localStorage for saved business
         const storageKey = getStorageKey();
         const savedBusinessId = storageKey ? localStorage.getItem(storageKey) : null;
-        let businessToSet = (data as any[]).find(b => b.id === savedBusinessId);
+        
+        let businessToSet = (data as any[]).find(b => b.id === user.branchId);
+        
+        if (!businessToSet && savedBusinessId) {
+          businessToSet = (data as any[]).find(b => b.id === savedBusinessId);
+        }
 
-        // If no saved business or saved business not found, use default or first
         if (!businessToSet) {
           businessToSet = (data as any[]).find(b => b.is_default) || data[0];
         }
 
-        if (businessToSet) {
-          console.log('BusinessContext: Setting current business to:', businessToSet.name);
+        if (businessToSet && (!currentBusiness || currentBusiness.id !== businessToSet.id)) {
           setCurrentBusiness(businessToSet);
           if (storageKey) {
             localStorage.setItem(storageKey, businessToSet.id);
           }
         }
-      } else {
-        console.log('BusinessContext: No locations found');
-        // No business locations found, clear current business
-        setCurrentBusiness(null);
-        const storageKey = getStorageKey();
-        if (storageKey) {
-          localStorage.removeItem(storageKey);
-        }
       }
     } catch (error) {
       console.error('Error loading business locations:', error);
       setError('Failed to load business data');
-      setCurrentBusiness(null);
-      setBusinessLocations([]);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.id && (initialLocations.length === 0 || !currentBusiness)) {
+      loadBusinessLocations();
+    }
+  }, [user?.id, initialLocations.length]);
 
   const switchBusiness = async (businessId: string, onPasswordPrompt?: (businessId: string, businessName: string, onVerified: () => void) => void) => {
     const business = businessLocations.find(b => b.id === businessId);
@@ -348,17 +351,6 @@ export const BusinessProvider: React.FC<{
       return false;
     }
   };
-
-  useEffect(() => {
-    if (user && initialLocations.length === 0) {
-      loadBusinessLocations();
-    } else if (!user) {
-      setCurrentBusiness(null);
-      setBusinessLocations([]);
-      setIsLoading(false);
-      setError(null);
-    }
-  }, [user?.id, initialLocations.length]);
 
   return (
     <BusinessContext.Provider
