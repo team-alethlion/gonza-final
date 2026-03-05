@@ -33,7 +33,7 @@ function numberToWords(num: number): string {
     let groupIdx = 0;
 
     while (num > 0) {
-        let group = num % 1000;
+        const group = num % 1000;
         if (group !== 0) {
             result = convertGroup(group) + (specialNames[groupIdx] ? specialNames[groupIdx] + ' ' : '') + result;
         }

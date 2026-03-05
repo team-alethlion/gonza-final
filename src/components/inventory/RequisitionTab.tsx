@@ -447,7 +447,7 @@ const RequisitionTab = () => {
       const totalQuantity = validItems.reduce((sum, item) => sum + item.quantity, 0);
       const urgentItems = validItems.filter(item => item.urgentItem).length;
 
-      let yPos = doc.lastAutoTable.finalY + 20;
+      const yPos = doc.lastAutoTable.finalY + 20;
       doc.setFont('helvetica', 'bold');
       doc.text('SUMMARY:', 20, yPos);
       doc.setFont('helvetica', 'normal');

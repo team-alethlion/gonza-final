@@ -19,10 +19,8 @@ export const useProducts = (
   initialPageSize: number = 50,
   initialData?: { products: Product[], count: number }
 ) => {
-  const [products, setProducts] = useState<Product[]>(initialData?.products || []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [totalCount, setTotalCount] = useState(initialData?.count || 0);
   const [isTyping, setIsTyping] = useState(false);
   const { settings } = useBusinessSettings();
   const { currentBusiness } = useBusiness();
@@ -75,8 +73,8 @@ export const useProducts = (
   const baseQueryKey = useMemo(() => ['products', userId, currentBusiness?.id], [userId, currentBusiness?.id]);
   const queryKey = useMemo(() => [...baseQueryKey, page, pageSize, filters.search, filters.category, filters.stockStatus], [baseQueryKey, page, pageSize, filters.search, filters.category, filters.stockStatus]);
 
-  const { data: queriedData, isLoading: isQueryLoading, isFetching, refetch } = useQuery({
-    queryKey,
+  const { data: queriedData, isLoading: isQueryLoading, refetch: reloadProducts, isFetching } = useQuery<{ products: Product[], count: number }, Error>({
+    queryKey: ['products', currentBusiness?.id, page, pageSize, filters],
     queryFn: loadProducts,
     enabled: !!userId && !!currentBusiness?.id,
     staleTime: 30_000,
@@ -86,12 +84,8 @@ export const useProducts = (
     initialData: (page === 1 && filters.search === '' && filters.category === 'all' && filters.stockStatus === 'all' && initialData?.products.length) ? initialData : undefined
   });
 
-  useEffect(() => {
-    if (queriedData) {
-      setProducts(queriedData.products);
-      setTotalCount(queriedData.count);
-    }
-  }, [queriedData]);
+  const products = queriedData?.products || [];
+  const totalCount = queriedData?.count || 0;
 
   const isLoading = (isQueryLoading && !queriedData) && !isTyping;
 
@@ -130,9 +124,6 @@ export const useProducts = (
       if (!result) return null;
 
       const newProduct = result as Product;
-
-      setProducts(prev => [newProduct, ...prev]);
-      setTotalCount(c => c + 1);
 
       queryClient.invalidateQueries({ queryKey: baseQueryKey });
       clearInventoryCaches(queryClient);
@@ -243,7 +234,7 @@ export const useProducts = (
     updateProductsBulk,
     deleteProduct,
     uploadProductImage,
-    refetch,
+    refetch: reloadProducts,
     isFetching,
     filters,
     setFilters: setFiltersWithTypingState,

@@ -3,7 +3,12 @@ import { SaleFormData } from '@/types';
 import { useBusiness } from '@/contexts/BusinessContext';
 
 export const useSaleDraft = () => {
-  const [hasDraft, setHasDraft] = useState(false);
+  const [hasDraft, setHasDraft] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const businessId = currentBusiness?.id;
+    const key = businessId ? `sale_draft_${businessId}` : 'sale_draft';
+    return !!localStorage.getItem(key);
+  });
   const { currentBusiness } = useBusiness();
 
   const DRAFT_STORAGE_KEY = useMemo(() =>
@@ -18,12 +23,13 @@ export const useSaleDraft = () => {
     return draftExists;
   }, [DRAFT_STORAGE_KEY]);
 
-  // Check for draft on mount and when business changes
+  // Check for draft when business changes
   useEffect(() => {
     if (currentBusiness?.id) {
-      checkForDraft();
+      const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      setHasDraft(!!draft);
     }
-  }, [checkForDraft, currentBusiness?.id]);
+  }, [DRAFT_STORAGE_KEY, currentBusiness?.id]);
 
   const saveDraft = useCallback((formData: SaleFormData, selectedDate: Date) => {
     if (!currentBusiness?.id) return;

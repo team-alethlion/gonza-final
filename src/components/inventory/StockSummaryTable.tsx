@@ -129,7 +129,7 @@ const StockSummaryTable: React.FC<StockSummaryTableProps> = ({
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    let filtered = data.filter(item => {
+    const filtered = data.filter(item => {
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();

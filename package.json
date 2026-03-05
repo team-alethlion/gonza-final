@@ -101,6 +101,7 @@
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.9.11",
     "eslint": "^9.9.0",
+    "eslint-config-next": "^16.1.6",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "globals": "^15.9.0",
     "lovable-tagger": "^1.1.7",

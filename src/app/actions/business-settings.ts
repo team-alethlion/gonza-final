@@ -302,7 +302,7 @@ export async function getAccountStatusAction(userId: string) {
         // 3. Billing & Limits Info
         let billingAmount = 50000;
         let locationLimit = 1;
-        let isTrial = agency?.subscriptionStatus === 'trial';
+        const isTrial = agency?.subscriptionStatus === 'trial';
 
         if (agency && agency.package) {
             billingAmount = Number(agency.package.monthlyPrice) || 50000;

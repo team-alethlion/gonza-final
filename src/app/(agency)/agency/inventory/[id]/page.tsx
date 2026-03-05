@@ -29,7 +29,7 @@ const ProductDetail = () => {
       const { data: refetchedData } = await refetch();
       const fetchedProducts = refetchedData?.products || [];
 
-      const foundProduct = fetchedProducts.find(p => p.id === id);
+      const foundProduct = fetchedProducts.find((p: Product) => p.id === id);
       if (foundProduct) {
         setProduct(foundProduct);
       } else {

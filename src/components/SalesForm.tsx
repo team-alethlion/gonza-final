@@ -280,7 +280,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
     setLoading(true);
     try {
-      let receiptNumber = initialData?.receiptNumber || await generateReceiptNumber(currentBusiness?.id || '');
+      const receiptNumber = initialData?.receiptNumber || await generateReceiptNumber(currentBusiness?.id || '');
       const profit = calculateTotalProfit(formData.items);
       let finalCashTransactionId = cashTransactionId;
 

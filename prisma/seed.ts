@@ -243,7 +243,12 @@ async function main() {
     // Create Branches for the admin
     console.log('Creating branches...');
     const mainBranch = await prisma.branch.upsert({
-        where: { name: 'Main Branch' },
+        where: { 
+            agencyId_name: {
+                agencyId: defaultAgency.id,
+                name: 'Main Branch'
+            }
+        },
         update: { 
             adminId: adminUser.id,
             agencyId: defaultAgency.id,
@@ -259,7 +264,12 @@ async function main() {
     });
 
     await prisma.branch.upsert({
-        where: { name: 'Sub Branch' },
+        where: { 
+            agencyId_name: {
+                agencyId: defaultAgency.id,
+                name: 'Sub Branch'
+            }
+        },
         update: { 
             adminId: adminUser.id,
             agencyId: defaultAgency.id,

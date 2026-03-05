@@ -48,7 +48,7 @@ export const generateNoticePDF = async (
       doc.setFontSize(fontSize);
       const splitText = doc.splitTextToSize(text, maxWidth);
 
-      let currentY = y;
+      const currentY = y;
 
       splitText.forEach((line: string) => {
         // Check if we need a new page before adding the line

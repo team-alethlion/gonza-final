@@ -154,7 +154,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       const previousQuantity = product.quantity;
       let newQuantity = previousQuantity;
       // Use standardized reason format
-      let changeReason = adjustmentReason.trim()
+      const changeReason = adjustmentReason.trim()
         ? `${adjustmentType}: ${adjustmentReason}`
         : adjustmentType;
 

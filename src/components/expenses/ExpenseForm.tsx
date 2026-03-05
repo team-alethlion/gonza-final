@@ -111,7 +111,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
     try {
       console.log('ExpenseForm: Submitting expense with linkToCash:', linkToCash, 'cashAccountId:', cashAccountId);
 
-      let finalReceiptUrl = receiptImage;
+      const finalReceiptUrl = receiptImage;
 
       // Receipt file upload – storage backend not yet wired; skip for now
       if (receiptFile) {

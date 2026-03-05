@@ -22,7 +22,7 @@ export const formatPhoneForSMS = (phoneNumber: string): string => {
 export const formatMessageForSMS = (content: string, businessName?: string): string => {
   // Replace non-breaking spaces and other special whitespace with standard spaces
   // \u00A0 is non-breaking space, \u200B is zero-width space, etc.
-  let sanitized = content.replace(/[\u00A0\u1680\u180e\u2000-\u2009\u200a\u200b\u202f\u205f\u3000]/g, ' ');
+  const sanitized = content.replace(/[\u00A0\u1680\u180e\u2000-\u2009\u200a\u200b\u202f\u205f\u3000]/g, ' ');
 
   // Remove excessive whitespace and format for SMS
   let formatted = sanitized
@@ -102,15 +102,9 @@ export const openSMSApp = (options: SMSOptions): void => {
   const formattedPhone = formatPhoneForSMS(phoneNumber);
   const encodedMessage = encodeURIComponent(message);
 
-  let smsUrl: string;
-
-  if (isIOS()) {
-    // iOS uses sms: scheme
-    smsUrl = `sms:${formattedPhone}&body=${encodedMessage}`;
-  } else {
-    // Android uses sms: scheme with different parameter format
-    smsUrl = `sms:${formattedPhone}?body=${encodedMessage}`;
-  }
+  const smsUrl = isIOS() 
+    ? `sms:${formattedPhone}&body=${encodedMessage}` 
+    : `sms:${formattedPhone}?body=${encodedMessage}`;
 
   try {
     window.open(smsUrl, '_self');

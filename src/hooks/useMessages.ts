@@ -64,7 +64,7 @@ export interface Purchase {
 }
 
 const formatPhoneNumber = (phone: string) => {
-  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
   if (cleaned.startsWith('+')) return cleaned;
   if (cleaned.startsWith('256')) return '+' + cleaned;
   if (cleaned.startsWith('0')) return '+256' + cleaned.substring(1);
