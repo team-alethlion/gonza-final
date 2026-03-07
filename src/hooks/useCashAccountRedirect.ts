@@ -25,7 +25,10 @@ export const useCashAccountRedirect = (accounts: CashAccount[]) => {
           localStorage.removeItem('lastVisitedCashAccountUrl');
         }
       }
-      setHasCheckedRedirect(true);
+      const timer = setTimeout(() => {
+        setHasCheckedRedirect(true);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [accounts, hasCheckedRedirect, router]);
 

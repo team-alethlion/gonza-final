@@ -16,7 +16,11 @@ const AnalyticsDashboard = lazy(
 );
 import { Sale } from "@/types";
 
-export default function AgencyDashboardClient({ initialSales }: { initialSales?: Sale[] }) {
+export default function AgencyDashboardClient({
+  initialSales,
+}: {
+  initialSales?: Sale[];
+}) {
   const { isLoading: profilesLoading } = useProfiles();
   const {
     settings,
@@ -43,7 +47,8 @@ export default function AgencyDashboardClient({ initialSales }: { initialSales?:
 
   // Only show welcome if explicitly no sales AND settings aren't fully configured
   const hasSettings = settings.businessName && settings.businessPhone;
-  const showWelcome = !isLoading && !settingsLoading && nonQuoteSalesCount === 0 && !hasSettings;
+  const showWelcome =
+    !isLoading && !settingsLoading && nonQuoteSalesCount === 0 && !hasSettings;
 
   return (
     <>

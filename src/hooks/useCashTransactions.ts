@@ -19,6 +19,8 @@ import {
   createBulkCashTransactionsAction
 } from '@/app/actions/finance';
 
+import { localDb } from '@/lib/dexie';
+
 export const useCashTransactions = (accountId?: string, initialPageSize: number = 50) => {
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
@@ -28,6 +30,27 @@ export const useCashTransactions = (accountId?: string, initialPageSize: number 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [totalCount, setTotalCount] = useState(0);
+  const [internalTransactions, setInternalTransactions] = useState<CashTransaction[]>([]);
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && internalTransactions.length === 0) {
+        let query = localDb.cashTransactions.where('locationId').equals(currentBusiness.id);
+        
+        if (accountId) {
+          // Note: Multi-index querying in Dexie is better with compound index, 
+          // but for now we filter in memory for specific account if needed or use simple filter
+          const cached = await query.and(t => t.accountId === accountId).reverse().sortBy('date');
+          setInternalTransactions(cached.map(t => ({...t, date: new Date(t.date), createdAt: new Date(t.createdAt), updatedAt: new Date(t.updatedAt)})));
+        } else {
+          const cached = await query.reverse().sortBy('date');
+          setInternalTransactions(cached.map(t => ({...t, date: new Date(t.date), createdAt: new Date(t.createdAt), updatedAt: new Date(t.updatedAt)})));
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id, accountId]);
 
   const loadTransactions = useCallback(async (): Promise<CashTransaction[]> => {
     try {
@@ -67,6 +90,16 @@ export const useCashTransactions = (accountId?: string, initialPageSize: number 
         return mapDbCashTransactionToCashTransaction(dbTransaction);
       });
 
+      // Update Dexie cache in background (page 1 only)
+      if (formattedTransactions.length > 0 && page === 1 && !accountId) {
+        const cacheData = formattedTransactions.map(t => ({
+          ...t,
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.cashTransactions.where('locationId').equals(currentBusiness.id).delete();
+        await localDb.cashTransactions.bulkPut(cacheData as any);
+      }
+
       return formattedTransactions;
     } catch (error) {
       console.error('Error loading cash transactions:', error);
@@ -81,12 +114,19 @@ export const useCashTransactions = (accountId?: string, initialPageSize: number 
 
   const queryKey = useMemo(() => ['cash_transactions', currentBusiness?.id, user?.id, accountId, page, pageSize], [currentBusiness?.id, user?.id, accountId, page, pageSize]);
 
-  const { data: transactions = [], isLoading: isQueryLoading } = useQuery({
+  const { data: transactions = internalTransactions, isLoading: isQueryLoading } = useQuery({
     queryKey,
     queryFn: loadTransactions,
     enabled: !!user && !!currentBusiness?.id,
     staleTime: 30_000,
+    initialData: internalTransactions.length > 0 ? internalTransactions : undefined
   });
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      setInternalTransactions(transactions);
+    }
+  }, [transactions]);
 
   const isLoading = isQueryLoading && transactions.length === 0;
 

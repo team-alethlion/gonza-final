@@ -60,7 +60,7 @@ export function LoginForm() {
 
     try {
       await signIn(data.email, data.password);
-      router.replace("/agency");
+      // redirect handled by signIn callback
     } catch (error: any) {
       console.error("Email/password sign in error:", error);
       if (error.message.includes("Invalid login credentials")) {

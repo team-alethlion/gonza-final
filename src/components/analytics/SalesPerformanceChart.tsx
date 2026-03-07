@@ -34,6 +34,21 @@ interface DataPoint {
   rawDate: Date;
 }
 
+const CustomTooltip = ({ active, payload, formatCurrency }: any) => {
+  if (!active || !payload?.length) return null;
+  const dp = payload[0].payload;
+  return (
+    <div className="bg-white p-3 border border-gray-200 shadow-sm rounded-md">
+      <p className="font-medium text-sm">{dp.displayDate}</p>
+      {payload.map((entry: any, i: number) => (
+        <p key={i} className="text-sm">
+          <span className="font-medium">{entry.name}: </span>{formatCurrency(entry.value)}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
   sales,
   formatCurrency,
@@ -169,21 +184,6 @@ const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
 
   const chartData = prepareChartData();
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const dp = payload[0].payload;
-    return (
-      <div className="bg-white p-3 border border-gray-200 shadow-sm rounded-md">
-        <p className="font-medium text-sm">{dp.displayDate}</p>
-        {payload.map((entry: any, i: number) => (
-          <p key={i} className="text-sm">
-            <span className="font-medium">{entry.name}: </span>{formatCurrency(entry.value)}
-          </p>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -221,7 +221,7 @@ const SalesPerformanceChart: React.FC<SalesPerformanceChartProps> = ({
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e0e0e0' }} />
                   <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e0e0e0' }} width={80} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
                   <Legend />
                   {canViewTotalSales && (
                     <Line type="monotone" dataKey="amount" name="Sales" stroke="#9b87f5" activeDot={{ r: 8 }} strokeWidth={2} />

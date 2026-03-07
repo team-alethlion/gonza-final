@@ -113,31 +113,40 @@ const SaleFormActions: React.FC<SaleFormActionsProps> = ({
 
   // --- Unified effect for template auto-fill ---
   useEffect(() => {
-    if (!sendSMS || !onSMSMessageChange) return;
+    const syncTemplate = () => {
+      if (!sendSMS || !onSMSMessageChange) return;
 
-    let templateToUse = DEFAULT_TEMPLATE;
+      let templateToUse = DEFAULT_TEMPLATE;
 
-    // Handle template selection
-    if (selectedTemplateId === 'default') {
-      templateToUse = DEFAULT_TEMPLATE;
-    } else if (selectedTemplateId && thankYouTemplates.length > 0) {
-      const tpl = thankYouTemplates.find((t) => t.id === selectedTemplateId);
-      if (tpl) {
-        templateToUse = tpl.content;
+      // Handle template selection
+      if (selectedTemplateId === 'default') {
+        templateToUse = DEFAULT_TEMPLATE;
+      } else if (selectedTemplateId && thankYouTemplates.length > 0) {
+        const tpl = thankYouTemplates.find((t) => t.id === selectedTemplateId);
+        if (tpl) {
+          templateToUse = tpl.content;
+        }
+      } else if (!selectedTemplateId) {
+        // Auto-set to default
+        setSelectedTemplateId('default');
+        return;
       }
-    } else if (!selectedTemplateId) {
-      // Auto-set to default
-      setSelectedTemplateId('default');
-    }
 
-    const filledMessage = fillTemplate(templateToUse, customerName);
-    onSMSMessageChange(filledMessage);
+      const filledMessage = fillTemplate(templateToUse, customerName);
+      if (smsMessage !== filledMessage) {
+        onSMSMessageChange(filledMessage);
+      }
+    };
+
+    const timer = setTimeout(syncTemplate, 0);
+    return () => clearTimeout(timer);
   }, [
     sendSMS,
     customerName,
     thankYouTemplates,
     selectedTemplateId,
     onSMSMessageChange,
+    smsMessage
   ]);
 
   const handleTemplateChange = (id: string) => {

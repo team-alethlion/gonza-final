@@ -128,39 +128,27 @@ const MobileCard = React.memo(({
     }
   };
 
-  const getReceiptButtonLabel = () => {
+  // Determine receipt button properties based on status
+  const getReceiptButtonProps = () => {
     switch (sale.paymentStatus) {
       case 'Paid':
-        return 'Receipt';
+        return { label: 'Receipt', icon: Receipt };
       case 'NOT PAID':
-        return 'Invoice';
+        return { label: 'Invoice', icon: FileText };
       case 'Quote':
-        return 'Quotation';
+        return { label: 'Quotation', icon: Quote };
       default:
-        return 'Receipt';
+        return { label: 'Receipt', icon: Receipt };
     }
   };
 
-  const getReceiptButtonIcon = () => {
-    switch (sale.paymentStatus) {
-      case 'Paid':
-        return Receipt;
-      case 'NOT PAID':
-        return FileText;
-      case 'Quote':
-        return Quote;
-      default:
-        return Receipt;
-    }
-  };
+  const { label: buttonLabel, icon: ButtonIcon } = getReceiptButtonProps();
 
   // Check if this is a credit sale that needs payment reminder (exclude installment sales)
   const isCreditSale = sale.paymentStatus === 'NOT PAID';
 
   // Check if this is an installment sale with outstanding balance
   const isInstallmentWithDue = sale.paymentStatus === 'Installment Sale' && actualAmountDue > 0;
-  const ButtonIcon = getReceiptButtonIcon();
-  const buttonLabel = getReceiptButtonLabel();
 
   return (
     <Card className={`mb-3 bg-white border shadow-sm ${cashAccountName ? 'border-l-4 border-l-green-500 border-green-200' : 'border-gray-200'}`}>

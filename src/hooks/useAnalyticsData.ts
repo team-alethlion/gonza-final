@@ -25,16 +25,33 @@ interface UseAnalyticsDataProps {
   isSpecificDate?: boolean;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, isCustomRange, isSpecificDate }: UseAnalyticsDataProps) {
   const { currentBusiness, initialAnalyticsSummary } = useBusiness();
   const [summary, setSummary] = useState<any>(() => {
-    // Only use initial summary if the filter is 'all' (default dashboard view)
+    // 1. Try initial summary from SSR
     if (dateFilter === 'all' && initialAnalyticsSummary) {
       return initialAnalyticsSummary;
     }
     return null;
   });
   const [isLoadingSummary, setIsLoadingSummary] = useState(!summary);
+
+  // Load from Dexie cache on mount if no SSR data
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && !summary && dateFilter === 'all') {
+        const cached = await localDb.dashboardAnalytics.get(currentBusiness.id);
+        if (cached) {
+          console.log('[Analytics] Loaded from Dexie cache');
+          setSummary(cached.summary);
+          setIsLoadingSummary(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id, dateFilter, summary]);
 
   // Fetch analytics summary from server based on filters
   useEffect(() => {
@@ -45,17 +62,19 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
         return;
       }
 
-      // Skip fetch if we already have the initial summary for the 'all' filter
-      if (dateFilter === 'all' && initialAnalyticsSummary && summary === initialAnalyticsSummary) {
-        setIsLoadingSummary(false);
-        return;
+      // If it's the 'all' filter and we have SSR data, we still fetch in background 
+      // to ensure freshness, but we don't set loading state to true.
+      const isInitialAll = dateFilter === 'all' && initialAnalyticsSummary;
+      
+      if (!summary && !isInitialAll) {
+        setIsLoadingSummary(true);
       }
 
-      setIsLoadingSummary(true);
       try {
         let startDate: string | undefined;
         let endDate: string | undefined;
 
+        // ... existing switch logic for dates ...
         if (isCustomRange && dateRange.from && dateRange.to) {
           startDate = dateRange.from.toISOString();
           endDate = dateRange.to.toISOString();
@@ -103,6 +122,14 @@ export function useAnalyticsData({ sales, dateFilter, dateRange, specificDate, i
 
         if (result.success) {
           setSummary(result.data);
+          // Only cache the 'all' view (main dashboard) to avoid filling quota with temporary filter views
+          if (dateFilter === 'all') {
+            await localDb.dashboardAnalytics.put({
+              id: currentBusiness.id,
+              summary: result.data,
+              updatedAt: Date.now()
+            });
+          }
         }
       } catch (error) {
         console.error('Failed to fetch analytics summary:', error);

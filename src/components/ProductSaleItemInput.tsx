@@ -75,34 +75,46 @@ const ProductSaleItemInput: React.FC<ProductSaleItemInputProps> = ({
 
   // Update state when item changes (important for edit mode or external updates)
   useEffect(() => {
-    setNewProductName(item.description || '');
+    const nextName = item.description || '';
+    const nextQty = item.quantity === 0 ? '' : item.quantity.toString();
+    const nextPrice = item.price === 0 ? '' : item.price.toString();
+    const nextCost = item.cost === 0 ? '' : item.cost.toString();
+    const nextDisc = item.discountAmount?.toString() || '0';
+    const nextDiscPercent = item.discountPercentage?.toString() || '0';
 
-    // Only update local state if the numeric value actually changed from outside
-    // This prevents cursor jumping or formatting issues while typing
-    const currentQty = parseFloat(quantityInput.replace(/,/g, '')) || 0;
-    if (Math.abs(currentQty - item.quantity) > 0.001) {
-      setQuantityInput(item.quantity === 0 && quantityInput === '' ? '' : item.quantity.toString());
-    }
+    // Batch these updates asynchronously to avoid cascading renders
+    const timer = setTimeout(() => {
+      // Only update if the value from props is different from current state
+      // We parse the current input to compare numeric values correctly
+      setNewProductName(prev => prev !== nextName ? nextName : prev);
+      
+      setQuantityInput(prev => {
+        const currentVal = parseFloat(prev.replace(/,/g, '')) || 0;
+        return Math.abs(currentVal - item.quantity) > 0.001 ? nextQty : prev;
+      });
 
-    const currentPrice = parseFloat(priceInput.replace(/,/g, '')) || 0;
-    if (Math.abs(currentPrice - item.price) > 0.001) {
-      setPriceInput(item.price === 0 && priceInput === '' ? '' : item.price.toString());
-    }
+      setPriceInput(prev => {
+        const currentVal = parseFloat(prev.replace(/,/g, '')) || 0;
+        return Math.abs(currentVal - item.price) > 0.001 ? nextPrice : prev;
+      });
 
-    const currentCost = parseFloat(costInput.replace(/,/g, '')) || 0;
-    if (Math.abs(currentCost - item.cost) > 0.001) {
-      setCostInput(item.cost === 0 && costInput === '' ? '' : item.cost.toString());
-    }
+      setCostInput(prev => {
+        const currentVal = parseFloat(prev.replace(/,/g, '')) || 0;
+        return Math.abs(currentVal - item.cost) > 0.001 ? nextCost : prev;
+      });
 
-    const currentDiscAmount = parseFloat(discountAmountInput.replace(/,/g, '')) || 0;
-    if (Math.abs(currentDiscAmount - (item.discountAmount || 0)) > 0.001) {
-      setDiscountAmountInput(item.discountAmount?.toString() || '0');
-    }
+      setDiscountAmountInput(prev => {
+        const currentVal = parseFloat(prev.replace(/,/g, '')) || 0;
+        return Math.abs(currentVal - (item.discountAmount || 0)) > 0.001 ? nextDisc : prev;
+      });
 
-    const currentDiscPercent = parseFloat(discountPercentInput.replace(/,/g, '')) || 0;
-    if (Math.abs(currentDiscPercent - (item.discountPercentage || 0)) > 0.001) {
-      setDiscountPercentInput(item.discountPercentage?.toString() || '0');
-    }
+      setDiscountPercentInput(prev => {
+        const currentVal = parseFloat(prev.replace(/,/g, '')) || 0;
+        return Math.abs(currentVal - (item.discountPercentage || 0)) > 0.001 ? nextDiscPercent : prev;
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [item.description, item.quantity, item.price, item.cost, item.discountAmount, item.discountPercentage]);
 
 

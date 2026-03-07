@@ -35,6 +35,8 @@ export interface Customer {
   updatedAt: Date;
 }
 
+import { localDb } from "@/lib/dexie";
+
 export const useCustomers = (
   initialPageSize: number = 50,
   initialData?: { customers: Customer[]; count: number }
@@ -48,6 +50,32 @@ export const useCustomers = (
   const { user } = useAuth();
   const { logActivity } = useActivityLogger();
   const queryClient = useQueryClient();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && customers.length === 0) {
+        const cached = await localDb.customers
+          .where('locationId')
+          .equals(currentBusiness.id)
+          .reverse()
+          .sortBy('createdAt');
+        
+        if (cached && cached.length > 0) {
+          console.log('[Customers] Loaded from Dexie cache');
+          const mapped = cached.map(c => ({
+            ...c,
+            birthday: c.birthday ? new Date(c.birthday) : null,
+            createdAt: new Date(c.createdAt),
+            updatedAt: new Date(c.updatedAt)
+          }));
+          setCustomers(page === 1 ? mapped.slice(0, pageSize) : []);
+          setTotalCount(mapped.length);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id, page, pageSize]);
 
   const loadCustomers = useCallback(async (): Promise<{
     customers: Customer[];
@@ -89,6 +117,16 @@ export const useCustomers = (
           orderCount: customer.orderCount || 0,
         }),
       );
+
+      // Update Dexie cache in the background (only if we're on page 1 to avoid complexity)
+      if (formattedCustomers.length > 0 && page === 1) {
+         const cacheData = formattedCustomers.map(c => ({
+           ...c,
+           locationId: currentBusiness.id as string,
+         }));
+         await localDb.customers.where('locationId').equals(currentBusiness.id).delete();
+         await localDb.customers.bulkPut(cacheData as any);
+      }
 
       return { customers: formattedCustomers, count: result.data?.count || 0 };
     } catch (error) {

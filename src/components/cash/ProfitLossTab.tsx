@@ -26,17 +26,24 @@ const ProfitLossTab = () => {
 
   // Reset relevant states when filter changes
   useEffect(() => {
-    if (dateFilter === 'custom') {
-      // Clear specific date when switching to custom
-      setSpecificDate(undefined);
-    } else if (dateFilter === 'specific') {
-      // Clear date range when switching to specific
-      setDateRange({ from: undefined, to: undefined });
-    } else {
-      // Clear both when switching to predefined filters
-      setDateRange({ from: undefined, to: undefined });
-      setSpecificDate(undefined);
-    }
+    const timer = setTimeout(() => {
+      if (dateFilter === 'custom') {
+        // Clear specific date when switching to custom
+        if (specificDate !== undefined) setSpecificDate(undefined);
+      } else if (dateFilter === 'specific') {
+        // Clear date range when switching to specific
+        if (dateRange.from !== undefined || dateRange.to !== undefined) {
+          setDateRange({ from: undefined, to: undefined });
+        }
+      } else {
+        // Clear both when switching to predefined filters
+        if (dateRange.from !== undefined || dateRange.to !== undefined) {
+          setDateRange({ from: undefined, to: undefined });
+        }
+        if (specificDate !== undefined) setSpecificDate(undefined);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [dateFilter]);
 
   // Get the currency from settings, defaulting to USD only if settings is null

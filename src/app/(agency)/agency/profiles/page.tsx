@@ -1,32 +1,39 @@
 "use client";
 
-import React, { useState } from 'react';
-import { ProfileContent } from '@/components/profiles/ProfileContent';
-import { ProfileHeader } from '@/components/profiles/ProfileHeader';
-import { NewProfileDialog } from '@/components/profiles/NewProfileDialog';
-import { EditProfileDialog } from '@/components/profiles/EditProfileDialog';
-import { DeleteProfileDialog } from '@/components/profiles/DeleteProfileDialog';
-import { useProfiles, BusinessProfile } from '@/contexts/ProfileContext';
-import { useBusiness } from '@/contexts/BusinessContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RoleManagement } from '@/components/profiles/RoleManagement';
-import { SecuritySettings } from '@/components/profiles/SecuritySettings';
-import { Users, Shield, Lock } from 'lucide-react';
+import React, { useState } from "react";
+import { ProfileContent } from "@/components/profiles/ProfileContent";
+import { ProfileHeader } from "@/components/profiles/ProfileHeader";
+import { NewProfileDialog } from "@/components/profiles/NewProfileDialog";
+import { EditProfileDialog } from "@/components/profiles/EditProfileDialog";
+import { DeleteProfileDialog } from "@/components/profiles/DeleteProfileDialog";
+import { useProfiles, BusinessProfile } from "@/contexts/ProfileContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RoleManagement } from "@/components/profiles/RoleManagement";
+import { SecuritySettings } from "@/components/profiles/SecuritySettings";
+import { Users, Shield, Lock } from "lucide-react";
 
 const Profiles = () => {
   const { currentBusiness } = useBusiness();
   const { profiles, isLoading, hasPermission } = useProfiles();
-  const canManage = hasPermission('profiles', 'manage');
+  const canManage = hasPermission("profiles", "manage");
   const [showNewDialog, setShowNewDialog] = useState(false);
-  const [editingProfile, setEditingProfile] = useState<BusinessProfile | null>(null);
-  const [deletingProfile, setDeletingProfile] = useState<BusinessProfile | null>(null);
+  const [editingProfile, setEditingProfile] = useState<BusinessProfile | null>(
+    null,
+  );
+  const [deletingProfile, setDeletingProfile] =
+    useState<BusinessProfile | null>(null);
 
   if (!currentBusiness) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-muted-foreground">No Business Selected</h2>
-          <p className="text-muted-foreground">Please select a business to manage profiles.</p>
+          <h2 className="text-xl font-semibold text-muted-foreground">
+            No Business Selected
+          </h2>
+          <p className="text-muted-foreground">
+            Please select a business to manage profiles.
+          </p>
         </div>
       </div>
     );
@@ -41,7 +48,7 @@ const Profiles = () => {
               <Users className="h-4 w-4" />
               Profiles
             </TabsTrigger>
-            {hasPermission('profiles', 'manage') && (
+            {hasPermission("profiles", "manage") && (
               <TabsTrigger value="roles" className="gap-2">
                 <Shield className="h-4 w-4" />
                 Roles
@@ -55,7 +62,10 @@ const Profiles = () => {
 
           <div className="hidden sm:block">
             <p className="text-sm text-muted-foreground">
-              Current Business: <span className="font-semibold text-foreground">{currentBusiness.name}</span>
+              Current Business:{" "}
+              <span className="font-semibold text-foreground">
+                {currentBusiness.name}
+              </span>
             </p>
           </div>
         </div>
@@ -85,10 +95,7 @@ const Profiles = () => {
         </TabsContent>
       </Tabs>
 
-      <NewProfileDialog
-        open={showNewDialog}
-        onOpenChange={setShowNewDialog}
-      />
+      <NewProfileDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
 
       <EditProfileDialog
         profile={editingProfile}

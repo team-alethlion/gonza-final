@@ -179,7 +179,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   // Auto-save draft
-  const autoSaveDraft = React.useCallback(() => {
+  const autoSaveDraft = React.useCallback((isPersistent = true) => {
     // Check ref to prevent saving during clear operation
     if (isClearingRef.current) return;
 
@@ -190,17 +190,23 @@ const SalesForm: React.FC<SalesFormProps> = ({
         formData.items.some(item => item.description.trim() || item.quantity !== 1 || item.price !== 0);
 
       if (hasData) {
-        saveDraft(formData, selectedDate);
+        saveDraft(formData, selectedDate, isPersistent);
       }
     }
   }, [formData, selectedDate, initialData, loading, saveDraft, saleCompleted, formRecentlyCleared]);
 
   useEffect(() => {
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
-    autoSaveTimeoutRef.current = setTimeout(autoSaveDraft, 2000);
+    
+    // ⚡️ SPEED: Immediate session save (no timeout) for critical data loss prevention
+    autoSaveDraft(false); 
+
+    // ⚡️ PERSISTENCE: Debounced persistent save (localStorage) every 2s
+    autoSaveTimeoutRef.current = setTimeout(() => autoSaveDraft(true), 2000);
+    
     return () => {
       if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveDraft(); // Save on unmount to capture data before navigation
+      autoSaveDraft(true); // Save on unmount
     };
   }, [autoSaveDraft]);
 

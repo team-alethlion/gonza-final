@@ -40,6 +40,8 @@ interface ExtendedProductFormData extends Omit<ProductFormData, 'quantity'> {
   printQuantity: number;
 }
 
+import { useProductDraft } from '@/hooks/useProductDraft';
+
 const ProductForm: React.FC<ProductFormProps> = ({
   initialData,
   categories,
@@ -50,6 +52,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const { settings } = useBusinessSettings();
   const { user } = useAuth();
   const { uploadProductImage, compressImage } = useProductImage(user?.id);
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useProductDraft();
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Function to get initial form data
   const getInitialFormData = (productData?: Product): ExtendedProductFormData => {
@@ -94,10 +98,59 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  // Form state - initialize with proper data immediately
+  // Form state
   const [formData, setFormData] = useState<ExtendedProductFormData>(() =>
     getInitialFormData(initialData)
   );
+
+  // Load draft on mount for new products
+  useEffect(() => {
+    if (!initialData && hasDraft) {
+      const draft = loadDraft();
+      if (draft) {
+        setFormData(prev => ({
+          ...prev,
+          ...draft.formData,
+          createdAt: new Date(draft.formData.createdAt)
+        }));
+        if (draft.formData.imageUrl) {
+          setImagePreview(draft.formData.imageUrl);
+        }
+        toast.info('Restored your unsaved product draft');
+      }
+    }
+  }, [initialData]); // Run once on mount
+
+  // Auto-save logic
+  const autoSave = React.useCallback((isPersistent = true) => {
+    if (!initialData && !isLoading) {
+      const hasData = (formData.name?.trim() || '') || 
+                      (formData.barcode?.trim() || '') || 
+                      (formData.description?.trim() || '') || 
+                      (formData.sellingPrice !== undefined && formData.sellingPrice > 0);
+      
+      if (hasData) {
+        saveDraft(formData, isPersistent);
+      }
+    }
+  }, [formData, initialData, isLoading, saveDraft]);
+
+  useEffect(() => {
+    if (initialData) return;
+
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    
+    // Fast session save
+    autoSave(false);
+
+    // Debounced persistent save
+    autoSaveTimeoutRef.current = setTimeout(() => autoSave(true), 2000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      autoSave(true);
+    };
+  }, [autoSave, initialData]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -378,6 +431,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
       // Submit form with final image URL
       await onProductSubmit(submissionData);
+      
+      // Clear draft after successful submission
+      if (!initialData) {
+        clearDraft();
+      }
     } catch (error) {
       console.error('Error handling form submission:', error);
       toast.error('Something went wrong. Please try again.');

@@ -73,32 +73,35 @@ export const useFormState = ({ initialData, defaultPaymentStatus }: UseFormState
   // Sync with initialData if it arrives late or changes
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({
-        ...prev,
-        customerName: initialData.customerName || prev.customerName,
-        customerAddress: initialData.customerAddress || prev.customerAddress,
-        customerContact: initialData.customerContact || prev.customerContact,
-        customerId: initialData.customerId || prev.customerId,
-        // Only override items if we have them in initialData and current items are empty/default
-        items: (initialData.items && initialData.items.length > 0) ? initialData.items : prev.items,
-        // Ensure payment status syncs
-        paymentStatus: (initialData.paymentStatus as 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale') || prev.paymentStatus,
-        taxRate: initialData.taxRate !== undefined ? initialData.taxRate : prev.taxRate,
-        amountPaid: initialData.amountPaid !== undefined ? initialData.amountPaid : prev.amountPaid,
-        amountDue: initialData.amountDue !== undefined ? initialData.amountDue : prev.amountDue,
-        notes: initialData.notes || prev.notes,
-        categoryId: initialData.categoryId || prev.categoryId // Sync Category ID
-      }));
+      const timer = setTimeout(() => {
+        setFormData(prev => ({
+          ...prev,
+          customerName: initialData.customerName || prev.customerName,
+          customerAddress: initialData.customerAddress || prev.customerAddress,
+          customerContact: initialData.customerContact || prev.customerContact,
+          customerId: initialData.customerId || prev.customerId,
+          // Only override items if we have them in initialData and current items are empty/default
+          items: (initialData.items && initialData.items.length > 0) ? initialData.items : prev.items,
+          // Ensure payment status syncs
+          paymentStatus: (initialData.paymentStatus as 'Paid' | 'NOT PAID' | 'Quote' | 'Installment Sale') || prev.paymentStatus,
+          taxRate: initialData.taxRate !== undefined ? initialData.taxRate : prev.taxRate,
+          amountPaid: initialData.amountPaid !== undefined ? initialData.amountPaid : prev.amountPaid,
+          amountDue: initialData.amountDue !== undefined ? initialData.amountDue : prev.amountDue,
+          notes: initialData.notes || prev.notes,
+          categoryId: initialData.categoryId || prev.categoryId // Sync Category ID
+        }));
 
-      if (initialData.categoryId) {
-        // Also ensure formRecentlyCleared doesn't block it
-        setFormRecentlyCleared(false);
-      }
+        if (initialData.categoryId) {
+          // Also ensure formRecentlyCleared doesn't block it
+          setFormRecentlyCleared(false);
+        }
 
-      // Update tax rate input too
-      if (initialData.taxRate !== undefined) {
-        setTaxRateInput(initialData.taxRate.toString());
-      }
+        // Update tax rate input too
+        if (initialData.taxRate !== undefined) {
+          setTaxRateInput(initialData.taxRate.toString());
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [initialData]);
 

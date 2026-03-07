@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -21,13 +22,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.VERCEL_URL ||
+      "http://localhost:3000";
     // Redirect to the UI page in the new payments route
-    const redirectUrl = new URL("/payments/callback", baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`);
-    
+    const redirectUrl = new URL(
+      "/payments/callback",
+      baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`,
+    );
+
     redirectUrl.searchParams.set("OrderTrackingId", trackingId);
     redirectUrl.searchParams.set("purchase_id", ref);
-    
+
     return NextResponse.redirect(redirectUrl.toString());
   } catch (error: any) {
     console.error("Pesapal Callback Redirection Error:", error);

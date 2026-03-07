@@ -14,6 +14,8 @@ export interface TopCustomer {
   orderCount: number;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export const useSalesData = (
   userId: string | undefined,
   sortOrder: string = 'desc',
@@ -26,6 +28,33 @@ export const useSalesData = (
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const { currentBusiness } = useBusiness();
+  const [internalSales, setInternalSales] = useState<Sale[]>(initialData || []);
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && internalSales.length === 0) {
+        let query = localDb.sales.where('locationId').equals(currentBusiness.id);
+        
+        // Apply simple sorting if possible or sort in memory for small datasets
+        const cached = await query.reverse().sortBy('date');
+        
+        if (cached && cached.length > 0) {
+          console.log('[Sales] Loaded from Dexie cache');
+          // Map back to Sale objects (Dates)
+          const mapped = cached.map(s => ({
+            ...s,
+            date: new Date(s.date),
+            createdAt: new Date(s.createdAt),
+            updatedAt: new Date(s.updatedAt)
+          }));
+          
+          setInternalSales(pageSize ? mapped.slice(0, pageSize) : mapped);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id, pageSize]);
 
   const loadSales = useCallback(async (): Promise<Sale[]> => {
     try {
@@ -67,6 +96,16 @@ export const useSalesData = (
         return mapDbSaleToSale(dbSale);
       }) : [];
 
+      // Update Dexie cache in the background (only if we're loading a significant batch)
+      if (formattedSales.length > 0 && !pageSize) {
+         const cacheData = formattedSales.map(s => ({
+           ...s,
+           locationId: currentBusiness.id as string,
+         }));
+         await localDb.sales.where('locationId').equals(currentBusiness.id).delete();
+         await localDb.sales.bulkPut(cacheData as any);
+      }
+
       return formattedSales;
 
     } catch (error) {
@@ -85,7 +124,7 @@ export const useSalesData = (
   const queryKey = useMemo(() => [...baseQueryKey, sortOrder, pageSize], [baseQueryKey, sortOrder, pageSize]);
 
   const {
-    data: sales = [],
+    data: sales = internalSales,
     isLoading: isQueryLoading,
     isFetching,
     refetch
@@ -97,8 +136,14 @@ export const useSalesData = (
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    initialData: initialData?.length ? initialData : undefined
+    initialData: initialData?.length ? initialData : (internalSales.length > 0 ? internalSales : undefined)
   });
+
+  useEffect(() => {
+    if (sales.length > 0) {
+      setInternalSales(sales);
+    }
+  }, [sales]);
 
   // Derived loading state
   const isLoading = isQueryLoading || (isFetching && sales.length === 0);

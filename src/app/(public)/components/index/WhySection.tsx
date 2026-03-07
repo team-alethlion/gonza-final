@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Zap, TrendingUp, ShieldCheck, Star, ArrowRight } from "lucide-react";

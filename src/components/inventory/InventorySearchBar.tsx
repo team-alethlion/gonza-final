@@ -29,8 +29,13 @@ const InventorySearchBar: React.FC<InventorySearchBarProps> = ({
     // Sync local state when external filters change
     useEffect(() => {
         const searchVal = filters.search || '';
-        setLocalSearch(searchVal);
-    }, [filters.search]);
+        if (localSearch !== searchVal) {
+            const timer = setTimeout(() => {
+                setLocalSearch(searchVal);
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [filters.search, localSearch]);
 
     // Handle typing - update local state and trigger suggestions (no database fetch)
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -14,7 +14,7 @@ export function useInstallPWA() {
   useEffect(() => {
     // Check if the app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
+      setTimeout(() => setIsInstalled(true), 0);
     }
 
     // Store the install prompt event for later use

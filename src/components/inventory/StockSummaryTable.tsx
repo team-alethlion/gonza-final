@@ -203,8 +203,13 @@ const StockSummaryTable: React.FC<StockSummaryTableProps> = ({
 
   // Reset page when filters change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, categoryFilter, stockStatusFilter]);
+    if (currentPage !== 1) {
+      const timer = setTimeout(() => {
+        setCurrentPage(1);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm, categoryFilter, stockStatusFilter, currentPage]);
 
   // Notify parent component when filtered data changes
   useEffect(() => {

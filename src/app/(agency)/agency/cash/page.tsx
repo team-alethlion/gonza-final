@@ -1,21 +1,22 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useBusiness } from '@/contexts/BusinessContext';
-import { useCashAccounts } from '@/hooks/useCashAccounts';
-import CashContent from '@/components/cash/CashContent';
-import { CashAccountFormData } from '@/types/cash';
-import { useCashAccountRedirect } from '@/hooks/useCashAccountRedirect';
-import { useProfiles } from '@/contexts/ProfileContext';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useCashAccounts } from "@/hooks/useCashAccounts";
+import CashContent from "@/components/cash/CashContent";
+import { CashAccountFormData } from "@/types/cash";
+import { useCashAccountRedirect } from "@/hooks/useCashAccountRedirect";
+import { useProfiles } from "@/contexts/ProfileContext";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 
 const Cash = () => {
   const { currentBusiness, isLoading: businessLoading } = useBusiness();
   const router = useRouter();
-  const { accounts, isLoading, createAccount, refreshAccounts } = useCashAccounts();
+  const { accounts, isLoading, createAccount, refreshAccounts } =
+    useCashAccounts();
   const { hasPermission, isLoading: profilesLoading } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -27,7 +28,7 @@ const Cash = () => {
       await createAccount(data);
       setIsDialogOpen(false);
     } catch (error) {
-      console.error('Error creating account:', error);
+      console.error("Error creating account:", error);
     }
   };
 
@@ -44,19 +45,19 @@ const Cash = () => {
     );
   }
 
-  if (!hasPermission('finance', 'view')) {
+  if (!hasPermission("finance", "view")) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            You do not have permission to view finance/cash accounts.
-            Please contact your administrator if you believe this is an error.
+            You do not have permission to view finance/cash accounts. Please
+            contact your administrator if you believe this is an error.
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button onClick={() => router.push('/')} variant="outline">
+          <Button onClick={() => router.push("/")} variant="outline">
             Back to Dashboard
           </Button>
         </div>
@@ -64,7 +65,7 @@ const Cash = () => {
     );
   }
 
-  const canCreate = hasPermission('finance', 'create');
+  const canCreate = hasPermission("finance", "create");
 
   return (
     <div className="space-y-6 p-4 md:p-0">

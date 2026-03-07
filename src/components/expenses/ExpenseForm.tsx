@@ -27,6 +27,8 @@ interface ExpenseFormProps {
   title?: string;
 }
 
+import { useExpenseDraft } from '@/hooks/useExpenseDraft';
+
 const ExpenseForm: React.FC<ExpenseFormProps> = ({
   open,
   onOpenChange,
@@ -34,6 +36,9 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
   initialData,
   title = "Add New Expense"
 }) => {
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useExpenseDraft();
+  const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
+
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -49,6 +54,59 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+
+  // Load draft when opening for NEW expense
+  useEffect(() => {
+    if (open && !initialData && hasDraft) {
+      const draft = loadDraft();
+      if (draft) {
+        setAmount(draft.formData.amount || '');
+        setDescription(draft.formData.description || '');
+        setCategory(draft.formData.category || '');
+        setDate(new Date(draft.formData.date));
+        setPaymentMethod(draft.formData.paymentMethod || '');
+        setPersonInCharge(draft.formData.personInCharge || '');
+        setLinkToCash(draft.formData.linkToCash || false);
+        setCashAccountId(draft.formData.cashAccountId || '');
+        toast({
+          title: "Draft Restored",
+          description: "We've restored your unsaved expense details.",
+        });
+      }
+    }
+  }, [open, initialData]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (!open || initialData || isSubmitting) return;
+
+    const data = {
+      amount,
+      description,
+      category,
+      date: date.toISOString(),
+      paymentMethod,
+      personInCharge,
+      linkToCash,
+      cashAccountId
+    };
+
+    const hasData = amount || description || category || paymentMethod || personInCharge;
+
+    if (hasData) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      
+      // Fast session save
+      saveDraft(data, false);
+
+      // Debounced persistent save
+      autoSaveTimeoutRef.current = setTimeout(() => saveDraft(data, true), 2000);
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [amount, description, category, date, paymentMethod, personInCharge, linkToCash, cashAccountId, open, initialData, isSubmitting, saveDraft]);
 
   const { accounts } = useCashAccounts();
   const { categories, createCategory } = useExpenseCategories();
@@ -133,6 +191,12 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
       console.log('ExpenseForm: Final expense data:', expenseData);
       await onSubmit(expenseData);
+      
+      // Clear draft after successful submission
+      if (!initialData) {
+        clearDraft();
+      }
+      
       onOpenChange(false);
     } catch (error) {
       console.error('Error submitting expense:', error);

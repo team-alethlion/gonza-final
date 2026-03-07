@@ -35,10 +35,31 @@ export interface ChainRepairPreview {
   currentProductQty: number;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export const useStockHistory = (userId: string | undefined, productId?: string) => {
   const [stockHistory, setStockHistory] = useState<StockHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentBusiness } = useBusiness();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && stockHistory.length === 0) {
+        let query = localDb.stockHistory.where('locationId').equals(currentBusiness.id);
+        
+        if (productId) {
+          const cached = await query.and(h => h.productId === productId).reverse().sortBy('createdAt');
+          setStockHistory(cached.map(h => ({...h, createdAt: new Date(h.createdAt)})));
+        } else {
+          const cached = await query.reverse().sortBy('createdAt');
+          setStockHistory(cached.map(h => ({...h, createdAt: new Date(h.createdAt)})));
+        }
+        setIsLoading(false);
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id, productId]);
 
   const loadStockHistory = useCallback(async () => {
     if (!userId || !currentBusiness) {
@@ -48,7 +69,7 @@ export const useStockHistory = (userId: string | undefined, productId?: string) 
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(stockHistory.length === 0);
       const result = await getStockHistoryAction(currentBusiness.id, productId);
 
       if (!result.success || !result.data) {
@@ -66,6 +87,16 @@ export const useStockHistory = (userId: string | undefined, productId?: string) 
         receiptNumber: entry.receiptNumber,
         product: entry.product
       }));
+
+      // Update Dexie cache in background (only if it's a general list or first 50 items)
+      if (formattedHistory.length > 0 && !productId) {
+        const cacheData = formattedHistory.map(h => ({
+          ...h,
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.stockHistory.where('locationId').equals(currentBusiness.id).delete();
+        await localDb.stockHistory.bulkPut(cacheData as any);
+      }
 
       setStockHistory(formattedHistory);
     } catch (error) {

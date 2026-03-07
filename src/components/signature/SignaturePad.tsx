@@ -21,6 +21,7 @@ const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({
   const signaturePadRef = useRef<SignaturePad | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [showPad, setShowPad] = useState(!existingSignature);
+  const [isEmpty, setIsEmpty] = useState(true);
 
   useEffect(() => {
     if (canvasRef.current && showPad) {
@@ -37,8 +38,14 @@ const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({
       const signaturePad = signaturePadRef.current;
 
       // Set up event listeners
-      const handleBeginStroke = () => setIsDrawing(true);
-      const handleEndStroke = () => setIsDrawing(false);
+      const handleBeginStroke = () => {
+        setIsDrawing(true);
+        setIsEmpty(false);
+      };
+      const handleEndStroke = () => {
+        setIsDrawing(false);
+        setIsEmpty(signaturePad.isEmpty());
+      };
 
       signaturePad.addEventListener('beginStroke', handleBeginStroke);
       signaturePad.addEventListener('endStroke', handleEndStroke);
@@ -63,6 +70,7 @@ const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({
             }
             
             signaturePad.clear();
+            setIsEmpty(true);
           }
         }
       };
@@ -83,6 +91,7 @@ const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({
     if (signaturePadRef.current) {
       signaturePadRef.current.clear();
       setIsDrawing(false);
+      setIsEmpty(true);
     }
   };
 
@@ -94,7 +103,7 @@ const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({
     }
   };
 
-  const hasSignature = signaturePadRef.current && !signaturePadRef.current.isEmpty();
+  const hasSignature = !isEmpty;
 
   if (!showPad && existingSignature) {
     return (

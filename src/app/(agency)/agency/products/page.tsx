@@ -1,47 +1,61 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Plus, RefreshCw, Download, Upload, Trash2, ArrowLeft, Printer } from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useBusiness } from '@/contexts/BusinessContext';
-import InventoryTable from '@/components/inventory/InventoryTable';
-import InventoryFilters from '@/components/inventory/InventoryFilters';
-import InventoryStats from '@/components/inventory/InventoryStats';
-import { useProducts } from '@/hooks/useProducts';
-import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { formatNumber } from '@/lib/utils';
-import { exportProductsForUpdate } from '@/utils/exportProductsForUpdate';
-import { exportProductsToCSV } from '@/utils/exportProductsToCSV';
-import { exportProductsToPDF } from '@/utils/exportProductsToPDF';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import BulkDeleteDialog from '@/components/inventory/BulkDeleteDialog';
-import CSVUploadDialog from '@/components/inventory/CSVUploadDialog';
-import CSVUpdateDialog from '@/components/inventory/CSVUpdateDialog';
-import BulkPrintDialog from '@/components/inventory/BulkPrintDialog';
-import BarcodeExportDialog, { BarcodeExportConfig } from '@/components/inventory/BarcodeExportDialog';
-import { useBulkProducts } from '@/hooks/useBulkProducts';
-import { generateProductCSVTemplate } from '@/utils/csvTemplate';
-import { useCategories } from '@/hooks/useCategories';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SortField } from '@/components/inventory/InventoryTable';
-import { Product } from '@/types';
-import { getProductStatsAction, getFilteredProductsForExportAction } from '@/app/actions/products';
-import { exportBulkBarcodesToPDF } from '@/utils/exportBarcodeToPDF';
+import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Plus,
+  RefreshCw,
+  Download,
+  Upload,
+  Trash2,
+  ArrowLeft,
+  Printer,
+} from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useBusiness } from "@/contexts/BusinessContext";
+import InventoryTable from "@/components/inventory/InventoryTable";
+import InventoryFilters from "@/components/inventory/InventoryFilters";
+import InventoryStats from "@/components/inventory/InventoryStats";
+import { useProducts } from "@/hooks/useProducts";
+import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { formatNumber } from "@/lib/utils";
+import { exportProductsForUpdate } from "@/utils/exportProductsForUpdate";
+import { exportProductsToCSV } from "@/utils/exportProductsToCSV";
+import { exportProductsToPDF } from "@/utils/exportProductsToPDF";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import BulkDeleteDialog from "@/components/inventory/BulkDeleteDialog";
+import CSVUploadDialog from "@/components/inventory/CSVUploadDialog";
+import CSVUpdateDialog from "@/components/inventory/CSVUpdateDialog";
+import BulkPrintDialog from "@/components/inventory/BulkPrintDialog";
+import BarcodeExportDialog, {
+  BarcodeExportConfig,
+} from "@/components/inventory/BarcodeExportDialog";
+import { useBulkProducts } from "@/hooks/useBulkProducts";
+import { generateProductCSVTemplate } from "@/utils/csvTemplate";
+import { useCategories } from "@/hooks/useCategories";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SortField } from "@/components/inventory/InventoryTable";
+import { Product } from "@/types";
+import {
+  getProductStatsAction,
+  getFilteredProductsForExportAction,
+} from "@/app/actions/products";
+import { exportBulkBarcodesToPDF } from "@/utils/exportBarcodeToPDF";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
-import { useProfiles } from '@/contexts/ProfileContext';
+import { useProfiles } from "@/contexts/ProfileContext";
 
-type SortOrder = 'asc' | 'desc';
+type SortOrder = "asc" | "desc";
 
 const Products = () => {
   const router = useRouter();
@@ -51,10 +65,10 @@ const Products = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const canCreate = hasPermission('inventory', 'create');
-  const canEdit = hasPermission('inventory', 'edit');
-  const canDelete = hasPermission('inventory', 'delete');
-  const canView = hasPermission('inventory', 'view');
+  const canCreate = hasPermission("inventory", "create");
+  const canEdit = hasPermission("inventory", "edit");
+  const canDelete = hasPermission("inventory", "delete");
+  const canView = hasPermission("inventory", "view");
 
   const {
     products,
@@ -71,16 +85,17 @@ const Products = () => {
     setPageSize,
     totalCount,
     refetch,
-    isFetching
+    isFetching,
   } = useProducts(user?.id, 50);
 
   const { categories } = useCategories(user?.id);
   const { bulkCreateProducts } = useBulkProducts();
   const { settings } = useBusinessSettings();
 
-
   // Bulk actions state
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkPrintOpen, setBulkPrintOpen] = useState(false);
   const [productsToPrint, setProductsToPrint] = useState<Product[]>([]);
@@ -91,18 +106,28 @@ const Products = () => {
   const [isExportingBarcodes, setIsExportingBarcodes] = useState(false);
   const [barcodeExportOpen, setBarcodeExportOpen] = useState(false);
   const [productsToExport, setProductsToExport] = useState<Product[]>([]);
-  const [deletionProgress, setDeletionProgress] = useState<{ current: number; total: number } | undefined>(undefined);
-  const [printProgress, setPrintProgress] = useState<{ current: number; total: number } | undefined>(undefined);
+  const [deletionProgress, setDeletionProgress] = useState<
+    { current: number; total: number } | undefined
+  >(undefined);
+  const [printProgress, setPrintProgress] = useState<
+    { current: number; total: number } | undefined
+  >(undefined);
 
   // Add sorting state
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
   // Global totals (all products, not just current page)
-  const [totalCostValueAll, setTotalCostValueAll] = useState<number | undefined>(undefined);
+  const [totalCostValueAll, setTotalCostValueAll] = useState<
+    number | undefined
+  >(undefined);
   const [lowStockAll, setLowStockAll] = useState<number | undefined>(undefined);
-  const [outOfStockAll, setOutOfStockAll] = useState<number | undefined>(undefined);
-  const [totalStockValueAll, setTotalStockValueAll] = useState<number | undefined>(undefined);
+  const [outOfStockAll, setOutOfStockAll] = useState<number | undefined>(
+    undefined,
+  );
+  const [totalStockValueAll, setTotalStockValueAll] = useState<
+    number | undefined
+  >(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +138,13 @@ const Products = () => {
       const cachedRaw = localStorage.getItem(cacheKey);
       try {
         if (cachedRaw) {
-          const cached = JSON.parse(cachedRaw) as { costValue: number; lowStock: number; outOfStock: number; stockValue: number; ts: number };
+          const cached = JSON.parse(cachedRaw) as {
+            costValue: number;
+            lowStock: number;
+            outOfStock: number;
+            stockValue: number;
+            ts: number;
+          };
           if (Date.now() - cached.ts < 5 * 60 * 1000) {
             setTotalCostValueAll(cached.costValue);
             setLowStockAll(cached.lowStock);
@@ -122,7 +153,7 @@ const Products = () => {
             return;
           }
         }
-      } catch { }
+      } catch {}
 
       const stats = await getProductStatsAction(currentBusiness.id);
       if (!cancelled) {
@@ -131,12 +162,17 @@ const Products = () => {
         setOutOfStockAll(stats.outOfStock);
         setTotalStockValueAll(stats.stockValue);
         try {
-          localStorage.setItem(cacheKey, JSON.stringify({ ...stats, ts: Date.now() }));
-        } catch { }
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ ...stats, ts: Date.now() }),
+          );
+        } catch {}
       }
     };
     loadTotals();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, currentBusiness?.id]);
 
   // Memoize sorted and filtered products
@@ -145,27 +181,27 @@ const Products = () => {
       let comparison = 0;
 
       switch (sortField) {
-        case 'name':
+        case "name":
           comparison = a.name.localeCompare(b.name);
           break;
-        case 'category':
+        case "category":
           comparison = a.category.localeCompare(b.category);
           break;
-        case 'quantity':
+        case "quantity":
           comparison = a.quantity - b.quantity;
           break;
-        case 'sellingPrice':
+        case "sellingPrice":
           comparison = a.sellingPrice - b.sellingPrice;
           break;
-        case 'costPrice':
+        case "costPrice":
           comparison = a.costPrice - b.costPrice;
           break;
-        case 'itemNumber':
+        case "itemNumber":
           comparison = a.itemNumber.localeCompare(b.itemNumber);
           break;
       }
 
-      return sortOrder === 'asc' ? comparison : -comparison;
+      return sortOrder === "asc" ? comparison : -comparison;
     });
   }, [filteredProducts, sortField, sortOrder]);
 
@@ -182,28 +218,49 @@ const Products = () => {
   const fetchAllProductsForExport = async (): Promise<Product[]> => {
     if (!user?.id || !currentBusiness?.id) return [];
     try {
-      const raw = await getFilteredProductsForExportAction(currentBusiness.id, filters);
+      const raw = await getFilteredProductsForExportAction(
+        currentBusiness.id,
+        filters,
+      );
       if (!raw) return [];
-      const { mapDbProductToProduct } = await import('@/types');
+      const { mapDbProductToProduct } = await import("@/types");
       let formattedProducts = (raw as any[]).map(mapDbProductToProduct);
-      if (filters.stockStatus === 'lowStock') {
-        formattedProducts = formattedProducts.filter(p => p.quantity > 0 && p.quantity <= p.minimumStock);
+      if (filters.stockStatus === "lowStock") {
+        formattedProducts = formattedProducts.filter(
+          (p) => p.quantity > 0 && p.quantity <= p.minimumStock,
+        );
       }
       return formattedProducts.sort((a, b) => {
         let cmp = 0;
         switch (sortField) {
-          case 'name': cmp = a.name.localeCompare(b.name); break;
-          case 'category': cmp = a.category.localeCompare(b.category); break;
-          case 'quantity': cmp = a.quantity - b.quantity; break;
-          case 'sellingPrice': cmp = a.sellingPrice - b.sellingPrice; break;
-          case 'costPrice': cmp = a.costPrice - b.costPrice; break;
-          case 'itemNumber': cmp = a.itemNumber.localeCompare(b.itemNumber); break;
+          case "name":
+            cmp = a.name.localeCompare(b.name);
+            break;
+          case "category":
+            cmp = a.category.localeCompare(b.category);
+            break;
+          case "quantity":
+            cmp = a.quantity - b.quantity;
+            break;
+          case "sellingPrice":
+            cmp = a.sellingPrice - b.sellingPrice;
+            break;
+          case "costPrice":
+            cmp = a.costPrice - b.costPrice;
+            break;
+          case "itemNumber":
+            cmp = a.itemNumber.localeCompare(b.itemNumber);
+            break;
         }
-        return sortOrder === 'asc' ? cmp : -cmp;
+        return sortOrder === "asc" ? cmp : -cmp;
       });
     } catch (error) {
-      console.error('Error fetching all products for export:', error);
-      toast({ title: 'Export failed', description: 'Failed to fetch products for export.', variant: 'destructive' });
+      console.error("Error fetching all products for export:", error);
+      toast({
+        title: "Export failed",
+        description: "Failed to fetch products for export.",
+        variant: "destructive",
+      });
       return [];
     }
   };
@@ -226,7 +283,7 @@ const Products = () => {
       toast({
         title: "No products to export",
         description: "There are no products matching your current filters.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -249,7 +306,7 @@ const Products = () => {
       toast({
         title: "No products to export",
         description: "There are no products matching your current filters.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -272,7 +329,7 @@ const Products = () => {
       toast({
         title: "No products to export",
         description: "There are no products matching your current filters.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -291,11 +348,12 @@ const Products = () => {
       setCsvUploadOpen(false);
       await loadProducts();
     } catch (error) {
-      console.error('CSV upload failed:', error);
+      console.error("CSV upload failed:", error);
       toast({
         title: "Upload failed",
-        description: "There was an error uploading your products. Please try again.",
-        variant: "destructive"
+        description:
+          "There was an error uploading your products. Please try again.",
+        variant: "destructive",
       });
     }
   };
@@ -343,7 +401,10 @@ const Products = () => {
         }
 
         currentCount++;
-        setDeletionProgress({ current: currentCount, total: selectedProductIds.size });
+        setDeletionProgress({
+          current: currentCount,
+          total: selectedProductIds.size,
+        });
       }
 
       setSelectedProductIds(new Set());
@@ -351,22 +412,25 @@ const Products = () => {
       if (successCount > 0) {
         toast({
           title: "Products deleted",
-          description: `Successfully deleted ${successCount} product${successCount > 1 ? 's' : ''}`,
+          description: `Successfully deleted ${successCount} product${
+            successCount > 1 ? "s" : ""
+          }`,
         });
       }
 
       if (failureCount > 0) {
         toast({
           title: "Some deletions failed",
-          description: `${failureCount} product${failureCount > 1 ? 's' : ''} could not be deleted`,
-          variant: "destructive"
+          description: `${failureCount} product${
+            failureCount > 1 ? "s" : ""
+          } could not be deleted`,
+          variant: "destructive",
         });
       }
 
       setBulkDeleteOpen(false);
       // Only refresh once at the end, after dialog is closed
       await loadProducts();
-
     } finally {
       setIsDeleting(false);
       setDeletionProgress(undefined);
@@ -383,8 +447,9 @@ const Products = () => {
       if (allFiltered.length === 0) {
         toast({
           title: "No products found",
-          description: "There are no products matching your current filters to print.",
-          variant: "destructive"
+          description:
+            "There are no products matching your current filters to print.",
+          variant: "destructive",
         });
         return;
       }
@@ -394,7 +459,7 @@ const Products = () => {
         toast({
           title: "No products selected",
           description: "Please select products to print or use 'Print All'.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -416,23 +481,27 @@ const Products = () => {
       for (const p of productsToPrint) {
         if (!p.barcode) {
           failureCount++;
-          setPrintProgress(prev => prev ? { ...prev, current: prev.current + 1 } : undefined);
+          setPrintProgress((prev) =>
+            prev ? { ...prev, current: prev.current + 1 } : undefined,
+          );
           continue;
         }
 
         try {
           const priceText = showPrice
-            ? `TEXT 15,180,"3",0,1,1,"${settings.currency} ${formatNumber(p.sellingPrice)}"\n`
-            : '';
+            ? `TEXT 15,180,"3",0,1,1,"${settings.currency} ${formatNumber(
+                p.sellingPrice,
+              )}"\n`
+            : "";
 
-          const response = await fetch('http://localhost:5000/print/label', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            mode: 'cors',
+          const response = await fetch("http://localhost:5000/print/label", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            mode: "cors",
             body: JSON.stringify({
-              PrinterName: settings.defaultPrinterName || 'Label Printer',
-              Content: `SIZE 50 mm, 30 mm\nGAP 3 mm, 0 mm\nCLS\nTEXT 15,20,"3",0,1,1,"${p.name}"\nBARCODE 15,70,"128",60,1,0,2,2,"${p.barcode}"\n${priceText}PRINT 1\n`
-            })
+              PrinterName: settings.defaultPrinterName || "Label Printer",
+              Content: `SIZE 50 mm, 30 mm\nGAP 3 mm, 0 mm\nCLS\nTEXT 15,20,"3",0,1,1,"${p.name}"\nBARCODE 15,70,"128",60,1,0,2,2,"${p.barcode}"\n${priceText}PRINT 1\n`,
+            }),
           });
 
           if (response.ok) {
@@ -445,10 +514,12 @@ const Products = () => {
           failureCount++;
         }
 
-        setPrintProgress(prev => prev ? { ...prev, current: prev.current + 1 } : undefined);
+        setPrintProgress((prev) =>
+          prev ? { ...prev, current: prev.current + 1 } : undefined,
+        );
 
         // Minor delay to prevent overwhelming the bridge/printer
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       if (successCount > 0) {
@@ -462,7 +533,7 @@ const Products = () => {
         toast({
           title: "Some labels failed",
           description: `${failureCount} labels could not be printed. Check your connection.`,
-          variant: "destructive"
+          variant: "destructive",
         });
       }
 
@@ -489,52 +560,58 @@ const Products = () => {
           toast({
             title: "No products selected",
             description: "Please select products to export barcodes.",
-            variant: "destructive"
+            variant: "destructive",
           });
           return;
         }
         productsToExport = selectedProducts;
       }
 
-      const productsWithBarcodes = productsToExport.filter(p => p.barcode);
+      const productsWithBarcodes = productsToExport.filter((p) => p.barcode);
 
       if (productsWithBarcodes.length === 0) {
         toast({
           title: "No barcodes to export",
           description: "None of the selected products have barcodes.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
 
       toast({
         title: "Generating PDF...",
-        description: `Exporting ${productsWithBarcodes.length} barcode${productsWithBarcodes.length > 1 ? 's' : ''}...`,
+        description: `Exporting ${productsWithBarcodes.length} barcode${
+          productsWithBarcodes.length > 1 ? "s" : ""
+        }...`,
       });
 
       await exportBulkBarcodesToPDF(productsWithBarcodes, {
         showPrice: true,
-        currency: settings.currency
+        currency: settings.currency,
       });
 
       toast({
         title: "Export successful",
-        description: `${productsWithBarcodes.length} barcode${productsWithBarcodes.length > 1 ? 's' : ''} exported to PDF.`,
+        description: `${productsWithBarcodes.length} barcode${
+          productsWithBarcodes.length > 1 ? "s" : ""
+        } exported to PDF.`,
       });
 
       if (productsToExport.length > productsWithBarcodes.length) {
         const skipped = productsToExport.length - productsWithBarcodes.length;
         toast({
           title: "Some products skipped",
-          description: `${skipped} product${skipped > 1 ? 's' : ''} without barcodes were not included.`,
+          description: `${skipped} product${
+            skipped > 1 ? "s" : ""
+          } without barcodes were not included.`,
         });
       }
     } catch (error) {
-      console.error('Barcode export failed:', error);
+      console.error("Barcode export failed:", error);
       toast({
         title: "Export failed",
         description: "Failed to export barcodes. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsExportingBarcodes(false);
@@ -556,20 +633,20 @@ const Products = () => {
           toast({
             title: "No products selected",
             description: "Please select products to export barcodes.",
-            variant: "destructive"
+            variant: "destructive",
           });
           return;
         }
         products = selectedProducts;
       }
 
-      const productsWithBarcodes = products.filter(p => p.barcode);
+      const productsWithBarcodes = products.filter((p) => p.barcode);
 
       if (productsWithBarcodes.length === 0) {
         toast({
           title: "No barcodes to export",
           description: "None of the selected products have barcodes.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -577,11 +654,11 @@ const Products = () => {
       setProductsToExport(productsWithBarcodes);
       setBarcodeExportOpen(true);
     } catch (error) {
-      console.error('Failed to prepare barcode export:', error);
+      console.error("Failed to prepare barcode export:", error);
       toast({
         title: "Export preparation failed",
         description: "Failed to prepare products for export.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -591,7 +668,9 @@ const Products = () => {
     try {
       toast({
         title: "Generating PDF...",
-        description: `Exporting ${productsToExport.length} barcode${productsToExport.length > 1 ? 's' : ''}...`,
+        description: `Exporting ${productsToExport.length} barcode${
+          productsToExport.length > 1 ? "s" : ""
+        }...`,
       });
 
       await exportBulkBarcodesToPDF(productsToExport, {
@@ -601,16 +680,18 @@ const Products = () => {
 
       toast({
         title: "Export successful",
-        description: `${productsToExport.length} barcode${productsToExport.length > 1 ? 's' : ''} exported to PDF.`,
+        description: `${productsToExport.length} barcode${
+          productsToExport.length > 1 ? "s" : ""
+        } exported to PDF.`,
       });
 
       setBarcodeExportOpen(false);
     } catch (error) {
-      console.error('Barcode export failed:', error);
+      console.error("Barcode export failed:", error);
       toast({
         title: "Export failed",
         description: "Failed to export barcodes. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsExportingBarcodes(false);
@@ -630,26 +711,32 @@ const Products = () => {
         toast({
           title: "Update failed",
           description: "Failed to update product. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return false;
       }
     } catch (error) {
-      console.error('Error updating product:', error);
+      console.error("Error updating product:", error);
       toast({
         title: "Update failed",
         description: "An error occurred while updating the product.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return false;
     }
   };
 
   const selectedProducts = useMemo(() => {
-    return sortedProducts.filter(product => selectedProductIds.has(product.id));
+    return sortedProducts.filter((product) =>
+      selectedProductIds.has(product.id),
+    );
   }, [sortedProducts, selectedProductIds]);
 
-  if (businessLoading || !currentBusiness || (isLoading && products.length === 0)) {
+  if (
+    businessLoading ||
+    !currentBusiness ||
+    (isLoading && products.length === 0)
+  ) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <LoadingSpinner />
@@ -667,14 +754,15 @@ const Products = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push('/inventory')}
+              onClick={() => router.push("/inventory")}
               className="shrink-0 h-8 w-8"
-              title="Back to inventory"
-            >
+              title="Back to inventory">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="space-y-1">
-              <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-sales-dark">Products</h1>
+              <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-sales-dark">
+                Products
+              </h1>
               <p className="text-xs md:text-base text-muted-foreground">
                 Manage your product inventory and pricing
               </p>
@@ -686,7 +774,9 @@ const Products = () => {
             <div className="space-y-2">
               <div className="flex gap-2">
                 {canCreate && (
-                  <Button onClick={() => router.push('/inventory/new')} className="flex-1 gap-2 h-9">
+                  <Button
+                    onClick={() => router.push("/inventory/new")}
+                    className="flex-1 gap-2 h-9">
                     <Plus size={16} /> Add Product
                   </Button>
                 )}
@@ -695,18 +785,27 @@ const Products = () => {
                   variant="outline"
                   size="icon"
                   disabled={isLoading || isFetching}
-                  className="shrink-0 h-9 w-9"
-                >
-                  <RefreshCw className={`h-4 w-4 ${(isLoading || isFetching) ? 'animate-spin' : ''}`} />
+                  className="shrink-0 h-9 w-9">
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      isLoading || isFetching ? "animate-spin" : ""
+                    }`}
+                  />
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {canCreate && (
                   <>
-                    <Button onClick={handleDownloadTemplate} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={handleDownloadTemplate}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Download size={14} /> Template
                     </Button>
-                    <Button onClick={() => setCsvUploadOpen(true)} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={() => setCsvUploadOpen(true)}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Upload size={14} /> Add CSV
                     </Button>
                   </>
@@ -715,10 +814,16 @@ const Products = () => {
               <div className="grid grid-cols-2 gap-2">
                 {canEdit && (
                   <>
-                    <Button onClick={handleExportForUpdate} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={handleExportForUpdate}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Download size={14} /> Export for Editing
                     </Button>
-                    <Button onClick={() => setCsvUpdateOpen(true)} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={() => setCsvUpdateOpen(true)}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Upload size={14} /> Update CSV
                     </Button>
                   </>
@@ -727,10 +832,16 @@ const Products = () => {
               <div className="grid grid-cols-2 gap-2">
                 {canView && (
                   <>
-                    <Button onClick={handleExportCSV} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={handleExportCSV}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Download size={14} /> Full Export
                     </Button>
-                    <Button onClick={handleExportPDF} variant="outline" className="gap-1 text-xs h-8">
+                    <Button
+                      onClick={handleExportPDF}
+                      variant="outline"
+                      className="gap-1 text-xs h-8">
                       <Download size={14} /> PDF
                     </Button>
                   </>
@@ -741,9 +852,9 @@ const Products = () => {
                   onClick={() => setBulkDeleteOpen(true)}
                   variant="destructive"
                   className="w-full gap-2 text-xs h-8"
-                  disabled={isDeleting}
-                >
-                  <Trash2 size={14} /> Delete Selected ({selectedProductIds.size})
+                  disabled={isDeleting}>
+                  <Trash2 size={14} /> Delete Selected (
+                  {selectedProductIds.size})
                 </Button>
               )}
               {canEdit && (
@@ -752,16 +863,14 @@ const Products = () => {
                     onClick={() => handleOpenBulkPrint(false)}
                     variant="outline"
                     className="gap-2 text-xs h-8"
-                    disabled={selectedProductIds.size === 0 || isPrinting}
-                  >
+                    disabled={selectedProductIds.size === 0 || isPrinting}>
                     <Printer size={14} /> Print Selected
                   </Button>
                   <Button
                     onClick={() => handleOpenBulkPrint(true)}
                     variant="outline"
                     className="gap-2 text-xs h-8"
-                    disabled={totalCount === 0 || isPrinting}
-                  >
+                    disabled={totalCount === 0 || isPrinting}>
                     <Printer size={14} /> Print All ({totalCount})
                   </Button>
                 </div>
@@ -772,16 +881,16 @@ const Products = () => {
                     onClick={() => handleOpenBarcodeExport(false)}
                     variant="outline"
                     className="gap-2 text-xs h-8"
-                    disabled={selectedProductIds.size === 0 || isExportingBarcodes}
-                  >
+                    disabled={
+                      selectedProductIds.size === 0 || isExportingBarcodes
+                    }>
                     <Download size={14} /> Export Barcodes
                   </Button>
                   <Button
                     onClick={() => handleOpenBarcodeExport(true)}
                     variant="outline"
                     className="gap-2 text-xs h-8"
-                    disabled={totalCount === 0 || isExportingBarcodes}
-                  >
+                    disabled={totalCount === 0 || isExportingBarcodes}>
                     <Download size={14} /> All Barcodes
                   </Button>
                 </div>
@@ -795,17 +904,26 @@ const Products = () => {
                 variant="outline"
                 size="icon"
                 disabled={isLoading || isFetching}
-                title="Refresh products"
-              >
-                <RefreshCw className={`h-4 w-4 ${(isLoading || isFetching) ? 'animate-spin' : ''}`} />
+                title="Refresh products">
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    isLoading || isFetching ? "animate-spin" : ""
+                  }`}
+                />
               </Button>
 
               {canCreate && (
                 <>
-                  <Button onClick={handleDownloadTemplate} variant="outline" className="gap-2">
+                  <Button
+                    onClick={handleDownloadTemplate}
+                    variant="outline"
+                    className="gap-2">
                     <Download size={16} /> CSV Template
                   </Button>
-                  <Button onClick={() => setCsvUploadOpen(true)} variant="outline" className="gap-2">
+                  <Button
+                    onClick={() => setCsvUploadOpen(true)}
+                    variant="outline"
+                    className="gap-2">
                     <Upload size={16} /> Add via CSV
                   </Button>
                 </>
@@ -813,10 +931,16 @@ const Products = () => {
 
               {canEdit && (
                 <>
-                  <Button onClick={handleExportForUpdate} variant="outline" className="gap-2">
+                  <Button
+                    onClick={handleExportForUpdate}
+                    variant="outline"
+                    className="gap-2">
                     <Download size={16} /> Export for Editing
                   </Button>
-                  <Button onClick={() => setCsvUpdateOpen(true)} variant="outline" className="gap-2">
+                  <Button
+                    onClick={() => setCsvUpdateOpen(true)}
+                    variant="outline"
+                    className="gap-2">
                     <Upload size={16} /> Update via CSV
                   </Button>
                 </>
@@ -824,10 +948,16 @@ const Products = () => {
 
               {canView && (
                 <>
-                  <Button onClick={handleExportCSV} variant="outline" className="gap-2">
+                  <Button
+                    onClick={handleExportCSV}
+                    variant="outline"
+                    className="gap-2">
                     <Download size={16} /> Full Export
                   </Button>
-                  <Button onClick={handleExportPDF} variant="outline" className="gap-2">
+                  <Button
+                    onClick={handleExportPDF}
+                    variant="outline"
+                    className="gap-2">
                     <Download size={16} /> Export PDF
                   </Button>
                 </>
@@ -837,9 +967,9 @@ const Products = () => {
                   onClick={() => setBulkDeleteOpen(true)}
                   variant="destructive"
                   className="gap-2"
-                  disabled={isDeleting}
-                >
-                  <Trash2 size={16} /> Delete Selected ({selectedProductIds.size})
+                  disabled={isDeleting}>
+                  <Trash2 size={16} /> Delete Selected (
+                  {selectedProductIds.size})
                 </Button>
               )}
               {canEdit && (
@@ -848,16 +978,14 @@ const Products = () => {
                     onClick={() => handleOpenBulkPrint(false)}
                     variant="outline"
                     className="gap-2"
-                    disabled={selectedProductIds.size === 0 || isPrinting}
-                  >
+                    disabled={selectedProductIds.size === 0 || isPrinting}>
                     <Printer size={16} /> Print Selected
                   </Button>
                   <Button
                     onClick={() => handleOpenBulkPrint(true)}
                     variant="outline"
                     className="gap-2"
-                    disabled={totalCount === 0 || isPrinting}
-                  >
+                    disabled={totalCount === 0 || isPrinting}>
                     <Printer size={16} /> Print All ({totalCount})
                   </Button>
                 </>
@@ -868,24 +996,22 @@ const Products = () => {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      disabled={isExportingBarcodes}
-                    >
-                      <Download size={16} /> Export Barcodes <ChevronDown size={16} />
+                      disabled={isExportingBarcodes}>
+                      <Download size={16} /> Export Barcodes{" "}
+                      <ChevronDown size={16} />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onClick={() => handleOpenBarcodeExport(false)}
-                      disabled={selectedProductIds.size === 0}
-                    >
+                      disabled={selectedProductIds.size === 0}>
                       <Download className="mr-2 h-4 w-4" />
                       Selected Products ({selectedProductIds.size})
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => handleOpenBarcodeExport(true)}
-                      disabled={totalCount === 0}
-                    >
+                      disabled={totalCount === 0}>
                       <Download className="mr-2 h-4 w-4" />
                       All Products ({totalCount})
                     </DropdownMenuItem>
@@ -893,7 +1019,9 @@ const Products = () => {
                 </DropdownMenu>
               )}
               {canCreate && (
-                <Button onClick={() => router.push('/inventory/new')} className="gap-2">
+                <Button
+                  onClick={() => router.push("/inventory/new")}
+                  className="gap-2">
                   <Plus size={16} /> Add Product
                 </Button>
               )}
@@ -942,7 +1070,8 @@ const Products = () => {
             </span>
           </CardTitle>
           <div className="text-xs text-muted-foreground mt-2 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
-            💡 <strong>Tip:</strong> Click on Category, Cost Price, or Selling Price to edit them directly in the table
+            💡 <strong>Tip:</strong> Click on Category, Cost Price, or Selling
+            Price to edit them directly in the table
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -958,44 +1087,44 @@ const Products = () => {
             sortOrder={sortOrder}
             onSort={(field) => {
               if (sortField === field) {
-                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                setSortOrder(sortOrder === "asc" ? "desc" : "asc");
               } else {
                 setSortField(field);
-                setSortOrder('asc');
+                setSortOrder("asc");
               }
             }}
             onUpdateProduct={handleUpdateProduct}
-            categories={categories.map(cat => cat.name)}
+            categories={categories.map((cat) => cat.name)}
           />
           {/* Pagination Controls */}
           <div className="flex items-center justify-between p-3 md:p-4 border-t">
             <div className="text-xs md:text-sm text-muted-foreground">
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount}
+              Showing {(page - 1) * pageSize + 1}–
+              {Math.min(page * pageSize, totalCount)} of {totalCount}
             </div>
             <div className="flex items-center gap-2">
               <select
                 className="border rounded px-2 py-1 text-xs md:text-sm"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-              >
-                {[20, 50, 100].map(size => (
-                  <option key={size} value={size}>{size} / page</option>
+                onChange={(e) => setPageSize(Number(e.target.value))}>
+                {[20, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size} / page
+                  </option>
                 ))}
               </select>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={page === 1 || isLoading}
-                onClick={() => setPage(Math.max(1, page - 1))}
-              >
+                onClick={() => setPage(Math.max(1, page - 1))}>
                 Prev
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={page * pageSize >= totalCount || isLoading}
-                onClick={() => setPage(page + 1)}
-              >
+                onClick={() => setPage(page + 1)}>
                 Next
               </Button>
             </div>
@@ -1008,7 +1137,7 @@ const Products = () => {
         open={csvUploadOpen}
         onOpenChange={setCsvUploadOpen}
         onUpload={handleCSVUpload}
-        categories={categories.map(cat => cat.name)}
+        categories={categories.map((cat) => cat.name)}
       />
 
       <CSVUpdateDialog
@@ -1038,7 +1167,7 @@ const Products = () => {
       <BarcodeExportDialog
         open={barcodeExportOpen}
         onOpenChange={setBarcodeExportOpen}
-        productCount={productsToExport.filter(p => p.barcode).length}
+        productCount={productsToExport.filter((p) => p.barcode).length}
         onConfirm={handleConfirmBarcodeExport}
         isExporting={isExportingBarcodes}
       />

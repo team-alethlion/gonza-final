@@ -27,12 +27,38 @@ export interface Expense {
   updatedAt: Date;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export const useExpenses = (initialData?: Expense[]) => {
   const [expenses, setExpenses] = useState<Expense[]>(initialData || []);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && expenses.length === 0) {
+        const cached = await localDb.expenses
+          .where('locationId')
+          .equals(currentBusiness.id)
+          .reverse()
+          .sortBy('date');
+        
+        if (cached && cached.length > 0) {
+          console.log('[Expenses] Loaded from Dexie cache');
+          setExpenses(cached.map(e => ({
+            ...e,
+            date: new Date(e.date),
+            createdAt: new Date(e.createdAt),
+            updatedAt: new Date(e.updatedAt)
+          })));
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const loadExpenses = useCallback(async (): Promise<Expense[]> => {
     if (!currentBusiness) {
@@ -60,6 +86,16 @@ export const useExpenses = (initialData?: Expense[]) => {
         createdAt: new Date(expense.createdAt),
         updatedAt: new Date(expense.updatedAt)
       }));
+
+      // Update Dexie cache in the background
+      if (formattedExpenses.length > 0) {
+        const cacheData = formattedExpenses.map(e => ({
+          ...e,
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.expenses.where('locationId').equals(currentBusiness.id).delete();
+        await localDb.expenses.bulkPut(cacheData as any);
+      }
 
       return formattedExpenses;
     } catch (error) {

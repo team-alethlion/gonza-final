@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import AgencyDashboardClient from "../components/AgencyDashboardClient";
 import { auth } from "@/auth";
 import { getSalesAction } from "@/app/actions/sales";
@@ -5,12 +6,9 @@ import { getBusinessLocationsAction } from "@/app/actions/business";
 import { Sale, mapDbSaleToSale } from "@/types";
 
 export default async function AgencyDashboard() {
-  const startTime = Date.now();
   const session = await auth();
   const userId = session?.user?.id;
   const branchId = (session?.user as any)?.branchId;
-
-  console.log(`[PERF] AgencyDashboard SSR starting for user ${userId}`);
 
   let initialSales: Sale[] = [];
 
@@ -30,7 +28,6 @@ export default async function AgencyDashboard() {
       if (activeBranchId) {
         // Pre-fetch the latest 20 sales for the dashboard (reduced from 50)
         const salesData: any = await getSalesAction(activeBranchId, "desc", 20);
-        console.log(`[PERF] AgencyDashboard sales prefetch took ${Date.now() - startTime}ms`);
 
         if (salesData && salesData.length > 0) {
           initialSales = salesData.map((item: any) =>

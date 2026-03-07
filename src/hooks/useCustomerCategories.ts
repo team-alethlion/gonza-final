@@ -17,11 +17,32 @@ export interface CustomerCategory {
   updatedAt: string;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export const useCustomerCategories = () => {
   const [categories, setCategories] = useState<CustomerCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && categories.length === 0) {
+        const cached = await localDb.categories
+          .where('[locationId+type]')
+          .equals([currentBusiness.id, 'customer'])
+          .toArray();
+        
+        if (cached && cached.length > 0) {
+          console.log('[CustomerCategories] Loaded from Dexie cache');
+          setCategories(cached);
+          setIsLoading(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const fetchCategories = async () => {
     if (!currentBusiness) {
@@ -31,9 +52,23 @@ export const useCustomerCategories = () => {
     }
 
     try {
+      setIsLoading(categories.length === 0);
       const result = await getCustomerCategoriesAction(currentBusiness.id);
       if (result.success && result.data) {
-        setCategories(result.data as any);
+        const fetched = result.data as any;
+        
+        // Update Dexie cache in the background
+        if (fetched.length > 0) {
+          const cacheData = fetched.map((c: any) => ({
+            ...c,
+            type: 'customer',
+            locationId: currentBusiness.id as string
+          }));
+          await localDb.categories.where('[locationId+type]').equals([currentBusiness.id, 'customer']).delete();
+          await localDb.categories.bulkPut(cacheData as any);
+        }
+        
+        setCategories(fetched);
       } else {
         throw new Error(result.error);
       }

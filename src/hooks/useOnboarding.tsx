@@ -41,7 +41,7 @@ export const useOnboarding = (currentBusinessId?: string | null) => {
         isLoading: isOnboardingLoading,
         refetch: refetchOnboarding,
     } = useQuery({
-        queryKey: [ONBOARDING_QUERY_KEY, currentBusinessId],
+        queryKey: [ONBOARDING_QUERY_KEY, currentBusinessId, user?.id],
         queryFn: async (): Promise<OnboardingData | null> => {
             if (!currentBusinessId || !user?.id) return null;
 
@@ -107,7 +107,7 @@ export const useOnboarding = (currentBusinessId?: string | null) => {
                 return false;
             }
         },
-        [currentBusinessId, user?.id, queryClient]
+        [currentBusinessId, user, queryClient]
     );
 
     return {

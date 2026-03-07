@@ -15,7 +15,6 @@ import {
   getCustomerByNameAction,
   updateSaleCustomerAction,
 } from "@/app/actions/sales";
-import { useSaleProductSelection } from "./useSaleProductSelection";
 
 export const useNewSaleActions = (
   editSale?: Sale,
@@ -216,6 +215,8 @@ export const useNewSaleActions = (
       addSale,
       updateSale,
       onSaveSuccess,
+      currentBusiness,
+      settings,
     ],
   );
 

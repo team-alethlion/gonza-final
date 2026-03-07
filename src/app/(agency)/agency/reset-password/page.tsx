@@ -1,31 +1,48 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
-import { resetPasswordAction, signOutAction } from '@/app/actions/auth';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { resetPasswordAction, signOutAction } from "@/app/actions/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Eye, EyeOff } from "lucide-react";
 
-const resetSchema = z.object({
-  password: z.string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
-  confirmPassword: z.string()
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"]
-});
+const resetSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 type ResetFormData = z.infer<typeof resetSchema>;
 
@@ -41,9 +58,9 @@ const ResetPassword = () => {
   const form = useForm<ResetFormData>({
     resolver: zodResolver(resetSchema),
     defaultValues: {
-      password: '',
-      confirmPassword: ''
-    }
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   const { user } = useAuth(); // Get current user from auth context
@@ -56,7 +73,7 @@ const ResetPassword = () => {
     if (user) {
       // Clean up the URL - remove the hash/token so it looks nice
       if (window.location.hash) {
-        window.history.replaceState(null, '', window.location.pathname);
+        window.history.replaceState(null, "", window.location.pathname);
       }
       return;
     }
@@ -64,46 +81,50 @@ const ResetPassword = () => {
     if (hashFromUrl) {
       try {
         const params = new URLSearchParams(hashFromUrl);
-        const accessToken = params.get('access_token');
-        const type = params.get('type');
+        const accessToken = params.get("access_token");
+        const type = params.get("type");
 
-        if (accessToken && type === 'recovery') {
+        if (accessToken && type === "recovery") {
           setHash(accessToken);
         } else {
-          setError('Invalid or missing recovery token');
+          setError("Invalid or missing recovery token");
         }
       } catch (e) {
-        setError('Invalid URL format');
+        setError("Invalid URL format");
       }
     } else {
-      setError('No reset token found in URL');
+      setError("No reset token found in URL");
     }
   }, [user]);
 
   const onSubmit = async (data: ResetFormData) => {
     if (!hash && !user) {
-      setError('Reset token is missing');
+      setError("Reset token is missing");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await resetPasswordAction(data.password, hash || undefined) as any;
+      const result = (await resetPasswordAction(
+        data.password,
+        hash || undefined,
+      )) as any;
 
       if (!result.success) throw new Error(result.error);
 
       setResetSuccess(true);
-      toast.success('Password has been reset successfully');
+      toast.success("Password has been reset successfully");
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        router.push('/login');
+        router.push("/login");
       }, 3000);
-
     } catch (error: any) {
-      console.error('Reset password error:', error);
-      toast.error(`Failed to reset password: ${error?.message || 'Unknown error'}`);
-      setError(error?.message || 'An unknown error occurred');
+      console.error("Reset password error:", error);
+      toast.error(
+        `Failed to reset password: ${error?.message || "Unknown error"}`,
+      );
+      setError(error?.message || "An unknown error occurred");
     } finally {
       setLoading(false);
     }
@@ -111,25 +132,25 @@ const ResetPassword = () => {
 
   if (resetSuccess) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-cover bg-center bg-no-repeat"
+      <div
+        className="flex flex-col items-center justify-center min-h-screen p-4 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url('/lovable-uploads/2fca69a3-fd1f-4833-bb84-fd7f5764059f.png')`,
-        }}
-      >
+        }}>
         <Card className="w-full max-w-md border-primary/10 shadow-lg bg-white/90">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center text-primary">Password Reset Successful</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center text-primary">
+              Password Reset Successful
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert>
               <AlertDescription>
-                Your password has been reset successfully. You will be redirected to the login page shortly.
+                Your password has been reset successfully. You will be
+                redirected to the login page shortly.
               </AlertDescription>
             </Alert>
-            <Button
-              onClick={() => router.push('/login')}
-              className="w-full"
-            >
+            <Button onClick={() => router.push("/login")} className="w-full">
               Go to Login
             </Button>
           </CardContent>
@@ -139,11 +160,11 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-cover bg-center bg-no-repeat"
+    <div
+      className="flex flex-col items-center justify-center min-h-screen p-4 bg-cover bg-center bg-no-repeat"
       style={{
         backgroundImage: `url('/lovable-uploads/2fca69a3-fd1f-4833-bb84-fd7f5764059f.png')`,
-      }}
-    >
+      }}>
       <div className="mb-6">
         <img
           src="/lovable-uploads/da3f3948-8e6b-4501-b4aa-5e365d8e799e.png"
@@ -153,8 +174,12 @@ const ResetPassword = () => {
       </div>
       <Card className="w-full max-w-md border-primary/10 shadow-lg bg-white/90">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center text-primary">Reset Your Password</CardTitle>
-          <CardDescription className="text-center">Enter your new password below</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center text-primary">
+            Reset Your Password
+          </CardTitle>
+          <CardDescription className="text-center">
+            Enter your new password below
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -165,7 +190,9 @@ const ResetPassword = () => {
 
           {!error && (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4">
                 <FormField
                   control={form.control}
                   name="password"
@@ -183,9 +210,12 @@ const ResetPassword = () => {
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                          >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                            {showPassword ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
                           </button>
                         </div>
                       </FormControl>
@@ -210,10 +240,15 @@ const ResetPassword = () => {
                           />
                           <button
                             type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                          >
-                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                            {showConfirmPassword ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
                           </button>
                         </div>
                       </FormControl>
@@ -222,8 +257,11 @@ const ResetPassword = () => {
                   )}
                 />
 
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
-                  {loading ? 'Resetting...' : 'Reset Password'}
+                <Button
+                  type="submit"
+                  className="w-full bg-primary hover:bg-primary/90"
+                  disabled={loading}>
+                  {loading ? "Resetting..." : "Reset Password"}
                 </Button>
               </form>
             </Form>
@@ -235,9 +273,8 @@ const ResetPassword = () => {
               className="text-primary"
               onClick={async () => {
                 await signOutAction();
-                router.push('/login');
-              }}
-            >
+                router.push("/login");
+              }}>
               Back to Login
             </Button>
           </div>

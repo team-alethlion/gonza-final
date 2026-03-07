@@ -18,7 +18,7 @@ export default function OnboardingNotFound() {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter">404</h1>
           <h2 className="text-xl font-bold text-slate-700">Lost in Configuration?</h2>
           <p className="text-slate-500 font-medium text-sm leading-relaxed">
-            The onboarding step you are looking for doesn't exist or is no longer accessible.
+            The onboarding step you are looking for doesn&apos;t exist or is no longer accessible.
           </p>
         </div>
 

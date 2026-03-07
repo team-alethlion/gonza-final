@@ -34,12 +34,36 @@ const DEFAULT_CATEGORIES = [
   'Miscellaneous'
 ];
 
+import { localDb } from '@/lib/dexie';
+
 export const useExpenseCategories = () => {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && categories.length === 0) {
+        const cached = await localDb.categories
+          .where('[locationId+type]')
+          .equals([currentBusiness.id, 'expense'])
+          .toArray();
+        
+        if (cached && cached.length > 0) {
+          console.log('[ExpenseCategories] Loaded from Dexie cache');
+          setCategories(cached.map(c => ({
+            ...c,
+            createdAt: new Date(c.createdAt)
+          })));
+          setIsLoading(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const loadCategories = useCallback(async () => {
     if (!currentBusiness?.id) {
@@ -49,7 +73,7 @@ export const useExpenseCategories = () => {
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(categories.length === 0);
       const result = await getExpenseCategoriesAction(currentBusiness.id);
 
       if (!result.success || !result.data) {
@@ -64,6 +88,17 @@ export const useExpenseCategories = () => {
       if (formattedCategories.length === 0) {
         await createDefaultCategories();
         return;
+      }
+
+      // Update Dexie cache in the background
+      if (formattedCategories.length > 0) {
+        const cacheData = formattedCategories.map(c => ({
+          ...c,
+          type: 'expense',
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.categories.where('[locationId+type]').equals([currentBusiness.id, 'expense']).delete();
+        await localDb.categories.bulkPut(cacheData as any);
       }
 
       setCategories(formattedCategories);

@@ -1,15 +1,21 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { CashAccountFormData } from '@/types/cash';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import React from "react";
+import { useForm } from "react-hook-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CashAccountFormData } from "@/types/cash";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 interface CashAccountDialogProps {
   open: boolean;
@@ -26,44 +32,51 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
   onSubmit,
   title,
   initialData,
-  isSubmitting = false
+  isSubmitting = false,
 }) => {
   const { settings } = useBusinessSettings();
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<CashAccountFormData>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+    setValue,
+  } = useForm<CashAccountFormData>({
     defaultValues: {
-      name: '',
-      description: '',
+      name: "",
+      description: "",
       isDefault: false,
-      ...initialData
-    }
+      ...initialData,
+    },
   });
 
   React.useEffect(() => {
     if (open && initialData) {
       reset({
-        name: initialData.name || '',
-        description: initialData.description || '',
+        name: initialData.name || "",
+        description: initialData.description || "",
         openingBalance: initialData.openingBalance || 0,
-        isDefault: initialData.isDefault || false
+        isDefault: initialData.isDefault || false,
       });
     } else if (open) {
       reset({
-        name: '',
-        description: '',
+        name: "",
+        description: "",
         openingBalance: undefined as any,
-        isDefault: false
+        isDefault: false,
       });
     }
   }, [open, initialData, reset]);
 
-  const isDefault = watch('isDefault');
+  const isDefault = watch("isDefault");
 
   const handleFormSubmit = (data: CashAccountFormData) => {
     onSubmit(data);
   };
 
   // Use business settings currency, default to UGX if not set
-  const currency = settings.currency || 'UGX';
+  const currency = settings.currency || "UGX";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,7 +89,7 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
             <Label htmlFor="name">Account Name</Label>
             <Input
               id="name"
-              {...register('name', { required: 'Account name is required' })}
+              {...register("name", { required: "Account name is required" })}
               placeholder="e.g., Main Cash, Petty Cash"
               disabled={isSubmitting}
             />
@@ -89,7 +102,7 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
             <Label htmlFor="description">Description (Optional)</Label>
             <Textarea
               id="description"
-              {...register('description')}
+              {...register("description")}
               placeholder="Brief description of this account"
               rows={3}
               disabled={isSubmitting}
@@ -102,15 +115,20 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
               id="openingBalance"
               type="number"
               step="0.01"
-              {...register('openingBalance', {
-                required: 'Opening balance is required',
-                min: { value: 0, message: 'Opening balance cannot be negative' }
+              {...register("openingBalance", {
+                required: "Opening balance is required",
+                min: {
+                  value: 0,
+                  message: "Opening balance cannot be negative",
+                },
               })}
               placeholder="0.00"
               disabled={isSubmitting}
             />
             {errors.openingBalance && (
-              <p className="text-sm text-red-600">{errors.openingBalance.message}</p>
+              <p className="text-sm text-red-600">
+                {errors.openingBalance.message}
+              </p>
             )}
           </div>
 
@@ -118,7 +136,9 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
             <Checkbox
               id="isDefault"
               checked={isDefault}
-              onCheckedChange={(checked) => setValue('isDefault', checked as boolean)}
+              onCheckedChange={(checked) =>
+                setValue("isDefault", checked as boolean)
+              }
               disabled={isSubmitting}
             />
             <Label htmlFor="isDefault" className="text-sm">
@@ -127,14 +147,21 @@ const CashAccountDialog: React.FC<CashAccountDialogProps> = ({
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting
-                ? (initialData ? 'Updating...' : 'Creating...')
-                : (initialData ? 'Update Account' : 'Create Account')
-              }
+                ? initialData
+                  ? "Updating..."
+                  : "Creating..."
+                : initialData
+                ? "Update Account"
+                : "Create Account"}
             </Button>
           </div>
         </form>

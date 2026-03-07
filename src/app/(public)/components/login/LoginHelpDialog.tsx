@@ -28,20 +28,20 @@ export function LoginHelpDialog() {
         <DialogHeader>
           <DialogTitle>Need Help?</DialogTitle>
           <DialogDescription>
-            If you need assistance with logging in or have any other
-            questions, please contact our support team.
+            If you need assistance with logging in or have any other questions,
+            please contact our support team.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <p>Common issues:</p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              Forgot your password? Use the "Forgot password?" link.
+              Forgot your password? Use the &quot;Forgot password?&quot; link.
             </li>
-            <li>New user? Click on "Create Account" to sign up.</li>
+            <li>New user? Click on &quot;Create Account&quot; to sign up.</li>
             <li>
-              Having trouble with Google Sign-in? Make sure you have
-              a valid Google account.
+              Having trouble with Google Sign-in? Make sure you have a valid
+              Google account.
             </li>
           </ul>
           <div className="p-4 border rounded-md mt-4">

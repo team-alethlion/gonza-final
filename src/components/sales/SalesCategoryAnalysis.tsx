@@ -21,6 +21,29 @@ interface SalesCategoryAnalysisProps {
   sales: Sale[];
   formatCurrency: (amount: number) => string;
 }
+const PieTooltip = ({
+  active,
+  payload,
+  categoryPerformance,
+  formatCurrency
+}: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const totalRevenue = categoryPerformance.reduce((sum: number, cat: any) => sum + cat.revenue, 0);
+    const percentage = totalRevenue > 0 ? (data.revenue / totalRevenue * 100).toFixed(1) : '0';
+    return <div className="bg-background border rounded-lg p-3 shadow-lg">
+      <p className="font-medium">{data.name}</p>
+      <p className="text-sm text-muted-foreground">
+        Revenue: {formatCurrency(data.revenue)}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Share: {percentage}%
+      </p>
+    </div>;
+  }
+  return null;
+};
+
 const SalesCategoryAnalysis: React.FC<SalesCategoryAnalysisProps> = ({
   sales,
   formatCurrency
@@ -176,25 +199,6 @@ const SalesCategoryAnalysis: React.FC<SalesCategoryAnalysisProps> = ({
     }));
   }, [categoryPerformance]);
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
-  const PieTooltip = ({
-    active,
-    payload
-  }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const percentage = (data.revenue / categoryPerformance.reduce((sum, cat) => sum + cat.revenue, 0) * 100).toFixed(1);
-      return <div className="bg-background border rounded-lg p-3 shadow-lg">
-        <p className="font-medium">{data.name}</p>
-        <p className="text-sm text-muted-foreground">
-          Revenue: {formatCurrency(data.revenue)}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Share: {percentage}%
-        </p>
-      </div>;
-    }
-    return null;
-  };
   const getIcon = (index: number) => {
     const icons = [DollarSign, TrendingUp, ShoppingCart, Target];
     const Icon = icons[index % icons.length];
@@ -404,6 +408,44 @@ const SalesCategoryAnalysis: React.FC<SalesCategoryAnalysisProps> = ({
       </CardContent>
     </Card>
 
+    {/* Source Performance Chart */}
+    {pieChartData.length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Source Performance
+            </CardTitle>
+            <CardDescription>Revenue distribution by sales source</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="revenue"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<PieTooltip categoryPerformance={categoryPerformance} formatCurrency={formatCurrency} />} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )}
+
     {/* Category Rankings Table */}
     <Card className="shadow-sm">
       <CardHeader>
@@ -491,8 +533,8 @@ const SalesCategoryAnalysis: React.FC<SalesCategoryAnalysisProps> = ({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Source</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the source "{categoryToDelete?.name}"?
-            This action cannot be undone. All sales in this source will be moved to "Uncategorized".
+            Are you sure you want to delete the source &quot;{categoryToDelete?.name}&quot;?
+            This action cannot be undone. All sales in this source will be moved to &quot;Uncategorized&quot;.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

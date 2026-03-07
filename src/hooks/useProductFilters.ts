@@ -41,9 +41,15 @@ export const useProductFilters = (products: Product[]) => {
   // Reload filters when business changes
   useEffect(() => {
     if (currentBusiness?.id) {
-      setFiltersState(loadFiltersFromStorage());
+      const nextFilters = loadFiltersFromStorage();
+      if (JSON.stringify(filters) !== JSON.stringify(nextFilters)) {
+        const timer = setTimeout(() => {
+          setFiltersState(nextFilters);
+        }, 0);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [currentBusiness?.id, loadFiltersFromStorage]);
+  }, [currentBusiness?.id, loadFiltersFromStorage, filters]);
 
   // Save filters to localStorage whenever they change
   useEffect(() => {

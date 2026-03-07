@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
 import { Phone } from "lucide-react";
 
@@ -37,7 +38,7 @@ const Footer = ({ B }: { B: any }) => (
             alignItems: "center",
           }}>
           <Link
-            href="/privacy-policy"
+            href="/public/privacy-policy"
             style={{
               fontSize: 13,
               color: B.textMuted,

@@ -25,6 +25,9 @@ interface TaskFormProps {
   initialDate?: Date;
 }
 
+import { useTaskDraft } from '@/hooks/useTaskDraft';
+import { toast } from 'sonner';
+
 const TaskForm: React.FC<TaskFormProps> = ({
   isOpen,
   onClose,
@@ -32,7 +35,10 @@ const TaskForm: React.FC<TaskFormProps> = ({
   task,
   initialDate,
 }) => {
-  console.log('TaskForm rendering with props:', { isOpen, task, initialDate });
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useTaskDraft();
+  const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { categories } = useTaskCategories();
 
   const [formData, setFormData] = useState<CreateTaskData>({
     title: '',
@@ -46,21 +52,45 @@ const TaskForm: React.FC<TaskFormProps> = ({
     recurrence_type: undefined,
     recurrence_end_date: undefined,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | null>(null);
-  
-  // Use a safe call to useTaskCategories with error handling
-  let categories: any[] = [];
-  try {
-    const taskCategoriesResult = useTaskCategories();
-    categories = taskCategoriesResult.categories || [];
-  } catch (error) {
-    console.error('Error loading task categories:', error);
-  }
+
+  // Load draft on mount for NEW task
+  useEffect(() => {
+    if (isOpen && !task && hasDraft) {
+      const draft = loadDraft();
+      if (draft) {
+        const timer = setTimeout(() => {
+          setFormData(draft.formData);
+          if (draft.formData.due_date) {
+            setSelectedDate(new Date(draft.formData.due_date));
+          }
+        }, 0);
+        toast.info("Restored your unsaved task details");
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isOpen, task, hasDraft, loadDraft]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (!isOpen || task || isSubmitting) return;
+
+    const hasData = formData.title.trim() || formData.description?.trim();
+
+    if (hasData) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      saveDraft(formData, false); // Instant session save
+      autoSaveTimeoutRef.current = setTimeout(() => saveDraft(formData, true), 2000); // Local save
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [formData, isOpen, task, isSubmitting, saveDraft]);
 
   useEffect(() => {
-    console.log('TaskForm useEffect - task changed:', task);
     if (task) {
       setFormData({
         title: task.title,
@@ -87,10 +117,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('TaskForm handleSubmit called with data:', formData);
     
     if (!formData.title.trim()) {
-      console.log('TaskForm - title is empty, not submitting');
       return;
     }
 
@@ -103,7 +131,10 @@ const TaskForm: React.FC<TaskFormProps> = ({
         recurrence_end_date: recurrenceEndDate ? format(recurrenceEndDate, 'yyyy-MM-dd') : undefined,
       };
       await onSubmit(submitData);
+      
+      // Clear draft after successful submission
       if (!task) {
+        clearDraft();
         // Reset form for new task
         setFormData({
           title: '',

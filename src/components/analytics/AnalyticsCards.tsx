@@ -151,4 +151,6 @@ const AnalyticsCards: React.FC<AnalyticsCardsProps> = memo(({
   );
 });
 
+AnalyticsCards.displayName = 'AnalyticsCards';
+
 export default AnalyticsCards;

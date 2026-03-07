@@ -29,10 +29,36 @@ export interface RequisitionItem {
   urgentItem?: boolean;
 }
 
+import { localDb } from '@/lib/dexie';
+
 export const useRequisitions = (userId: string | undefined, locationId: string | undefined) => {
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (locationId && requisitions.length === 0) {
+        const cached = await localDb.requisitions
+          .where('locationId')
+          .equals(locationId)
+          .reverse()
+          .sortBy('createdAt');
+        
+        if (cached && cached.length > 0) {
+          console.log('[Requisitions] Loaded from Dexie cache');
+          setRequisitions(cached.map(r => ({
+            ...r,
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt)
+          })));
+          setIsLoading(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [locationId]);
 
   const loadRequisitions = async () => {
     if (!userId || !locationId) {
@@ -42,15 +68,27 @@ export const useRequisitions = (userId: string | undefined, locationId: string |
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(requisitions.length === 0);
       const result = await getRequisitionsAction(userId, locationId);
       if (result.success && result.data) {
-        setRequisitions(result.data.map((req: any) => ({
+        const fetched = result.data.map((req: any) => ({
           ...req,
           createdAt: new Date(req.createdAt),
           updatedAt: new Date(req.updatedAt),
           branchId: req.branchId || locationId
-        })));
+        }));
+
+        // Update Dexie cache in the background
+        if (fetched.length > 0) {
+          const cacheData = fetched.map((r: any) => ({
+            ...r,
+            locationId: locationId,
+          }));
+          await localDb.requisitions.where('locationId').equals(locationId).delete();
+          await localDb.requisitions.bulkPut(cacheData as any);
+        }
+
+        setRequisitions(fetched);
       } else {
         throw new Error(result.error);
       }

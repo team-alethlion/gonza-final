@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { CheckCircle2, ArrowRight, Phone, LayoutDashboard } from "lucide-react";
@@ -8,7 +9,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 const CTA = ({ B }: { B: any }) => {
   const { ref, visible } = useReveal();
   const { user, status } = useAuth();
-  
+
   return (
     <section
       ref={ref}
@@ -105,11 +106,15 @@ const CTA = ({ B }: { B: any }) => {
               justifyContent: "center",
               flexWrap: "wrap",
             }}>
-            {status === 'loading' ? (
+            {status === "loading" ? (
               <div className="w-48 h-12 bg-white/10 animate-pulse rounded-xl" />
             ) : user ? (
               <Link
-                href={user.role?.toLowerCase() === 'superadmin' ? "/admin" : "/agency"}
+                href={
+                  user.role?.toLowerCase() === "superadmin"
+                    ? "/admin"
+                    : "/agency"
+                }
                 className="lp-btn-primary"
                 style={{ fontSize: 15, padding: "14px 28px" }}>
                 Go to Dashboard <LayoutDashboard size={16} className="ml-1" />

@@ -14,19 +14,32 @@ interface CustomerStatementTableProps {
 const CustomerStatementTable: React.FC<CustomerStatementTableProps> = ({ sales, currency, onExportCSV, onExportPDF }) => {
   // Calculate running balance
   const rows = useMemo(() => {
-    let balance = 0;
-    return sales
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map(sale => {
-        const amount = sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        balance += amount;
-        return {
-          date: format(new Date(sale.date), 'yyyy-MM-dd'),
-          details: sale.items.map(i => i.description).join(', '),
-          amount: `${currency} ${amount.toLocaleString()}`,
-          balance: `${currency} ${balance.toLocaleString()}`,
-        };
+    const sortedSales = [...sales].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    interface StatementRow {
+      date: string;
+      details: string;
+      amount: string;
+      balance: string;
+    }
+
+    return sortedSales.reduce<StatementRow[]>((acc, sale) => {
+      const amount = sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const previousBalance = acc.length > 0 
+        ? parseFloat(acc[acc.length - 1].balance.replace(/[^0-9.-]+/g, "")) 
+        : 0;
+      
+      const currentBalance = previousBalance + amount;
+      
+      acc.push({
+        date: format(new Date(sale.date), 'yyyy-MM-dd'),
+        details: sale.items.map(i => i.description).join(', '),
+        amount: `${currency} ${amount.toLocaleString()}`,
+        balance: `${currency} ${currentBalance.toLocaleString()}`,
       });
+      
+      return acc;
+    }, []);
   }, [sales, currency]);
 
   return (

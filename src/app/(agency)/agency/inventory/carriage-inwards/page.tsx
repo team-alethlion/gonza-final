@@ -2,21 +2,21 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Plus, RefreshCw, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useBusiness } from '@/contexts/BusinessContext';
-import CarriageInwardsTable from '@/components/carriage/CarriageInwardsTable';
-import CarriageInwardsForm from '@/components/carriage/CarriageInwardsForm';
-import { useCarriageInwards } from '@/hooks/useCarriageInwards';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { useProfiles } from '@/contexts/ProfileContext';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Plus, RefreshCw, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useBusiness } from "@/contexts/BusinessContext";
+import CarriageInwardsTable from "@/components/carriage/CarriageInwardsTable";
+import CarriageInwardsForm from "@/components/carriage/CarriageInwardsForm";
+import { useCarriageInwards } from "@/hooks/useCarriageInwards";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { useProfiles } from "@/contexts/ProfileContext";
 
 const CarriageInwards = () => {
   const router = useRouter();
@@ -27,28 +27,36 @@ const CarriageInwards = () => {
   const { settings } = useBusinessSettings();
   const { hasPermission } = useProfiles();
 
-  const canCreate = hasPermission('inventory', 'create');
-  const canEdit = hasPermission('inventory', 'edit');
-  const canDelete = hasPermission('inventory', 'delete');
+  const canCreate = hasPermission("inventory", "create");
+  const canEdit = hasPermission("inventory", "edit");
+  const canDelete = hasPermission("inventory", "delete");
 
   const {
     carriageInwards,
     isLoading,
     createCarriageInward,
     updateCarriageInward,
-    deleteCarriageInward
+    deleteCarriageInward,
   } = useCarriageInwards();
 
   const [showForm, setShowForm] = useState(false);
 
   // Calculate summary statistics
-  const totalAmount = carriageInwards.reduce((sum, item) => sum + Number(item.amount), 0);
+  const totalAmount = carriageInwards.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0,
+  );
   const totalEntries = carriageInwards.length;
-  const uniqueSuppliers = [...new Set(carriageInwards.map(item => item.supplierName))].length;
-  const thisMonthEntries = carriageInwards.filter(item => {
+  const uniqueSuppliers = [
+    ...new Set(carriageInwards.map((item) => item.supplierName)),
+  ].length;
+  const thisMonthEntries = carriageInwards.filter((item) => {
     const itemDate = new Date(item.date);
     const now = new Date();
-    return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+    return (
+      itemDate.getMonth() === now.getMonth() &&
+      itemDate.getFullYear() === now.getFullYear()
+    );
   }).length;
 
   const handleRefresh = () => {
@@ -61,19 +69,21 @@ const CarriageInwards = () => {
 
   const handleEdit = (record: any) => {
     // TODO: Implement edit functionality
-    console.log('Edit record:', record);
+    console.log("Edit record:", record);
   };
 
   const handleView = (record: any) => {
     // TODO: Implement view functionality
-    console.log('View record:', record);
+    console.log("View record:", record);
   };
 
   if (businessLoading || !currentBusiness || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <LoadingSpinner />
-        <p className="text-muted-foreground">Loading carriage inwards data...</p>
+        <p className="text-muted-foreground">
+          Loading carriage inwards data...
+        </p>
       </div>
     );
   }
@@ -87,14 +97,15 @@ const CarriageInwards = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push('/inventory')}
+              onClick={() => router.push("/inventory")}
               className="shrink-0 h-8 w-8"
-              title="Back to inventory"
-            >
+              title="Back to inventory">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="space-y-1">
-              <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-sales-dark">Carriage Inwards</h1>
+              <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-sales-dark">
+                Carriage Inwards
+              </h1>
               <p className="text-xs md:text-base text-muted-foreground">
                 Track transportation and delivery costs for your inventory
               </p>
@@ -109,9 +120,8 @@ const CarriageInwards = () => {
                   <Button
                     onClick={() => setShowForm(!showForm)}
                     className="flex-1 gap-2 h-9"
-                    variant={showForm ? "outline" : "default"}
-                  >
-                    <Plus size={16} /> {showForm ? 'Cancel' : 'Add Entry'}
+                    variant={showForm ? "outline" : "default"}>
+                    <Plus size={16} /> {showForm ? "Cancel" : "Add Entry"}
                   </Button>
                 )}
                 <Button
@@ -119,9 +129,10 @@ const CarriageInwards = () => {
                   variant="outline"
                   size="icon"
                   disabled={isLoading}
-                  className="shrink-0 h-9 w-9"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  className="shrink-0 h-9 w-9">
+                  <RefreshCw
+                    className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                  />
                 </Button>
               </div>
             </div>
@@ -133,13 +144,16 @@ const CarriageInwards = () => {
                 variant="outline"
                 size="icon"
                 disabled={isLoading}
-                title="Refresh data"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                title="Refresh data">
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                />
               </Button>
               {canCreate && (
-                <Button onClick={() => setShowForm(!showForm)} className="gap-2">
-                  <Plus size={16} /> {showForm ? 'Cancel' : 'Add Entry'}
+                <Button
+                  onClick={() => setShowForm(!showForm)}
+                  className="gap-2">
+                  <Plus size={16} /> {showForm ? "Cancel" : "Add Entry"}
                 </Button>
               )}
             </div>
@@ -153,7 +167,9 @@ const CarriageInwards = () => {
           <CardContent className="p-3 md:p-4">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Total Amount</p>
-              <p className="text-lg md:text-xl font-bold">{settings.currency || 'USD'} {totalAmount.toFixed(2)}</p>
+              <p className="text-lg md:text-xl font-bold">
+                {settings.currency || "USD"} {totalAmount.toFixed(2)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -190,7 +206,9 @@ const CarriageInwards = () => {
       {showForm && (
         <Card className="shadow-sm">
           <CardHeader className="pb-2 md:pb-6">
-            <CardTitle className="text-sm md:text-lg">Add New Carriage Entry</CardTitle>
+            <CardTitle className="text-sm md:text-lg">
+              Add New Carriage Entry
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <CarriageInwardsForm
@@ -200,7 +218,8 @@ const CarriageInwards = () => {
                   setShowForm(false);
                   toast({
                     title: "Entry created",
-                    description: "Carriage inwards entry has been successfully created.",
+                    description:
+                      "Carriage inwards entry has been successfully created.",
                   });
                 } catch (error) {
                   toast({
@@ -219,7 +238,9 @@ const CarriageInwards = () => {
       {/* Table Section */}
       <Card className="shadow-sm">
         <CardHeader className="pb-2 md:pb-6">
-          <CardTitle className="text-sm md:text-lg">Carriage Inwards Entries</CardTitle>
+          <CardTitle className="text-sm md:text-lg">
+            Carriage Inwards Entries
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <CarriageInwardsTable

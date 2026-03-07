@@ -9,11 +9,35 @@ import {
   deleteProductCategoryAction
 } from '@/app/actions/products';
 
+import { localDb } from '@/lib/dexie';
+
 export const useCategories = (userId: string | undefined) => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && categories.length === 0) {
+        const cached = await localDb.categories
+          .where('[locationId+type]')
+          .equals([currentBusiness.id, 'product'])
+          .toArray();
+        
+        if (cached && cached.length > 0) {
+          console.log('[Categories] Loaded from Dexie cache');
+          setCategories(cached.map(c => ({
+            ...c,
+            createdAt: c.createdAt ? new Date(c.createdAt) : undefined
+          })));
+          setIsLoading(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -23,7 +47,7 @@ export const useCategories = (userId: string | undefined) => {
         return;
       }
 
-      setIsLoading(true);
+      setIsLoading(categories.length === 0);
       const result = await getProductCategoriesAction(currentBusiness.id);
 
       if (!result.success || !result.data) {
@@ -35,6 +59,17 @@ export const useCategories = (userId: string | undefined) => {
         name: item.name,
         createdAt: item.createdAt ? new Date(item.createdAt) : (item.created_at ? new Date(item.created_at) : undefined)
       }));
+
+      // Update Dexie cache in the background
+      if (formattedCategories.length > 0) {
+        const cacheData = formattedCategories.map(c => ({
+          ...c,
+          type: 'product',
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.categories.where('[locationId+type]').equals([currentBusiness.id, 'product']).delete();
+        await localDb.categories.bulkPut(cacheData as any);
+      }
 
       setCategories(formattedCategories);
     } catch (error) {

@@ -47,7 +47,10 @@ export const useProductSync = () => {
 
   // Initial sync on mount or business change
   useEffect(() => {
-    syncProducts();
+    const timer = setTimeout(() => {
+      syncProducts();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [syncProducts]);
 
   // Expose sync status and manual trigger

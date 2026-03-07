@@ -95,20 +95,28 @@ const BulkMessageDialog: React.FC<BulkMessageDialogProps> = ({
 
   useEffect(() => {
     if (!open) {
-      setContent('');
-      setSelectedCustomers([]);
-      setSelectedTemplate('none');
-      setStatusSelection('all');
-      setSendResult(null);
+      const timer = setTimeout(() => {
+        if (content !== '') setContent('');
+        if (selectedCustomers.length > 0) setSelectedCustomers([]);
+        if (selectedTemplate !== 'none') setSelectedTemplate('none');
+        if (statusSelection !== 'all') setStatusSelection('all');
+        if (sendResult !== null) setSendResult(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, content, selectedCustomers.length, selectedTemplate, statusSelection, sendResult]);
 
   useEffect(() => {
     if (selectedTemplate && selectedTemplate !== 'none') {
       const template = templates.find(t => t.id === selectedTemplate);
-      if (template) setContent(template.content);
+      if (template && content !== template.content) {
+        const timer = setTimeout(() => {
+          setContent(template.content);
+        }, 0);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [selectedTemplate, templates]);
+  }, [selectedTemplate, templates, content]);
 
   const getCustomerPhone = (customer: Customer) =>
     customer.phoneNumber || '';

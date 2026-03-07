@@ -11,11 +11,32 @@ import {
   createDefaultTaskCategoriesAction
 } from '@/app/actions/tasks';
 
+import { localDb } from '@/lib/dexie';
+
 export const useTaskCategories = () => {
   const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { currentBusiness } = useBusiness();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && categories.length === 0) {
+        const cached = await localDb.categories
+          .where('[locationId+type]')
+          .equals([currentBusiness.id, 'task'])
+          .toArray();
+        
+        if (cached && cached.length > 0) {
+          console.log('[TaskCategories] Loaded from Dexie cache');
+          setCategories(cached);
+          setIsLoading(false);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const loadCategories = async () => {
     if (!user?.id || !currentBusiness?.id) {
@@ -25,13 +46,27 @@ export const useTaskCategories = () => {
     }
 
     try {
+      setIsLoading(categories.length === 0);
       const result = await getTaskCategoriesAction(user.id, currentBusiness.id);
 
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to fetch categories');
       }
 
-      setCategories(result.data as any[]);
+      const fetched = result.data as any[];
+      
+      // Update Dexie cache in the background
+      if (fetched.length > 0) {
+        const cacheData = fetched.map((c: any) => ({
+          ...c,
+          type: 'task',
+          locationId: currentBusiness.id as string
+        }));
+        await localDb.categories.where('[locationId+type]').equals([currentBusiness.id, 'task']).delete();
+        await localDb.categories.bulkPut(cacheData as any);
+      }
+
+      setCategories(fetched);
     } catch (error) {
       console.error('Error loading task categories:', error);
       toast.error('Failed to load task categories');

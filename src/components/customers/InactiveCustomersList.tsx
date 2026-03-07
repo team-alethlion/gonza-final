@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Eye, Loader2, Mail, Calendar, AlertCircle, Phone, MapPin, Tag, MessageCircleHeart } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, subDays, subMonths, subYears, isAfter } from 'date-fns';
+import { subDays, subMonths, subYears } from 'date-fns';
 import { useSalesData } from '@/hooks/useSalesData';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'sonner';
@@ -38,7 +38,7 @@ const InactiveCustomersList: React.FC<InactiveCustomersListProps> = ({
   const inactiveCustomerMessage = "We Miss You!\n\nIt's been a while since we last heard from you, and we just wanted to check in. We truly value you as a customer and would love to have you back. If there's anything you need or if we can assist in any way, we're here for you!\n\nHope to see you again soon,";
 
   // Calculate the cutoff date based on the selected inactivity period
-  const getCutoffDate = (): Date => {
+  const cutoffDate = useMemo((): Date => {
     const now = new Date();
     
     switch(inactivityPeriod) {
@@ -50,7 +50,7 @@ const InactiveCustomersList: React.FC<InactiveCustomersListProps> = ({
       case 'all': return new Date(0); // Beginning of time
       default: return subDays(now, 30);
     }
-  };
+  }, [inactivityPeriod]);
 
   // Filter customers who haven't purchased since the cutoff date
   const inactiveCustomers = useMemo(() => {
@@ -58,8 +58,6 @@ const InactiveCustomersList: React.FC<InactiveCustomersListProps> = ({
       return [];
     }
 
-    const cutoffDate = getCutoffDate();
-    
     // Filter customers by category first if specified
     let filteredCustomers = customers;
     if (selectedCategory && selectedCategory !== 'all') {
@@ -84,7 +82,7 @@ const InactiveCustomersList: React.FC<InactiveCustomersListProps> = ({
       // Check if last purchase is before our cutoff date
       return lastPurchaseDate < cutoffDate;
     });
-  }, [customers, sales, inactivityPeriod, salesLoading, isLoading, selectedCategory]);
+  }, [customers, sales, salesLoading, isLoading, selectedCategory, cutoffDate]);
 
   // Format days since last purchase
   const getDaysSinceLastPurchase = (customerName: string): string => {

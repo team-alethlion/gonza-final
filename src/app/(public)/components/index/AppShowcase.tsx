@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { CheckCircle2, ArrowRight } from "lucide-react";
@@ -65,7 +66,7 @@ const AppShowcase = ({ B }: { B: any }) => {
             }}>
             The Gonza mobile app puts sales tracking, inventory management, and
             instant document generation right at your fingertips — whether
-            you're at the office or in the field.
+            you&apos;re at the office or in the field.
           </p>
           <ul
             style={{

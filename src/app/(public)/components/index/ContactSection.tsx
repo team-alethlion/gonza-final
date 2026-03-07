@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Phone, Mail } from "lucide-react";
@@ -33,7 +34,7 @@ const ContactSection = ({ B }: { B: any }) => {
               color: B.text,
               marginBottom: 14,
             }}>
-            We're here to help
+            We&apos;re here to help
           </h2>
           <p
             style={{

@@ -39,20 +39,31 @@ const MessageTemplateDialog = ({ open, onClose, onSave, initialData }: MessageTe
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (open && initialData) {
-      setName(initialData.name);
-      setContent(initialData.content);
-      setCategory(initialData.category || '');
-      setCustomCategory(initialData.category && !TEMPLATE_CATEGORIES.some(c => c.value === initialData.category) ? initialData.category : '');
-      setVariables(initialData.variables || []);
-    } else if (!open) {
-      setName('');
-      setContent('');
-      setCategory('');
-      setCustomCategory('');
-      setVariables([]);
-    }
-  }, [open, initialData]);
+    const syncData = () => {
+      if (open && initialData) {
+        if (name !== initialData.name) setName(initialData.name);
+        if (content !== initialData.content) setContent(initialData.content);
+        const initialCategory = initialData.category || '';
+        if (category !== initialCategory) setCategory(initialCategory);
+        
+        const derivedCustomCategory = initialData.category && !TEMPLATE_CATEGORIES.some(c => c.value === initialData.category) ? initialData.category : '';
+        if (customCategory !== derivedCustomCategory) setCustomCategory(derivedCustomCategory);
+        
+        if (JSON.stringify(variables) !== JSON.stringify(initialData.variables || [])) {
+          setVariables(initialData.variables || []);
+        }
+      } else if (!open) {
+        if (name !== '') setName('');
+        if (content !== '') setContent('');
+        if (category !== '') setCategory('');
+        if (customCategory !== '') setCustomCategory('');
+        if (variables.length > 0) setVariables([]);
+      }
+    };
+
+    const timer = setTimeout(syncData, 0);
+    return () => clearTimeout(timer);
+  }, [open, initialData, name, content, category, customCategory, variables]);
 
   const handleSave = async () => {
     if (!name || !content) return;

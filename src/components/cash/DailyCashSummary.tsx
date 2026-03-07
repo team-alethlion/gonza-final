@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,29 +52,40 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
 
   // Update filters when URL changes (navigation back/forward)
   useEffect(() => {
-    const paramPeriod = searchParams?.get('summaryPeriod') as PeriodType;
-    const paramDate = searchParams?.get('summaryDate');
-    const paramStartDate = searchParams?.get('summaryStartDate');
-    const paramEndDate = searchParams?.get('summaryEndDate');
+    const timer = setTimeout(() => {
+      const paramPeriod = searchParams?.get('summaryPeriod') as PeriodType;
+      const paramDate = searchParams?.get('summaryDate');
+      const paramStartDate = searchParams?.get('summaryStartDate');
+      const paramEndDate = searchParams?.get('summaryEndDate');
 
-    if (paramPeriod && ['daily', 'weekly', 'monthly', 'custom'].includes(paramPeriod)) {
-      setPeriodType(paramPeriod);
-    } else {
-      setPeriodType('daily');
-    }
+      const nextPeriodType = paramPeriod && ['daily', 'weekly', 'monthly', 'custom'].includes(paramPeriod) ? paramPeriod : 'daily';
+      if (periodType !== nextPeriodType) {
+        setPeriodType(nextPeriodType);
+      }
 
-    if (paramDate) {
-      setSelectedDate(new Date(paramDate));
-    }
+      if (paramDate) {
+        const nextDate = new Date(paramDate);
+        if (selectedDate.getTime() !== nextDate.getTime()) {
+          setSelectedDate(nextDate);
+        }
+      }
 
-    if (paramStartDate) {
-      setCustomStartDate(new Date(paramStartDate));
-    }
+      if (paramStartDate) {
+        const nextStartDate = new Date(paramStartDate);
+        if (customStartDate.getTime() !== nextStartDate.getTime()) {
+          setCustomStartDate(nextStartDate);
+        }
+      }
 
-    if (paramEndDate) {
-      setCustomEndDate(new Date(paramEndDate));
-    }
-  }, [searchParams]);
+      if (paramEndDate) {
+        const nextEndDate = new Date(paramEndDate);
+        if (customEndDate.getTime() !== nextEndDate.getTime()) {
+          setCustomEndDate(nextEndDate);
+        }
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchParams, periodType, selectedDate, customStartDate, customEndDate]);
   const [isViewTransactionDialogOpen, setIsViewTransactionDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setIsEditTransactionDialogOpen] = useState(false);
   const [viewingTransaction, setViewingTransaction] = useState<CashTransaction | null>(null);
@@ -93,7 +104,6 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
   const { getDailySummary, getDateRangeSummary, transactions, updateTransaction, refreshTransactions } = useCashTransactions(accountId);
   const { accounts, refreshAccounts } = useCashAccounts();
   const { settings } = useBusinessSettings();
-  const isMobile = useIsMobile();
   const { canManageFinanceAccounts } = useFinancialVisibility();
 
   // Memoize currency formatter
@@ -103,7 +113,7 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
 
 
   // Functions to update both state and URL
-  const updatePeriodType = (value: PeriodType) => {
+  const updatePeriodType = useCallback((value: PeriodType) => {
     setPeriodType(value);
     const newParams = new URLSearchParams(searchParams?.toString());
     if (value !== 'daily') {
@@ -112,9 +122,9 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
       newParams.delete('summaryPeriod');
     }
     router.push(`?${newParams.toString()}`);
-  };
+  }, [router, searchParams]);
 
-  const updateSelectedDate = (date: Date) => {
+  const updateSelectedDate = useCallback((date: Date) => {
     setSelectedDate(date);
     const newParams = new URLSearchParams(searchParams?.toString());
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -125,43 +135,43 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
       newParams.delete('summaryDate');
     }
     router.push(`?${newParams.toString()}`);
-  };
+  }, [router, searchParams]);
 
-  const updateCustomStartDate = (date: Date) => {
+  const updateCustomStartDate = useCallback((date: Date) => {
     setCustomStartDate(date);
     const newParams = new URLSearchParams(searchParams?.toString());
     newParams.set('summaryPeriod', 'custom');
     newParams.set('summaryStartDate', format(date, 'yyyy-MM-dd'));
     router.push(`?${newParams.toString()}`);
-  };
+  }, [router, searchParams]);
 
-  const updateCustomEndDate = (date: Date) => {
+  const updateCustomEndDate = useCallback((date: Date) => {
     setCustomEndDate(date);
     const newParams = new URLSearchParams(searchParams?.toString());
     newParams.set('summaryPeriod', 'custom');
     newParams.set('summaryEndDate', format(date, 'yyyy-MM-dd'));
     router.push(`?${newParams.toString()}`);
-  };
+  }, [router, searchParams]);
 
   // Memoized handlers for better performance
   const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     updateSelectedDate(new Date(e.target.value));
-  }, []);
+  }, [updateSelectedDate]);
 
   const handleCustomStartDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     updateCustomStartDate(new Date(e.target.value));
-  }, []);
+  }, [updateCustomStartDate]);
 
   const handleCustomEndDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     updateCustomEndDate(new Date(e.target.value));
-  }, []);
+  }, [updateCustomEndDate]);
 
   const goToToday = useCallback(() => {
     const today = new Date();
     updateSelectedDate(today);
     updateCustomStartDate(today);
     updateCustomEndDate(today);
-  }, []);
+  }, [updateSelectedDate, updateCustomStartDate, updateCustomEndDate]);
 
   // Memoize date range calculation
   const getDateRange = useMemo(() => {
@@ -209,14 +219,12 @@ const DailyCashSummary: React.FC<DailyCashSummaryProps> = ({ accountId }) => {
 
   // Optimized summary loading with debouncing to prevent excessive calls
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
     const loadSummary = async () => {
       await reloadSummary();
     };
 
     // Debounce the summary loading to prevent excessive calls
-    timeoutId = setTimeout(loadSummary, 100);
+    const timeoutId = setTimeout(loadSummary, 100);
 
     return () => {
       if (timeoutId) {

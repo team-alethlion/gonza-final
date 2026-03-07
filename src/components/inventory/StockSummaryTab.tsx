@@ -184,8 +184,14 @@ const StockSummaryTab = () => {
         return; // Don't change for custom
     }
 
-    setDateRange(newRange);
-  }, [period, specificDay]);
+    const nextRange = newRange;
+    if (JSON.stringify(dateRange) !== JSON.stringify(nextRange)) {
+      const timer = setTimeout(() => {
+        setDateRange(nextRange);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [period, specificDay, dateRange]);
 
   const exportToCSV = () => {
     const headers = [

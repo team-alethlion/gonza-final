@@ -31,7 +31,7 @@ export default function OnboardingError({
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Setup Interrupted</h1>
           <p className="text-slate-500 font-medium text-sm leading-relaxed">
             We encountered a technical issue while configuring your environment. 
-            Don't worry, your progress up to the last completed step is safe.
+            Don&apos;t worry, your progress up to the last completed step is safe.
           </p>
         </div>
 

@@ -48,12 +48,15 @@ export const useProductSuggestions = (products: Product[], searchTerm: string) =
 
   // Open panel when there are suggestions and search term is present
   useEffect(() => {
-    if (searchTerm.length >= 1 && suggestions.length > 0) {
-      setIsOpen(true);
-    } else if (searchTerm.length === 0) {
-      setIsOpen(false);
-    }
-  }, [searchTerm, suggestions.length]);
+    const timer = setTimeout(() => {
+      if (searchTerm.length >= 1 && suggestions.length > 0) {
+        if (!isOpen) setIsOpen(true);
+      } else if (searchTerm.length === 0) {
+        if (isOpen) setIsOpen(false);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, suggestions.length, isOpen]);
 
   const openPanel = () => {
     setIsOpen(true);

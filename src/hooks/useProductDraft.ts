@@ -1,28 +1,26 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { SaleFormData } from '@/types';
+import { ProductFormData } from '@/types';
 import { useBusiness } from '@/contexts/BusinessContext';
 
-export const useSaleDraft = () => {
+export const useProductDraft = () => {
   const { currentBusiness } = useBusiness();
 
   const DRAFT_STORAGE_KEY = useMemo(() =>
-    currentBusiness?.id ? `sale_draft_${currentBusiness.id}` : 'sale_draft'
+    currentBusiness?.id ? `product_draft_${currentBusiness.id}` : 'product_draft'
     , [currentBusiness]);
 
   const SESSION_BACKUP_KEY = useMemo(() =>
-    currentBusiness?.id ? `sale_backup_session_${currentBusiness.id}` : 'sale_backup_session'
+    currentBusiness?.id ? `product_backup_session_${currentBusiness.id}` : 'product_backup_session'
     , [currentBusiness]);
 
   const [hasDraft, setHasDraft] = useState(() => {
     if (typeof window === 'undefined') return false;
-    // Initial check: if we have a persistent draft OR a session backup
     const businessId = currentBusiness?.id;
-    const persistentKey = businessId ? `sale_draft_${businessId}` : 'sale_draft';
-    const sessionKey = businessId ? `sale_backup_session_${businessId}` : 'sale_backup_session';
+    const persistentKey = businessId ? `product_draft_${businessId}` : 'product_draft';
+    const sessionKey = businessId ? `product_backup_session_${businessId}` : 'product_backup_session';
     return !!localStorage.getItem(persistentKey) || !!sessionStorage.getItem(sessionKey);
   });
 
-  // Check if draft exists
   const checkForDraft = useCallback(() => {
     const hasPersistent = !!localStorage.getItem(DRAFT_STORAGE_KEY);
     const hasSession = !!sessionStorage.getItem(SESSION_BACKUP_KEY);
@@ -40,21 +38,20 @@ export const useSaleDraft = () => {
     }
   }, [DRAFT_STORAGE_KEY, SESSION_BACKUP_KEY, currentBusiness?.id, checkForDraft]);
 
-  const saveDraft = useCallback((formData: SaleFormData, selectedDate: Date, isPersistent = true) => {
+  const saveDraft = useCallback((formData: any, isPersistent = true) => {
     if (!currentBusiness?.id) return;
 
+    // We don't want to save the actual image file object in storage, just the metadata
+    const { imageFile, ...serializableData } = formData;
+
     const draftData = {
-      formData,
-      selectedDate: selectedDate.toISOString(),
+      formData: serializableData,
       savedAt: new Date().toISOString()
     };
 
     const dataString = JSON.stringify(draftData);
-
-    // 1. Always save to Session Storage (Fast, reliable for refreshes)
     sessionStorage.setItem(SESSION_BACKUP_KEY, dataString);
 
-    // 2. Conditionally save to Local Storage (Slower, persistent for tab closes)
     if (isPersistent) {
       localStorage.setItem(DRAFT_STORAGE_KEY, dataString);
     }
@@ -63,10 +60,7 @@ export const useSaleDraft = () => {
   }, [DRAFT_STORAGE_KEY, SESSION_BACKUP_KEY, currentBusiness?.id]);
 
   const loadDraft = useCallback(() => {
-    // Priority 1: Session backup (most recent usually)
     let draft = sessionStorage.getItem(SESSION_BACKUP_KEY);
-    
-    // Priority 2: Persistent draft
     if (!draft) {
       draft = localStorage.getItem(DRAFT_STORAGE_KEY);
     }
@@ -76,11 +70,10 @@ export const useSaleDraft = () => {
         const parsedDraft = JSON.parse(draft);
         return {
           formData: parsedDraft.formData,
-          selectedDate: new Date(parsedDraft.selectedDate),
           savedAt: new Date(parsedDraft.savedAt)
         };
       } catch (error) {
-        console.error('Error parsing draft:', error);
+        console.error('Error parsing product draft:', error);
         localStorage.removeItem(DRAFT_STORAGE_KEY);
         sessionStorage.removeItem(SESSION_BACKUP_KEY);
         setHasDraft(false);

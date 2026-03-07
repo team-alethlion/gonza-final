@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 interface UsePaginationProps<T> {
   items: T[];
@@ -24,9 +24,12 @@ export function usePagination<T>({
   }, [items, itemsPerPage]);
   
   // Adjust current page if it's out of bounds
-  useMemo(() => {
+  useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      const timer = setTimeout(() => {
+        setCurrentPage(totalPages);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [totalPages, currentPage]);
   

@@ -13,12 +13,36 @@ import {
   getCashAccountBalanceAction
 } from '@/app/actions/finance';
 
+import { localDb } from '@/lib/dexie';
+
 export const useCashAccounts = () => {
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const { toast } = useToast();
   const { currentBusiness } = useBusiness();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && accounts.length === 0) {
+        const cached = await localDb.cashAccounts
+          .where('locationId')
+          .equals(currentBusiness.id)
+          .toArray();
+        
+        if (cached && cached.length > 0) {
+          console.log('[CashAccounts] Loaded from Dexie cache');
+          setAccounts(cached.map(a => ({
+            ...a,
+            createdAt: new Date(a.createdAt),
+            updatedAt: new Date(a.updatedAt)
+          })));
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const loadAccounts = useCallback(async (): Promise<CashAccount[]> => {
     if (!currentBusiness?.id) return [];
@@ -30,11 +54,23 @@ export const useCashAccounts = () => {
         throw new Error(result.error || 'Failed to fetch accounts');
       }
 
-      return result.data.map((account: any) => ({
+      const formattedAccounts = result.data.map((account: any) => ({
         ...account,
         createdAt: new Date(account.createdAt),
         updatedAt: new Date(account.updatedAt)
       }));
+
+      // Update Dexie cache in the background
+      if (formattedAccounts.length > 0) {
+        const cacheData = formattedAccounts.map(a => ({
+          ...a,
+          locationId: currentBusiness.id as string,
+        }));
+        await localDb.cashAccounts.where('locationId').equals(currentBusiness.id).delete();
+        await localDb.cashAccounts.bulkPut(cacheData as any);
+      }
+
+      return formattedAccounts;
     } catch (error) {
       console.error('Error loading cash accounts:', error);
       toast({

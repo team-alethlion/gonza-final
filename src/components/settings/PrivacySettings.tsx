@@ -1,9 +1,15 @@
 "use client";
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Mail } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Shield, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -11,14 +17,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose
-} from '@/components/ui/dialog';
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface PrivacySettingsProps {
   onRequestDataDeletion: () => void;
 }
 
-const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion }) => {
+const PrivacySettings: React.FC<PrivacySettingsProps> = ({
+  onRequestDataDeletion,
+}) => {
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -26,9 +34,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion
           <Shield className="h-5 w-5 text-blue-600" />
           <CardTitle>Privacy & Data</CardTitle>
         </div>
-        <CardDescription>
-          Manage your privacy settings and data
-        </CardDescription>
+        <CardDescription>Manage your privacy settings and data</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
@@ -37,14 +43,16 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion
             <p className="text-sm text-gray-500">Review our privacy policy</p>
           </div>
           <Button variant="outline" asChild>
-            <Link href="/privacy-policy">View Policy</Link>
+            <Link href="/public/privacy-policy">View Policy</Link>
           </Button>
         </div>
 
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-medium">Delete My Data</h3>
-            <p className="text-sm text-gray-500">Request deletion of your personal information</p>
+            <p className="text-sm text-gray-500">
+              Request deletion of your personal information
+            </p>
           </div>
           <Dialog>
             <DialogTrigger asChild>
@@ -57,24 +65,24 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ onRequestDataDeletion
               <DialogHeader>
                 <DialogTitle>Request Data Deletion</DialogTitle>
                 <DialogDescription>
-                  This will open your email client to send a request for data deletion.
-                  Our team will process your request and contact you for verification.
+                  This will open your email client to send a request for data
+                  deletion. Our team will process your request and contact you
+                  for verification.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex justify-end space-x-2 mt-4">
                 <DialogClose asChild>
                   <Button variant="outline">Cancel</Button>
                 </DialogClose>
-                <Button onClick={onRequestDataDeletion}>
-                  Proceed
-                </Button>
+                <Button onClick={onRequestDataDeletion}>Proceed</Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          You can request deletion of your account and associated data at any time.
+          You can request deletion of your account and associated data at any
+          time.
         </p>
       </CardContent>
     </Card>

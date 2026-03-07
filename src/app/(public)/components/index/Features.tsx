@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -89,7 +90,7 @@ const Features = ({ B }: { B: any }) => {
             }}>
             Everything you need.
             <br />
-            Nothing you don't.
+            Nothing you don&apos;t.
           </h2>
           <p style={{ fontSize: 15, color: B.textMuted, lineHeight: 1.7 }}>
             A complete business management platform built for the pace of

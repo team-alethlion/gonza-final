@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
@@ -25,11 +26,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { 
-  getPlatformUserSummary, 
-  toggleUserFreeze, 
+import {
+  getPlatformUserSummary,
+  toggleUserFreeze,
   deletePlatformUserAccount,
-  getSystemStatsAction
+  getSystemStatsAction,
 } from "@/app/actions/admin";
 
 function cn(...inputs: ClassValue[]) {
@@ -105,7 +106,7 @@ export default function AdminDashboardClient() {
       if (!result.success) throw new Error(result.error);
       return result.data;
     },
-    refetchInterval: 30000
+    refetchInterval: 30000,
   });
 
   const filteredUsers = users?.filter((u) => {
@@ -144,7 +145,7 @@ export default function AdminDashboardClient() {
       if (confirmModal.type === "freeze" || confirmModal.type === "unfreeze") {
         const result = await toggleUserFreeze(
           confirmModal.targetId,
-          confirmModal.type === "freeze"
+          confirmModal.type === "freeze",
         );
 
         if (!result.success) throw new Error(result.error);
@@ -390,242 +391,246 @@ export default function AdminDashboardClient() {
                   className={cn(
                     "p-1.5 rounded bg-muted/30 transition-colors",
                     stat.color,
-                    )}>
-                    <stat.icon className="w-3.5 h-3.5" />
-                  </div>
+                  )}>
+                  <stat.icon className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                  {stat.value}
-                </h3>
               </div>
-            ))}
+              <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                {stat.value}
+              </h3>
+            </div>
+          ))}
+        </div>
+
+        <div className="linear-card overflow-hidden bg-white">
+          <div className="px-4 lg:px-6 py-3 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/[0.15]">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-2">
+                <Filter className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[9px] font-bold text-foreground uppercase tracking-widest">
+                  Filters
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {(["all", "verified", "provisioning"] as const).map(
+                  (status) => (
+                    <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      className={cn(
+                        "px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded transition-all",
+                        statusFilter === status
+                          ? "bg-primary text-white"
+                          : "text-muted-foreground hover:bg-muted",
+                      )}>
+                      {status}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-[0.1em]">
+              {filteredUsers?.length || 0} Managed Users
+            </span>
           </div>
 
-          <div className="linear-card overflow-hidden bg-white">
-            <div className="px-4 lg:px-6 py-3 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/[0.15]">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[9px] font-bold text-foreground uppercase tracking-widest">
-                    Filters
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(["all", "verified", "provisioning"] as const).map(
-                    (status) => (
-                      <button
-                        key={status}
-                        onClick={() => setStatusFilter(status)}
-                        className={cn(
-                          "px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded transition-all",
-                          statusFilter === status
-                            ? "bg-primary text-white"
-                            : "text-muted-foreground hover:bg-muted",
-                        )}>
-                        {status}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
-              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-[0.1em]">
-                {filteredUsers?.length || 0} Managed Users
-              </span>
-            </div>
-
-            <div className="overflow-x-auto" id="records-table-container">
-              <table
-                className="w-full text-left min-w-[800px]"
-                id="records-table">
-                <thead>
+          <div className="overflow-x-auto" id="records-table-container">
+            <table
+              className="w-full text-left min-w-[800px]"
+              id="records-table">
+              <thead>
+                <tr>
+                  <th className="linear-table-header">User Account</th>
+                  <th className="linear-table-header">Business Identity</th>
+                  <th className="linear-table-header">Primary Contact</th>
+                  <th className="linear-table-header text-center">Nodes</th>
+                  <th className="linear-table-header text-center">Status</th>
+                  <th className="linear-table-header">Subscription</th>
+                  <th className="linear-table-header text-center">Expiry</th>
+                  <th className="linear-table-header text-right">Settings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
                   <tr>
-                    <th className="linear-table-header">User Account</th>
-                    <th className="linear-table-header">Business Identity</th>
-                    <th className="linear-table-header">Primary Contact</th>
-                    <th className="linear-table-header text-center">Nodes</th>
-                    <th className="linear-table-header text-center">Status</th>
-                    <th className="linear-table-header">Subscription</th>
-                    <th className="linear-table-header text-center">Expiry</th>
-                    <th className="linear-table-header text-right">Settings</th>
+                    <td colSpan={7} className="px-6 py-20 text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/40 mb-3" />
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        Aggregating User Data...
+                      </p>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
-                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/40 mb-3" />
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                          Aggregating User Data...
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredUsers?.map((u) => {
-                      const detailId = u.user_id;
+                ) : (
+                  filteredUsers?.map((u) => {
+                    const detailId = u.user_id;
 
-                      return (
-                        <tr
-                          key={u.user_id}
-                          className="linear-table-row group/row cursor-pointer"
-                          onClick={() => router.push(`/admin/records/${u.user_id}`)}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                                <User className="w-3.5 h-3.5 text-primary/40" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-foreground text-[11px] truncate uppercase tracking-tight">
-                                  {u.email}
-                                </p>
-                                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-[0.1em]">
-                                  Admin
-                                </p>
-                              </div>
+                    return (
+                      <tr
+                        key={u.user_id}
+                        className="linear-table-row group/row cursor-pointer"
+                        onClick={() =>
+                          router.push(`/admin/records/${u.user_id}`)
+                        }>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                              <User className="w-3.5 h-3.5 text-primary/40" />
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded bg-[#f1f1f1] border border-border/20 flex items-center justify-center shrink-0 group-hover/row:border-primary/20 transition-colors">
-                                <Building2 className="w-3.5 h-3.5 text-muted-foreground/40 group-hover/row:text-primary/40" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-foreground text-[10px] uppercase tracking-tight truncate">
-                                  {u.business_name || "Individual Entity"}
-                                </p>
-                                <p className="text-[8px] text-muted-foreground uppercase font-medium tracking-widest truncate">
-                                  {u.location_count > 1
-                                    ? `${u.location_count} Branches`
-                                    : "Primary Node"}
-                                </p>
-                              </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-foreground text-[11px] truncate uppercase tracking-tight">
+                                {u.email}
+                              </p>
+                              <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-[0.1em]">
+                                Admin
+                              </p>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-5 h-5 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
-                                <Phone className="w-2.5 h-2.5 text-muted-foreground/60" />
-                              </div>
-                              <span className="text-[10px] font-bold text-foreground uppercase tracking-tight">
-                                {u.business_phone || "—"}
-                              </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-[#f1f1f1] border border-border/20 flex items-center justify-center shrink-0 group-hover/row:border-primary/20 transition-colors">
+                              <Building2 className="w-3.5 h-3.5 text-muted-foreground/40 group-hover/row:text-primary/40" />
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={cn(
-                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border",
-                              u.location_count >= u.location_limit 
-                                ? "bg-amber-50 text-amber-600 border-amber-100" 
-                                : "bg-muted/40 text-muted-foreground border-border/10"
-                            )}>
-                              {u.location_count} / {u.location_limit === 999 ? '∞' : u.location_limit}
+                            <div className="min-w-0">
+                              <p className="font-bold text-foreground text-[10px] uppercase tracking-tight truncate">
+                                {u.business_name || "Individual Entity"}
+                              </p>
+                              <p className="text-[8px] text-muted-foreground uppercase font-medium tracking-widest truncate">
+                                {u.location_count > 1
+                                  ? `${u.location_count} Branches`
+                                  : "Primary Node"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
+                              <Phone className="w-2.5 h-2.5 text-muted-foreground/60" />
+                            </div>
+                            <span className="text-[10px] font-bold text-foreground uppercase tracking-tight">
+                              {u.business_phone || "—"}
                             </span>
-                          </td>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border",
+                              u.location_count >= u.location_limit
+                                ? "bg-amber-50 text-amber-600 border-amber-100"
+                                : "bg-muted/40 text-muted-foreground border-border/10",
+                            )}>
+                            {u.location_count} /{" "}
+                            {u.location_limit === 999 ? "∞" : u.location_limit}
+                          </span>
+                        </td>
 
-                          <td className="px-4 py-3 text-center">
-                            {u.is_frozen ? (
-                              <div className="inline-flex items-center gap-1.5 text-blue-600 font-bold text-[8px] uppercase tracking-tighter bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50">
-                                <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
-                                Frozen
-                              </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-1.5 text-emerald-700 font-bold text-[8px] uppercase tracking-tighter bg-emerald-50/50 px-2 py-0.5 rounded border border-emerald-100/50">
-                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                Active
-                              </div>
+                        <td className="px-4 py-3 text-center">
+                          {u.is_frozen ? (
+                            <div className="inline-flex items-center gap-1.5 text-blue-600 font-bold text-[8px] uppercase tracking-tighter bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50">
+                              <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                              Frozen
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 text-emerald-700 font-bold text-[8px] uppercase tracking-tighter bg-emerald-50/50 px-2 py-0.5 rounded border border-emerald-100/50">
+                              <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                              Active
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-bold text-foreground">
+                              UGX {u.billing_amount?.toLocaleString() ?? "0"}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground uppercase font-medium tracking-widest">
+                              {u.billing_duration || "Monthly"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <div
+                              className={cn(
+                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border",
+                                (u.days_remaining ?? 0) <= 0
+                                  ? "bg-red-50 text-red-600 border-red-100"
+                                  : (u.days_remaining ?? 0) <= 5
+                                  ? "bg-amber-50 text-amber-600 border-amber-100"
+                                  : "bg-green-50 text-green-600 border-green-100",
+                              )}>
+                              {(u.days_remaining ?? 0) <= 0
+                                ? "Expired"
+                                : `${u.days_remaining} Days`}
+                            </div>
+                            <span className="text-[8px] text-muted-foreground font-medium">
+                              {u.next_billing_date
+                                ? format(
+                                    new Date(u.next_billing_date),
+                                    "MMM dd",
+                                  )
+                                : "No Date"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {detailId && (
+                              <Link
+                                href={`/admin/records/${detailId}/edit`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1.5 hover:bg-primary/5 rounded text-muted-foreground hover:text-primary transition-all active:scale-90"
+                                title="Edit Record">
+                                <Settings2 className="w-4 h-4" />
+                              </Link>
                             )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col">
-                              <span className="text-[11px] font-bold text-foreground">
-                                UGX {u.billing_amount?.toLocaleString() ?? "0"}
-                              </span>
-                              <span className="text-[9px] text-muted-foreground uppercase font-medium tracking-widest">
-                                {u.billing_duration || "Monthly"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border",
-                                  (u.days_remaining ?? 0) <= 0
-                                    ? "bg-red-50 text-red-600 border-red-100"
-                                    : (u.days_remaining ?? 0) <= 5
-                                    ? "bg-amber-50 text-amber-600 border-amber-100"
-                                    : "bg-green-50 text-green-600 border-green-100",
-                                )}>
-                                {(u.days_remaining ?? 0) <= 0
-                                  ? "Expired"
-                                  : `${u.days_remaining} Days`}
-                              </div>
-                              <span className="text-[8px] text-muted-foreground font-medium">
-                                {u.next_billing_date
-                                  ? format(
-                                      new Date(u.next_billing_date),
-                                      "MMM dd",
-                                    )
-                                  : "No Date"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {detailId && (
-                                <Link
-                                  href={`/admin/records/${detailId}/edit`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-1.5 hover:bg-primary/5 rounded text-muted-foreground hover:text-primary transition-all active:scale-90"
-                                  title="Edit Record">
-                                  <Settings2 className="w-4 h-4" />
-                                </Link>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction(
+                                  u.is_frozen ? "unfreeze" : "freeze",
+                                  u,
+                                );
+                              }}
+                              className={cn(
+                                "p-1.5 hover:bg-muted rounded transition-colors",
+                                u.is_frozen
+                                  ? "text-blue-600"
+                                  : "text-muted-foreground hover:text-amber-600",
                               )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction(
-                                    u.is_frozen ? "unfreeze" : "freeze",
-                                    u,
-                                  );
-                                }}
+                              title={
+                                u.is_frozen
+                                  ? "Unsuspend User"
+                                  : "Suspend User Account"
+                              }>
+                              <Snowflake
                                 className={cn(
-                                  "p-1.5 hover:bg-muted rounded transition-colors",
-                                  u.is_frozen
-                                    ? "text-blue-600"
-                                    : "text-muted-foreground hover:text-amber-600",
+                                  "w-3.5 h-3.5",
+                                  u.is_frozen && "animate-pulse",
                                 )}
-                                title={
-                                  u.is_frozen
-                                    ? "Unsuspend User"
-                                    : "Suspend User Account"
-                                }>
-                                <Snowflake
-                                  className={cn(
-                                    "w-3.5 h-3.5",
-                                    u.is_frozen && "animate-pulse",
-                                  )}
-                                />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction("delete", u);
-                                }}
-                                className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-destructive transition-colors"
-                                title="Delete Account">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                              />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("delete", u);
+                              }}
+                              className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-destructive transition-colors"
+                              title="Delete Account">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+      </div>
 
       {confirmModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200">

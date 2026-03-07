@@ -20,10 +20,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface FinancialOverviewProps {
   data: Array<{ name: string, amount: number }>;
-  formatCurrency: (value: any) => string;
+  formatCurrency: (value: number) => string;
 }
 
-const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
+const CustomTooltip = ({ active, payload, label, formatCurrency }: { active?: boolean, payload?: any[], label?: string, formatCurrency: (value: number) => string }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-lg">
@@ -42,8 +42,8 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ data, formatCurre
   const isMobile = useIsMobile();
 
   // Enhanced color mapping with gradients
-  const getBarColor = (entry: any, index: number) => {
-    const category = entry.name.toLowerCase();
+  const getBarColor = (name: string) => {
+    const category = name.toLowerCase();
     if (category.includes('sales')) return '#3B82F6'; // Blue
     if (category.includes('cost')) return '#EF4444'; // Red
     if (category.includes('expenses')) return '#8B5CF6'; // Purple
@@ -52,9 +52,9 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ data, formatCurre
   };
 
   // Add colors to data for easier rendering
-  const enhancedData = data.map((item, index) => ({
+  const enhancedData = data.map((item) => ({
     ...item,
-    fill: getBarColor(item, index)
+    fill: getBarColor(item.name)
   }));
 
   return (

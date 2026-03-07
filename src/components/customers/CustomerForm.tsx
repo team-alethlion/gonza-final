@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { DialogFooter } from "@/components/ui/dialog";
 import { useCustomerCategories } from "@/hooks/useCustomerCategories";
+import { useCustomerDraft } from "@/hooks/useCustomerDraft";
+import { toast } from "sonner";
 
 interface CustomerFormProps {
   initialData?: Customer;
@@ -41,29 +42,19 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { categories } = useCustomerCategories();
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useCustomerDraft();
+  const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
   
   // Initialize date state with proper timezone handling 
   const [date, setDate] = React.useState<Date | undefined>(() => {
-    if (initialData?.birthday) {
-      console.log('Initial birthday from props:', initialData.birthday);
-      return initialData.birthday;
-    }
+    if (initialData?.birthday) return initialData.birthday;
     return undefined;
   });
   
-  // Initialize category selection - use "none" instead of empty string
+  // Initialize category selection
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string>(
     initialData?.categoryId || "none"
   );
-  
-  // Log the initial birthday from props to help debug
-  React.useEffect(() => {
-    if (initialData?.birthday) {
-      console.log('Initial birthday from props:', initialData.birthday);
-      console.log('Is Date object:', initialData.birthday instanceof Date);
-      console.log('Date string:', initialData.birthday.toString());
-    }
-  }, [initialData?.birthday]);
   
   const [socialMedia, setSocialMedia] = React.useState({
     facebook: initialData?.socialMedia?.facebook || "",
@@ -77,16 +68,65 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   const [tagInput, setTagInput] = React.useState("");
   const [selectedGender, setSelectedGender] = React.useState(initialData?.gender || "");
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       fullName: initialData?.fullName || "",
       email: initialData?.email || "",
       phoneNumber: initialData?.phoneNumber || "",
       location: initialData?.location || "",
-      gender: initialData?.gender || "",
       notes: initialData?.notes || "",
     },
   });
+
+  const formValues = watch();
+
+  // Load draft on mount for new customer
+  React.useEffect(() => {
+    if (!initialData && hasDraft) {
+      const draft = loadDraft();
+      if (draft) {
+        const { formData } = draft;
+        if (formData.fullName) setValue("fullName", formData.fullName);
+        if (formData.email) setValue("email", formData.email);
+        if (formData.phoneNumber) setValue("phoneNumber", formData.phoneNumber);
+        if (formData.location) setValue("location", formData.location);
+        if (formData.notes) setValue("notes", formData.notes);
+        if (formData.birthday) setDate(new Date(formData.birthday));
+        if (formData.categoryId) setSelectedCategoryId(formData.categoryId);
+        if (formData.gender) setSelectedGender(formData.gender);
+        if (formData.socialMedia) setSocialMedia(formData.socialMedia);
+        if (formData.tags) setTags(formData.tags);
+        
+        toast.info("Restored your unsaved customer details");
+      }
+    }
+  }, [initialData]);
+
+  // Auto-save logic
+  React.useEffect(() => {
+    if (initialData || isSubmitting) return;
+
+    const dataToSave = {
+      ...formValues,
+      birthday: date?.toISOString(),
+      categoryId: selectedCategoryId,
+      gender: selectedGender,
+      socialMedia,
+      tags
+    };
+
+    const hasData = formValues.fullName?.trim() || formValues.email?.trim() || formValues.phoneNumber?.trim();
+
+    if (hasData) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      saveDraft(dataToSave, false); // Instant session save
+      autoSaveTimeoutRef.current = setTimeout(() => saveDraft(dataToSave, true), 2000); // Debounced local save
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [formValues, date, selectedCategoryId, selectedGender, socialMedia, tags, initialData, isSubmitting, saveDraft]);
 
   const addTag = () => {
     if (tagInput.trim() !== "" && !tags.includes(tagInput.trim())) {
@@ -112,118 +152,57 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   const onFormSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      // Log the date to help debug
-      console.log('Selected date before submission:', date);
-      
       const customerData: Partial<Customer> = {
         ...data,
         gender: selectedGender,
-        birthday: date, // This is the Date object that needs to be correctly handled
-        categoryId: selectedCategoryId === "none" ? null : selectedCategoryId, // Convert "none" back to null
+        birthday: date,
+        categoryId: selectedCategoryId === "none" ? null : selectedCategoryId,
         socialMedia: Object.keys(socialMedia).length > 0 ? socialMedia : null,
         tags: tags.length > 0 ? tags : null,
       };
       
-      console.log('Submitting customer data:', customerData);
-      return await onSubmit(customerData);
+      const success = await onSubmit(customerData);
+      if (success && !initialData) {
+        clearDraft();
+      }
+      return success;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Generate years for the dropdown (100 years back from current year)
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
-  
-  // Months array for the dropdown
   const months = [
-    { value: 0, label: "January" },
-    { value: 1, label: "February" },
-    { value: 2, label: "March" },
-    { value: 3, label: "April" },
-    { value: 4, label: "May" },
-    { value: 5, label: "June" },
-    { value: 6, label: "July" },
-    { value: 7, label: "August" },
-    { value: 8, label: "September" },
-    { value: 9, label: "October" },
-    { value: 10, label: "November" },
-    { value: 11, label: "December" },
+    { value: 0, label: "January" }, { value: 1, label: "February" }, { value: 2, label: "March" },
+    { value: 3, label: "April" }, { value: 4, label: "May" }, { value: 5, label: "June" },
+    { value: 6, label: "July" }, { value: 7, label: "August" }, { value: 8, label: "September" },
+    { value: 9, label: "October" }, { value: 10, label: "November" }, { value: 11, label: "December" },
   ];
 
-  // Handle date selection directly from calendar
   const handleDateSelect = (selectedDate: Date | undefined) => {
-    console.log('Date selected from calendar:', selectedDate);
-    
     if (selectedDate) {
-      // When selecting a date, set it at noon UTC to avoid timezone issues
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
       const day = selectedDate.getDate();
-      
-      // Create new date at UTC noon to prevent date shifts
-      const correctedDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
-      console.log('Corrected date with UTC noon:', correctedDate);
-      
-      setDate(correctedDate);
+      setDate(new Date(Date.UTC(year, month, day, 12, 0, 0)));
     } else {
       setDate(undefined);
     }
   };
 
-  // Handle year selection with proper date validation
   const handleYearSelect = (year: string) => {
-    try {
-      const yearNum = parseInt(year);
-      const newDate = date ? new Date(date) : new Date();
-      
-      // Create a UTC date at noon to prevent timezone issues
-      const correctedDate = new Date(Date.UTC(
-        yearNum,
-        newDate.getMonth(),
-        newDate.getDate(),
-        12, 0, 0
-      ));
-      
-      // Check if the resulting date is valid
-      if (!isNaN(correctedDate.getTime())) {
-        setDate(correctedDate);
-        console.log('Year selected, new date:', correctedDate);
-      } else {
-        console.error('Invalid date after setting year:', year);
-      }
-    } catch (error) {
-      console.error('Error setting year:', error);
-    }
+    const yearNum = parseInt(year);
+    const newDate = date ? new Date(date) : new Date();
+    setDate(new Date(Date.UTC(yearNum, newDate.getMonth(), newDate.getDate(), 12, 0, 0)));
   };
 
-  // Handle month selection with proper date validation
   const handleMonthSelect = (month: string) => {
-    try {
-      const monthNum = parseInt(month);
-      const newDate = date ? new Date(date) : new Date();
-      
-      // Create a UTC date at noon to prevent timezone issues
-      const correctedDate = new Date(Date.UTC(
-        newDate.getFullYear(),
-        monthNum,
-        newDate.getDate(),
-        12, 0, 0
-      ));
-      
-      // Check if the resulting date is valid
-      if (!isNaN(correctedDate.getTime())) {
-        setDate(correctedDate);
-        console.log('Month selected, new date:', correctedDate);
-      } else {
-        console.error('Invalid date after setting month:', month);
-      }
-    } catch (error) {
-      console.error('Error setting month:', error);
-    }
+    const monthNum = parseInt(month);
+    const newDate = date ? new Date(date) : new Date();
+    setDate(new Date(Date.UTC(newDate.getFullYear(), monthNum, newDate.getDate(), 12, 0, 0)));
   };
 
-  // Filter categories to ensure no empty IDs
   const validCategories = categories.filter(category => category.id && category.id.trim() !== '');
 
   return (
@@ -237,28 +216,19 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               {...register("fullName", { required: "Name is required" })}
               className={cn(errors.fullName && "border-red-500")}
             />
-            {errors.fullName && (
-              <p className="text-red-500 text-xs">
-                {errors.fullName.message as string}
-              </p>
-            )}
+            {errors.fullName && <p className="text-red-500 text-xs">{errors.fullName.message as string}</p>}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select
-              value={selectedCategoryId}
-              onValueChange={setSelectedCategoryId}
-            >
+            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
               <SelectTrigger id="category">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No Category</SelectItem>
                 {validCategories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
+                  <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -270,16 +240,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               id="email"
               type="email"
               {...register("email", {
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: "Invalid email address",
-                },
+                pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: "Invalid email address" },
               })}
               className={cn(errors.email && "border-red-500")}
             />
-            {errors.email && (
-              <p className="text-red-500 text-xs">{errors.email.message as string}</p>
-            )}
+            {errors.email && <p className="text-red-500 text-xs">{errors.email.message as string}</p>}
           </div>
 
           <div className="space-y-2">
@@ -294,10 +259,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
-            <Select
-              value={selectedGender}
-              onValueChange={setSelectedGender}
-            >
+            <Select value={selectedGender} onValueChange={setSelectedGender}>
               <SelectTrigger id="gender">
                 <SelectValue placeholder="Select gender" />
               </SelectTrigger>
@@ -305,9 +267,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 <SelectItem value="male">Male</SelectItem>
                 <SelectItem value="female">Female</SelectItem>
                 <SelectItem value="non-binary">Non-binary</SelectItem>
-                <SelectItem value="prefer-not-to-say">
-                  Prefer not to say
-                </SelectItem>
+                <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -319,10 +279,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 <div className="flex-1">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                      >
+                      <Button variant="outline" className="w-full justify-between">
                         {date ? date.getDate() : "Day"}
                         <CalendarIcon className="h-4 w-4 opacity-50" />
                       </Button>
@@ -335,54 +292,33 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                         initialFocus
                         captionLayout="buttons"
                         className="p-3 pointer-events-auto"
-                        classNames={{
-                          caption_label: "hidden",
-                          dropdown: "hidden",
-                        }}
+                        classNames={{ caption_label: "hidden", dropdown: "hidden" }}
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div className="flex-1">
-                  <Select
-                    value={date ? String(date.getMonth()) : undefined}
-                    onValueChange={handleMonthSelect}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
+                  <Select value={date ? String(date.getMonth()) : undefined} onValueChange={handleMonthSelect}>
+                    <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
                     <SelectContent>
                       {months.map((month) => (
-                        <SelectItem key={month.value} value={String(month.value)}>
-                          {month.label}
-                        </SelectItem>
+                        <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex-1">
-                  <Select
-                    value={date ? String(date.getFullYear()) : undefined}
-                    onValueChange={handleYearSelect}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Year" />
-                    </SelectTrigger>
+                  <Select value={date ? String(date.getFullYear()) : undefined} onValueChange={handleYearSelect}>
+                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
                     <SelectContent>
                       {years.map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}
-                        </SelectItem>
+                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              {date && (
-                <div className="text-sm text-muted-foreground">
-                  Selected: {date ? format(date, "PPP") : "No date selected"}
-                </div>
-              )}
+              {date && <div className="text-sm text-muted-foreground">Selected: {format(date, "PPP")}</div>}
             </div>
           </div>
         </div>
@@ -393,171 +329,43 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
             {tags.map((tag) => (
               <Badge key={tag} variant="secondary">
                 {tag}
-                <button
-                  type="button"
-                  className="ml-1 rounded-full hover:bg-gray-200"
-                  onClick={() => removeTag(tag)}
-                >
+                <button type="button" className="ml-1 rounded-full hover:bg-gray-200" onClick={() => removeTag(tag)}>
                   <X className="h-3 w-3" />
-                  <span className="sr-only">Remove tag</span>
                 </button>
               </Badge>
             ))}
           </div>
           <div className="flex gap-2">
-            <Input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              placeholder="Add tag"
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-            />
-            <Button type="button" onClick={addTag} variant="outline">
-              Add
-            </Button>
+            <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Add tag" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())} />
+            <Button type="button" onClick={addTag} variant="outline">Add</Button>
           </div>
         </div>
 
         <div className="space-y-2">
           <Label>Social Media</Label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="facebook" className="text-xs">
-                Facebook
-              </Label>
-              <Input
-                id="facebook"
-                value={socialMedia.facebook}
-                onChange={(e) => handleSocialMediaChange(e, "facebook")}
-                placeholder="Username or URL"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="instagram" className="text-xs">
-                Instagram
-              </Label>
-              <Input
-                id="instagram"
-                value={socialMedia.instagram}
-                onChange={(e) => handleSocialMediaChange(e, "instagram")}
-                placeholder="Username without @"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="twitter" className="text-xs">
-                Twitter/X
-              </Label>
-              <Input
-                id="twitter"
-                value={socialMedia.twitter}
-                onChange={(e) => handleSocialMediaChange(e, "twitter")}
-                placeholder="Username without @"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="linkedin" className="text-xs">
-                LinkedIn
-              </Label>
-              <Input
-                id="linkedin"
-                value={socialMedia.linkedin}
-                onChange={(e) => handleSocialMediaChange(e, "linkedin")}
-                placeholder="Profile URL or username"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Birthday</Label>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-row gap-2">
-              <div className="flex-1">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                    >
-                      {date ? date.getDate() : "Day"}
-                      <CalendarIcon className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={handleDateSelect}
-                      initialFocus
-                      captionLayout="buttons"
-                      className="p-3 pointer-events-auto"
-                      classNames={{
-                        caption_label: "hidden",
-                        dropdown: "hidden",
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
+            {['facebook', 'instagram', 'twitter', 'linkedin'].map((platform) => (
+              <div key={platform} className="space-y-1">
+                <Label htmlFor={platform} className="text-xs capitalize">{platform}</Label>
+                <Input
+                  id={platform}
+                  value={(socialMedia as any)[platform]}
+                  onChange={(e) => handleSocialMediaChange(e, platform)}
+                  placeholder={platform === 'linkedin' ? "Profile URL" : "Username"}
+                />
               </div>
-              <div className="flex-1">
-                <Select
-                  value={date ? String(date.getMonth()) : undefined}
-                  onValueChange={handleMonthSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map((month) => (
-                      <SelectItem key={month.value} value={String(month.value)}>
-                        {month.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1">
-                <Select
-                  value={date ? String(date.getFullYear()) : undefined}
-                  onValueChange={handleYearSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {years.map((year) => (
-                      <SelectItem key={year} value={String(year)}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {date && (
-              <div className="text-sm text-muted-foreground">
-                Selected: {date ? format(date, "PPP") : "No date selected"}
-              </div>
-            )}
+            ))}
           </div>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>
-          <Textarea
-            id="notes"
-            {...register("notes")}
-            rows={4}
-            placeholder="Add any notes about this customer..."
-          />
+          <Textarea id="notes" {...register("notes")} rows={4} placeholder="Add any notes about this customer..." />
         </div>
 
         <DialogFooter>
-          <Button variant="outline" type="button" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save Changes"}
-          </Button>
+          <Button variant="outline" type="button" onClick={onCancel}>Cancel</Button>
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save Changes"}</Button>
         </DialogFooter>
       </div>
     </form>

@@ -57,31 +57,49 @@ const CustomerInformation: React.FC<CustomerInformationProps> = ({
 
   // Reset search value when customerName changes externally
   useEffect(() => {
-    setSearchValue(customerName);
-
-    // Update customer category when customer name changes
-    if (customerName.trim()) {
-      const customer = customers.find(c => c.fullName === customerName);
-      if (customer && customer.categoryId) {
-        const category = categories.find(cat => cat.id === customer.categoryId);
-        setSelectedCustomerCategory(category?.name || "");
-      } else {
-        setSelectedCustomerCategory("");
+    const syncStates = () => {
+      if (searchValue !== customerName) {
+        setSearchValue(customerName);
       }
-    } else {
-      setSelectedCustomerCategory("");
-    }
-  }, [customerName, customers, categories]);
+
+      // Update customer category when customer name changes
+      if (customerName.trim()) {
+        const customer = customers.find(c => c.fullName === customerName);
+        if (customer && customer.categoryId) {
+          const category = categories.find(cat => cat.id === customer.categoryId);
+          const categoryName = category?.name || "";
+          if (selectedCustomerCategory !== categoryName) {
+            setSelectedCustomerCategory(categoryName);
+          }
+        } else {
+          if (selectedCustomerCategory !== "") setSelectedCustomerCategory("");
+        }
+      } else {
+        if (selectedCustomerCategory !== "") setSelectedCustomerCategory("");
+      }
+    };
+
+    const timer = setTimeout(syncStates, 0);
+    return () => clearTimeout(timer);
+  }, [customerName, customers, categories, searchValue, selectedCustomerCategory]);
 
   // Update selected category display when selectedCategoryId changes
   useEffect(() => {
-    if (selectedCategoryId) {
-      const category = categories.find(cat => cat.id === selectedCategoryId);
-      setSelectedCustomerCategory(category?.name || "");
-    } else {
-      setSelectedCustomerCategory("");
-    }
-  }, [selectedCategoryId, categories]);
+    const syncCategory = () => {
+      if (selectedCategoryId) {
+        const category = categories.find(cat => cat.id === selectedCategoryId);
+        const categoryName = category?.name || "";
+        if (selectedCustomerCategory !== categoryName) {
+          setSelectedCustomerCategory(categoryName);
+        }
+      } else {
+        if (selectedCustomerCategory !== "") setSelectedCustomerCategory("");
+      }
+    };
+
+    const timer = setTimeout(syncCategory, 0);
+    return () => clearTimeout(timer);
+  }, [selectedCategoryId, categories, selectedCustomerCategory]);
 
   // Handle customer selection
   const handleSelectCustomer = (customer: Customer) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,12 +22,18 @@ interface CarriageInwardsFormProps {
   isEditing?: boolean;
 }
 
+import { useCarriageDraft } from '@/hooks/useCarriageDraft';
+import { toast } from 'sonner';
+
 const CarriageInwardsForm: React.FC<CarriageInwardsFormProps> = ({
   onSubmit,
   onCancel,
   initialData,
   isEditing = false
 }) => {
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useCarriageDraft();
+  const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
+
   const [formData, setFormData] = useState<CarriageInwardFormData>({
     supplierName: initialData?.supplierName || '',
     details: initialData?.details || '',
@@ -35,10 +41,41 @@ const CarriageInwardsForm: React.FC<CarriageInwardsFormProps> = ({
     date: initialData?.date || new Date(),
     cashAccountId: initialData?.cashAccountId || undefined
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { accounts } = useCashAccounts();
 
+  // Load draft on mount for NEW entry
+  useEffect(() => {
+    if (!isEditing && hasDraft) {
+      const draft = loadDraft();
+      if (draft) {
+        setFormData({
+          ...draft.formData,
+          date: new Date(draft.formData.date)
+        });
+        toast.info("Restored your unsaved carriage details");
+      }
+    }
+  }, [isEditing]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (isEditing || isSubmitting) return;
+
+    const hasData = formData.supplierName.trim() || formData.details.trim() || formData.amount > 0;
+
+    if (hasData) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      saveDraft(formData, false); // Instant session save
+      autoSaveTimeoutRef.current = setTimeout(() => saveDraft(formData, true), 2000); // Local save
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [formData, isEditing, isSubmitting, saveDraft]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -49,6 +86,7 @@ const CarriageInwardsForm: React.FC<CarriageInwardsFormProps> = ({
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
+      if (!isEditing) clearDraft();
     } finally {
       setIsSubmitting(false);
     }

@@ -1,14 +1,24 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Customer } from '@/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { MessageSquare, Mail, Phone } from 'lucide-react';
-import { toast } from 'sonner';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { openSMSApp, openWhatsApp, formatMessageForSMS, canSendSMS } from '@/utils/smsUtils';
-import { getWeMissYouMessage } from '@/utils/smsUtils';
+import React, { useState, useEffect } from "react";
+import { Customer } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageSquare, Mail, Phone } from "lucide-react";
+import { toast } from "sonner";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import {
+  openSMSApp,
+  openWhatsApp,
+  formatMessageForSMS,
+  canSendSMS,
+} from "@/utils/smsUtils";
+import { getWeMissYouMessage } from "@/utils/smsUtils";
 
 interface WeMissYouDialogProps {
   customer: Customer | null;
@@ -22,14 +32,19 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
   onClose,
 }) => {
   const { settings } = useBusinessSettings();
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (customer && open) {
       const baseMessage = getWeMissYouMessage(customer.fullName);
-      setMessage(baseMessage);
+      if (message !== baseMessage) {
+        const timer = setTimeout(() => {
+          setMessage(baseMessage);
+        }, 0);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [customer, open]);
+  }, [customer, open, message]);
 
   const handleSendSMS = () => {
     if (!customer?.phoneNumber) {
@@ -42,8 +57,11 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
       return;
     }
 
-    const formattedMessage = formatMessageForSMS(message, settings.businessName);
-    
+    const formattedMessage = formatMessageForSMS(
+      message,
+      settings.businessName,
+    );
+
     try {
       openSMSApp({
         phoneNumber: customer.phoneNumber,
@@ -67,8 +85,11 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
       return;
     }
 
-    const formattedMessage = formatMessageForSMS(message, settings.businessName);
-    
+    const formattedMessage = formatMessageForSMS(
+      message,
+      settings.businessName,
+    );
+
     try {
       openWhatsApp({
         phoneNumber: customer.phoneNumber,
@@ -92,10 +113,15 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
       return;
     }
 
-    const formattedMessage = formatMessageForSMS(message, settings.businessName);
+    const formattedMessage = formatMessageForSMS(
+      message,
+      settings.businessName,
+    );
     const subject = "We Miss You!";
-    const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formattedMessage)}`;
-    
+    const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(
+      subject,
+    )}&body=${encodeURIComponent(formattedMessage)}`;
+
     try {
       window.open(mailtoLink);
       toast.success("Opening email client...");
@@ -105,7 +131,7 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
     }
   };
 
-  const canSendEmail = customer?.email && customer.email.trim() !== '';
+  const canSendEmail = customer?.email && customer.email.trim() !== "";
   const canSendPhone = customer && canSendSMS(customer);
 
   return (
@@ -114,7 +140,7 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-purple-600" />
-            Send "We Miss You" Message
+            Send &quot;We Miss You&quot; Message
           </DialogTitle>
         </DialogHeader>
 
@@ -122,7 +148,10 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
           {customer && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Sending to: <span className="text-foreground font-semibold">{customer.fullName}</span>
+                Sending to:{" "}
+                <span className="text-foreground font-semibold">
+                  {customer.fullName}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                 {customer.phoneNumber && (
@@ -162,8 +191,9 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
               onClick={handleSendSMS}
               disabled={!canSendPhone || !message.trim()}
               className="flex-1 bg-blue-600 hover:bg-blue-700"
-              title={!canSendPhone ? "No phone number available" : "Send via SMS"}
-            >
+              title={
+                !canSendPhone ? "No phone number available" : "Send via SMS"
+              }>
               <Phone className="h-4 w-4 mr-2" />
               Send SMS
             </Button>
@@ -172,8 +202,11 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
               onClick={handleSendWhatsApp}
               disabled={!canSendPhone || !message.trim()}
               className="flex-1 bg-green-600 hover:bg-green-700"
-              title={!canSendPhone ? "No phone number available" : "Send via WhatsApp"}
-            >
+              title={
+                !canSendPhone
+                  ? "No phone number available"
+                  : "Send via WhatsApp"
+              }>
               <MessageSquare className="h-4 w-4 mr-2" />
               WhatsApp
             </Button>
@@ -182,18 +215,15 @@ const WeMissYouDialog: React.FC<WeMissYouDialogProps> = ({
               onClick={handleSendEmail}
               disabled={!canSendEmail || !message.trim()}
               className="flex-1 bg-purple-600 hover:bg-purple-700"
-              title={!canSendEmail ? "No email address available" : "Send via Email"}
-            >
+              title={
+                !canSendEmail ? "No email address available" : "Send via Email"
+              }>
               <Mail className="h-4 w-4 mr-2" />
               Email
             </Button>
           </div>
 
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="w-full"
-          >
+          <Button onClick={onClose} variant="outline" className="w-full">
             Cancel
           </Button>
         </div>

@@ -1,5 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPesapalTransaction, processSuccessfulSubscription } from "@/lib/pesapal";
+import {
+  verifyPesapalTransaction,
+  processSuccessfulSubscription,
+} from "@/lib/pesapal";
 import { db } from "@/../prisma/db";
 
 export async function POST(req: NextRequest) {
@@ -7,18 +11,24 @@ export async function POST(req: NextRequest) {
     const { orderTrackingId, purchaseId } = await req.json();
 
     if (!orderTrackingId) {
-      return NextResponse.json({ success: false, error: "Missing tracking ID" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing tracking ID" },
+        { status: 400 },
+      );
     }
 
     // 1. Verify with Pesapal
     const statusData = await verifyPesapalTransaction(orderTrackingId);
-    console.log('[VerifyPayment] Pesapal Status:', statusData);
+    console.log("[VerifyPayment] Pesapal Status:", statusData);
 
     // 2. Determine reference (purchaseId or merchant_reference from statusData)
     const reference = purchaseId || statusData.merchant_reference;
 
     if (!reference) {
-        return NextResponse.json({ success: false, error: "Missing reference" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing reference" },
+        { status: 400 },
+      );
     }
 
     // 3. Process if successful (status_code 1 is Success in Pesapal V3)
@@ -31,25 +41,34 @@ export async function POST(req: NextRequest) {
         isCompleted = true;
         // Calculate value added (30 days or 365 days)
         const transaction = await db.transaction.findUnique({
-            where: { pesapalMerchantReference: reference }
+          where: { pesapalMerchantReference: reference },
         });
-        valueAdded = transaction?.billingCycle === 'yearly' ? 365 : 30;
+        valueAdded = transaction?.billingCycle === "yearly" ? 365 : 30;
       } else {
-        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 400 },
+        );
       }
     }
 
     return NextResponse.json({
       success: true,
-      payment_status: isCompleted ? "completed" : (statusData.status_code === 2 ? "failed" : "pending"),
+      payment_status: isCompleted
+        ? "completed"
+        : statusData.status_code === 2
+        ? "failed"
+        : "pending",
       tracking_id: orderTrackingId,
       merchant_reference: reference,
       value_added: valueAdded,
-      is_subscription: true
+      is_subscription: true,
     });
-
   } catch (error: any) {
     console.error("[VerifyPayment API Error]:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }

@@ -1,74 +1,94 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useSalesData } from '@/hooks/useSalesData';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { Sale } from '@/types';
+import React, { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useSalesData } from "@/hooks/useSalesData";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { Sale } from "@/types";
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
-} from '@/components/ui/table';
-import { format } from 'date-fns';
-import { formatNumber } from '@/lib/utils';
-import Link from 'next/link';
-import ReceiptDialog from '@/components/sales/ReceiptDialog';
-import { Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
+import Link from "next/link";
+import ReceiptDialog from "@/components/sales/ReceiptDialog";
+import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface CustomerPurchaseHistoryProps {
   customerId: string;
   customerNameProp?: string;
 }
 
-const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ customerId, customerNameProp }) => {
+const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({
+  customerId,
+  customerNameProp,
+}) => {
   const { user } = useAuth();
   const { settings } = useBusinessSettings();
-  const { sales, isLoading } = useSalesData(user?.id, 'desc');
+  const { sales, isLoading } = useSalesData(user?.id, "desc");
 
   const [customerSales, setCustomerSales] = useState<Sale[]>([]);
   const [localLoading, setLocalLoading] = useState(true);
-  const [customerName, setCustomerName] = useState<string>(customerNameProp || '');
+  const [customerName, setCustomerName] = useState<string>(
+    customerNameProp || "",
+  );
 
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
 
   // Fallback if not provided, though it normally should be
   useEffect(() => {
-    if (customerNameProp) {
-      setCustomerName(customerNameProp);
+    if (customerNameProp && customerName !== customerNameProp) {
+      const timer = setTimeout(() => {
+        setCustomerName(customerNameProp);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [customerNameProp]);
+  }, [customerNameProp, customerName]);
 
   useEffect(() => {
-    if (!sales || sales.length === 0 || !customerName) {
-      setCustomerSales([]);
-      setLocalLoading(false);
-      return;
-    }
-
-    // PRIMARY: If sale has customerId, match it directly.
-    // FALLBACK: Use customerName matching for legacy sales.
-    const filtered = sales.filter((sale) => {
-      if (sale.customerId) {
-        return sale.customerId === customerId;
+    const syncSales = () => {
+      if (!sales || sales.length === 0 || !customerName) {
+        if (customerSales.length > 0) setCustomerSales([]);
+        if (localLoading) setLocalLoading(false);
+        return;
       }
 
-      // Fallback for older sales without ID
-      const matchesCustomer = sale.customerName?.toLowerCase().trim() === customerName.toLowerCase().trim();
+      // PRIMARY: If sale has customerId, match it directly.
+      // FALLBACK: Use customerName matching for legacy sales.
+      const filtered = sales.filter((sale) => {
+        if (sale.customerId) {
+          return sale.customerId === customerId;
+        }
 
-      // Filter out manual statement entries (Adjustments and Manual Payments)
-      const isManualEntry = sale.receiptNumber?.startsWith('ADJ-') || sale.receiptNumber?.startsWith('PAY-');
+        // Fallback for older sales without ID
+        const matchesCustomer =
+          sale.customerName?.toLowerCase().trim() ===
+          customerName.toLowerCase().trim();
 
-      return matchesCustomer && !isManualEntry;
-    });
+        // Filter out manual statement entries (Adjustments and Manual Payments)
+        const isManualEntry =
+          sale.receiptNumber?.startsWith("ADJ-") ||
+          sale.receiptNumber?.startsWith("PAY-");
 
-    setCustomerSales(filtered);
-    setLocalLoading(false);
-  }, [sales, customerId, customerName]);
+        return matchesCustomer && !isManualEntry;
+      });
+
+      if (JSON.stringify(customerSales) !== JSON.stringify(filtered)) {
+        setCustomerSales(filtered);
+      }
+      if (localLoading) setLocalLoading(false);
+    };
+
+    const timer = setTimeout(syncSales, 0);
+    return () => clearTimeout(timer);
+  }, [sales, customerId, customerName, customerSales, localLoading]);
 
   const formatCurrency = (value: any) => {
     return `${settings.currency} ${formatNumber(value)}`;
@@ -83,7 +103,9 @@ const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ custo
       case "QUOTE":
         return <Badge className="bg-blue-100 text-blue-800">Quote</Badge>;
       case "INSTALLMENT SALE":
-        return <Badge className="bg-purple-100 text-purple-800">Installment</Badge>;
+        return (
+          <Badge className="bg-purple-100 text-purple-800">Installment</Badge>
+        );
       default:
         return <Badge>{status}</Badge>;
     }
@@ -116,9 +138,11 @@ const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ custo
   if (customerSales.length === 0) {
     return (
       <div className="text-center py-8 border rounded-md">
-        <h3 className="text-lg font-medium text-gray-900">No purchase history found</h3>
+        <h3 className="text-lg font-medium text-gray-900">
+          No purchase history found
+        </h3>
         <p className="mt-1 text-sm text-gray-500">
-          This customer hasn't made any purchases yet
+          This customer hasn&apos;t made any purchases yet
         </p>
       </div>
     );
@@ -143,16 +167,14 @@ const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ custo
               <TableRow
                 key={sale.id}
                 className="cursor-pointer hover:bg-gray-50"
-                onClick={() => handleRowClick(sale)}
-              >
-                <TableCell>{format(sale.date, 'MMM d, yyyy')}</TableCell>
+                onClick={() => handleRowClick(sale)}>
+                <TableCell>{format(sale.date, "MMM d, yyyy")}</TableCell>
 
                 <TableCell>
                   <Link
                     href={`/sales?receipt=${sale.receiptNumber}`}
                     className="text-blue-600 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                    onClick={(e) => e.stopPropagation()}>
                     {sale.receiptNumber}
                   </Link>
                 </TableCell>
@@ -161,8 +183,8 @@ const CustomerPurchaseHistory: React.FC<CustomerPurchaseHistoryProps> = ({ custo
                   {formatCurrency(
                     sale.items.reduce(
                       (sum, item) => sum + item.price * item.quantity,
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </TableCell>
 

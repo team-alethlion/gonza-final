@@ -72,6 +72,8 @@ const formatPhoneNumber = (phone: string) => {
   return '+256' + cleaned;
 };
 
+import { localDb } from '@/lib/dexie';
+
 export const useMessages = (userId?: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
@@ -81,6 +83,25 @@ export const useMessages = (userId?: string) => {
   const { currentBusiness } = useBusiness();
   const { currentProfile } = useProfiles();
   const queryClient = useQueryClient();
+
+  // Load from Dexie cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      if (currentBusiness?.id && messages.length === 0) {
+        const cached = await localDb.messages
+          .where('locationId')
+          .equals(currentBusiness.id)
+          .reverse()
+          .sortBy('createdAt');
+        
+        if (cached && cached.length > 0) {
+          console.log('[Messages] Loaded from Dexie cache');
+          setMessages(cached);
+        }
+      }
+    };
+    loadFromCache();
+  }, [currentBusiness?.id]);
 
   const fetchLiveCredits = async () => {
     // In our new system, credits might be on the user or profile model
@@ -149,7 +170,19 @@ export const useMessages = (userId?: string) => {
     try {
       const result = await getMessagesAction(userId, currentBusiness.id);
       if (result.success && result.data) {
-        return result.data as Message[];
+        const fetchedMessages = result.data as Message[];
+        
+        // Update Dexie cache in the background
+        if (fetchedMessages.length > 0) {
+          const cacheData = fetchedMessages.map(m => ({
+            ...m,
+            locationId: currentBusiness.id as string
+          }));
+          await localDb.messages.where('locationId').equals(currentBusiness.id).delete();
+          await localDb.messages.bulkPut(cacheData as any);
+        }
+        
+        return fetchedMessages;
       }
       return [];
     } catch (error) {

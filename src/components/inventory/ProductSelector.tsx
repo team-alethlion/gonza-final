@@ -41,15 +41,22 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const { settings } = useBusinessSettings();
 
   useEffect(() => {
-    if (selectedProductId) {
-      const product = products.find(p => p.id === selectedProductId);
-      if (product) {
-        setSelectedProduct(product);
+    const syncSelection = () => {
+      if (selectedProductId) {
+        const product = products.find(p => p.id === selectedProductId);
+        if (product && selectedProduct?.id !== product.id) {
+          setSelectedProduct(product);
+        }
+      } else {
+        if (selectedProduct !== null) {
+          setSelectedProduct(null);
+        }
       }
-    } else {
-      setSelectedProduct(null);
-    }
-  }, [selectedProductId, products]);
+    };
+
+    const timer = setTimeout(syncSelection, 0);
+    return () => clearTimeout(timer);
+  }, [selectedProductId, products, selectedProduct]);
 
   const handleSelect = (product: Product) => {
     setSelectedProduct(product);

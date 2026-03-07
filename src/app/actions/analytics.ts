@@ -65,12 +65,24 @@ export async function getAnalyticsSummaryAction(branchId: string, startDate?: st
             }
         });
 
-        // Get Status Counts
-        const [paidCount, unpaidCount, installmentCount] = await Promise.all([
-            db.sale.count({ where: { ...where, paymentStatus: 'PAID' } }),
-            db.sale.count({ where: { ...where, paymentStatus: 'UNPAID' } }),
-            db.sale.count({ where: { ...where, paymentStatus: 'INSTALLMENT' } })
-        ]);
+        // Get Status Counts in a single query
+        const statusCounts = await db.sale.groupBy({
+            by: ['paymentStatus'],
+            where,
+            _count: {
+                id: true
+            }
+        });
+
+        const counts: Record<string, number> = {
+            PAID: 0,
+            UNPAID: 0,
+            INSTALLMENT: 0
+        };
+
+        statusCounts.forEach(group => {
+            counts[group.paymentStatus] = group._count.id;
+        });
 
         // Aggregate Expenses
         const expensesWhere: any = { branchId };
@@ -93,8 +105,8 @@ export async function getAnalyticsSummaryAction(branchId: string, startDate?: st
                 totalSales: Number(stats._sum.total || 0),
                 totalCost: Number(stats._sum.totalCost || 0),
                 totalProfit: Number(stats._sum.profit || 0),
-                paidSalesCount: paidCount,
-                pendingSalesCount: unpaidCount + installmentCount,
+                paidSalesCount: counts.PAID,
+                pendingSalesCount: counts.UNPAID + counts.INSTALLMENT,
                 totalExpenses: Number(expensesAggregate._sum.amount || 0)
             }
         };

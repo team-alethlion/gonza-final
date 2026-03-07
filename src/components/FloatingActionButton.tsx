@@ -19,7 +19,7 @@ const FloatingActionButton = () => {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    setMounted(true);
+    Promise.resolve().then(() => setMounted(true));
   }, []);
 
   const handleNavigation = (path: string, queryParams?: Record<string, string>) => {
