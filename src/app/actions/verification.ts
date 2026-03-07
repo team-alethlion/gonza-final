@@ -104,27 +104,15 @@ export async function verifyAndCreateAccountAction(data: any) {
         },
       });
 
-      // 2. Create Default Branch
-      const branchName = `Main Branch (${uniqueId})`;
-      const branch = await tx.branch.create({
-        data: {
-          name: branchName,
-          location: "Default Location",
-          agencyId: agency.id,
-          adminId: 'placeholder', // Update after user creation
-        },
-      });
-
-      // 3. Create 'admin' Role for this Branch
+      // 2. Create 'admin' Role (without branchId initially)
       const role = await tx.role.create({
         data: {
           name: 'admin',
-          description: 'Agency Admin',
-          branchId: branch.id
+          description: 'Agency Admin'
         }
       });
 
-      // 4. Create User
+      // 3. Create User (with roleId and agencyId, but no branchId yet)
       const user = await tx.user.create({
         data: {
           email,
@@ -132,16 +120,31 @@ export async function verifyAndCreateAccountAction(data: any) {
           name,
           roleId: role.id,
           agencyId: agency.id,
-          branchId: branch.id,
           status: "ACTIVE",
           emailVerified: new Date(),
         },
       });
 
-      // 5. Link Branch adminId to the User
-      await tx.branch.update({
-        where: { id: branch.id },
-        data: { adminId: user.id }
+      // 4. Create Default Branch (now we have a valid user.id for adminId)
+      const branchName = `Main Branch (${uniqueId})`;
+      const branch = await tx.branch.create({
+        data: {
+          name: branchName,
+          location: "Default Location",
+          agencyId: agency.id,
+          adminId: user.id,
+        },
+      });
+
+      // 5. Update User and Role with the new branchId
+      await tx.user.update({
+        where: { id: user.id },
+        data: { branchId: branch.id }
+      });
+
+      await tx.role.update({
+        where: { id: role.id },
+        data: { branchId: branch.id }
       });
 
       // 6. Clean up verification record
@@ -149,7 +152,7 @@ export async function verifyAndCreateAccountAction(data: any) {
         where: { email },
       });
 
-      return { user, agency, role };
+      return { user, agency, role, branch };
     }, {
         timeout: 15000
     });

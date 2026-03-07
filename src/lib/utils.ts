@@ -2,6 +2,24 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+/**
+ * Utility to get the base URL of the application.
+ * Handles environment variables for Vercel and local development.
+ */
+export function getBaseUrl() {
+  // If we are in the browser, use relative paths
+  if (typeof window !== 'undefined') return '';
+
+  // Use the explicitly defined app URL if available
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+
+  // Fallback to VERCEL_URL if running on Vercel
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  // Default to localhost for local development
+  return `http://localhost:${process.env.PORT || 3000}`;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

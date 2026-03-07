@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import { getBaseUrl } from "@/lib/utils";
 
 /**
  * Pesapal Callback Handler (API)
@@ -22,15 +23,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ||
-      "http://localhost:3000";
+    const baseUrl = getBaseUrl();
     // Redirect to the UI page in the new payments route
-    const redirectUrl = new URL(
-      "/payments/callback",
-      baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`,
-    );
+    const redirectUrl = new URL("/payments/callback", baseUrl);
 
     redirectUrl.searchParams.set("OrderTrackingId", trackingId);
     redirectUrl.searchParams.set("purchase_id", ref);

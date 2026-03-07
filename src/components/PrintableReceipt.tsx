@@ -15,7 +15,7 @@ import { generatePDF } from "@/utils/generatePDF";
 import { directPrint } from "@/utils/directPrint";
 import { format } from "date-fns";
 import { Printer, Download, Loader2, Smartphone } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, getBaseUrl } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -559,13 +559,8 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
                     : isIOSActual
                     ? "platform=ios"
                     : "default";
-                  const baseUrl =
-                    process.env.NEXT_PUBLIC_APP_URL ||
-                    (typeof window !== "undefined"
-                      ? window.location.origin
-                      : "http://localhost:3000");
+                  const baseUrl = getBaseUrl();
                   const functionUrl = `${baseUrl}/api/print-receipt?id=${sale.id}&${platformParam}`;
-
                   setIsPrinting(true);
                   try {
                     console.log("Fetching from:", functionUrl);

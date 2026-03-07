@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '../../prisma/db';
+import { getBaseUrl } from './utils';
 
 export async function getPesapalToken() {
     const pesapalUrl = process.env.PESAPAL_BASE_URL;
@@ -60,7 +61,8 @@ export async function initiatePesapalPayment(params: {
 }) {
     const token = await getPesapalToken();
     const pesapalUrl = process.env.PESAPAL_BASE_URL;
-    const rawCallbackUrl = process.env.PESAPAL_CALLBACK_URL || 'http://localhost:3000/public/payment-callback';
+    const baseUrl = getBaseUrl();
+    const rawCallbackUrl = process.env.PESAPAL_CALLBACK_URL || `${baseUrl}/public/payment-callback`;
     const callbackUrl = `${rawCallbackUrl}${rawCallbackUrl.includes('?') ? '&' : '?'}purchase_id=${params.reference}`;
     const ipnId = process.env.PESAPAL_IPN_ID;
 

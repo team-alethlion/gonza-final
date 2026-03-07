@@ -5,6 +5,7 @@ import { db } from '../../../prisma/db';
 import { revalidatePath } from 'next/cache';
 import { getPesapalToken } from '@/lib/pesapal';
 import { verifyBranchAccess, verifyUserAccess } from '@/lib/auth-guard';
+import { getBaseUrl } from '@/lib/utils';
 
 export async function getSubscriptionPaymentsAction(userId: string) {
     await verifyUserAccess(userId);
@@ -41,8 +42,8 @@ export async function getSubscriptionPaymentsAction(userId: string) {
 
 async function getOrRegisterIPN(token: string): Promise<string> {
     const pesapalUrl = process.env.PESAPAL_BASE_URL;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const ipnUrl = `${baseUrl.startsWith('http') ? baseUrl : 'https://' + baseUrl}/api/pesapal/ipn`;
+    const baseUrl = getBaseUrl();
+    const ipnUrl = `${baseUrl}/api/pesapal/ipn`;
 
     const listResponse = await fetch(`${pesapalUrl}/api/URLSetup/GetIpnList`, {
         method: 'GET',
@@ -155,8 +156,8 @@ export async function initiateSubscriptionPaymentAction(userId: string, location
         const formattedPhone = normalizeUgPhoneNumber(phone);
         const token = await getPesapalToken();
         const ipnId = await getOrRegisterIPN(token);
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-        const callbackUrl = `${baseUrl.startsWith('http') ? baseUrl : 'https://' + baseUrl}/api/pesapal/callback`;
+        const baseUrl = getBaseUrl();
+        const callbackUrl = `${baseUrl}/api/pesapal/callback`;
 
         const orderData = {
             id: purchaseId,
